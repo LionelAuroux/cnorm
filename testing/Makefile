@@ -1,0 +1,32 @@
+## Makefile de test pour le C normalise !
+## author : L. Auroux
+
+SRC := $(wildcard tests/*.c)
+
+TESTED = ${SRC:.c=.i}
+
+.SUFFIXES : .c .i
+
+.c.i : 
+	@../bin/cnorm $< > $<.log && echo $< "Success"
+	@echo -n ">> valid " $< " "
+	@../bin/cnormValidator $< >> $<.log && echo "Success" || echo "FAIL"
+	#@../bin/cnorm -u $< > $<.log && echo $< "Success"
+	#@echo -n ">> valid UNSTRICT " $< " "
+	#@../bin/cnormValidator $< >> $<.log && echo "Success" || echo "FAIL"
+	#touch $@
+
+all : ${TESTED}
+	@echo "All tests are done"
+
+clean : 
+	@rm -f \
+		*~ \
+		tests/*~ \
+		tests/*.c_* \
+                tests/*.c.log\
+		tests/*.c.pp 
+	@echo "All are cleaned"
+
+foo :
+	../bin/cnorm tests/foo.c

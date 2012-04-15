@@ -1,0 +1,77 @@
+#include "cnorm2c/cnorm2c.inc.cws"
+
+local dummy;
+local input;
+generateString({    
+        int     main(int ac, char **av)
+        {
+                ${bubu};
+                [M.var];
+                [M.var] = 2;
+                int a = [M.var];
+                [M fonction];
+                [M fonction :21];
+                int d = [M fonction];
+                int d = [M fonction :32];
+                return 42;
+        }
+
+@}, dummy, input);
+
+local c_block;
+parseStringAsBNF({
+                #include "cnorm.inc.cws"
+                #include "cnorm.cwp"
+                #include "patchLib/cnormPatchLib.inc.cws"
+
+
+                #overload
+                translation_unit ::= #ignore(C++)
+                /**/    => cnormDialect<"__std__">(this);
+                /**/	=> cnormNodeRoot(this);
+                => cnormPatchGlobalDeclaration(this, "typedef int blabla;");
+                => cnormPatchGlobalDeclaration(this, "typedef void callb(blabla, int);");
+                => cnormPatchGlobalDeclaration(this, "callb blob;");
+                => cnormPatchGlobalDeclaration(this, "int *delete(blabla*);");
+                [
+                        declaration(this)
+                ]+
+                #continue
+                #empty
+		;
+
+                #overload
+                primary_expression(expr : node) ::=
+                        kooc_call(expr):sExpr
+                        => traceLine("CALL KOOC:" + sExpr);
+                        | "${bubu}"
+                                => cnormPatchCode(expr, "void *toto(blabla pum);");
+                        |
+                        => traceLine("old");
+                        #super::primary_expression(expr)
+                ;
+
+                kooc_call(expr : node) ::=
+                        '['
+                                #readIdentifier:Mod
+                                ['.' #readIdentifier:Var
+                                        => cnormPatchExpression(expr, Mod + "_" + Var + ";");
+                                | #readIdentifier:Func
+                                        => local param;
+                                        [':' 
+                                                => local theStmt;
+/**/	                                        => local theExpr;
+/**/                                            => cnormNodeStmt_Expr(theStmt, theExpr);
+                                                expression(theExpr):sParam
+                                                => pushItem param = sParam;
+                                        ]*
+                                        => cnormPatchExpression(expr, Mod + "_" + Func + "(" + joinStrings(param, ", ") + ")");
+                                ]
+                        ']'
+                ;
+
+}, c_block, input);
+saveProject("testOverwrite.out", c_block);
+c_block = "testOverwrite.out";
+local sStr = cnorm2c(c_block);
+traceText(sStr);

@@ -1,0 +1,93 @@
+/*
+  UNIT TEST OF THE cnormNode LIB
+*/
+
+#include "patchLib/cnormPatchLib.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+local stree;
+local func;
+
+if (!cnormPatchGlobalDeclaration(stree, "int main(){}")) error("bad craft");
+if (!cnormPatchFetchLookup(stree, "main", func)) error("bad craft");
+local main_code;
+if (!cnormPatchGetFunctionBlockNode(func[0], main_code)) error("bad craft");
+
+////// CRAFT UN IF
+if (!cnormPatchCode(main_code, "hook_if:if (_) ;")) error("bad craft");
+if (!cnormPatchSetInjectPointLabel(main_code, "hook_if")) error("bad craft");
+local ifstmt;
+if (!cnormPatchGetInjectPointNode(main_code, "hook_if", 1, ifstmt)) error("bad craft");
+traceLine("IF:" + toString(ifstmt, true));
+local ifexpr;
+if (!cnormPatchGetStmtConditionalExpr(ifstmt, ifexpr)) error("bad craft");
+if (!cnormPatchExpression(ifexpr, "i == 42")) error("bad craft");
+local ifthen;
+if (!cnormPatchGetStmtIfThen(ifstmt, ifthen)) error("bad craft");
+if (!cnormPatchCode(ifthen, "printf(\"THEN\");")) error("bad craft");
+local ifelse;
+if (!cnormPatchGetStmtIfElse(ifstmt, ifelse)) error("bad craft");
+if (!cnormPatchCode(ifelse, "printf(\"ELSE\");")) error("bad craft");
+
+////// CRAFT UN FOR
+if (!cnormPatchCode(main_code, "hook_for:for (;;) ;")) error("bad craft");
+if (!cnormPatchSetInjectPointLabel(main_code, "hook_for")) error("bad craft");
+local forstmt;
+if (!cnormPatchGetInjectPointNode(main_code, "hook_for", 1, forstmt)) error("bad craft");
+traceLine("FOR:" + toString(forstmt, true));
+local forincr;
+if (!cnormPatchGetStmtForIncr(forstmt, forincr)) error("bad craft");
+if (!cnormPatchExpression(forincr, "++toto")) error("bad craft");
+local forinit;
+if (!cnormPatchGetStmtForInit(forstmt, forinit)) error("bad craft");
+if (!cnormPatchCode(forinit, "int toto = 0;")) error("bad craft");
+local forcond;
+if (!cnormPatchGetStmtConditionalExpr(forstmt, forcond)) error("bad craft");
+if (!cnormPatchExpression(forcond, "toto <= 100")) error("bad craft");
+local forbody;
+if (!cnormPatchGetStmtConditionalBody(forstmt, forbody)) error("bad craft");
+traceLine("FOR BODY:" + toString(forbody, true));
+if (!cnormPatchCode(forbody, "printf(\"%d\\n\", toto);")) error("bad craft");
+
+////// CRAFT UN WHILE
+if (!cnormPatchCode(main_code, "hook_while:while (_) ;")) error("bad craft");
+if (!cnormPatchSetInjectPointLabel(main_code, "hook_while")) error("bad craft");
+local whilestmt;
+if (!cnormPatchGetInjectPointNode(main_code, "hook_while", 1, whilestmt)) error("bad craft");
+local whilecond;
+if (!cnormPatchGetStmtConditionalExpr(whilestmt, whilecond)) error("bad craft");
+if (!cnormPatchExpression(whilecond, "toto <= 100")) error("bad craft");
+local whilebody;
+if (!cnormPatchGetStmtConditionalBody(whilestmt, whilebody)) error("bad craft");
+if (!cnormPatchCode(whilebody, "printf(\"WHILE\");")) error("bad craft");
+
+////// CRAFT UN DO-WHILE
+if (!cnormPatchCode(main_code, "hook_do:do {} while(_);")) error("bad craft");
+if (!cnormPatchSetInjectPointLabel(main_code, "hook_do")) error("bad craft");
+local dostmt;
+if (!cnormPatchGetInjectPointNode(main_code, "hook_do", 1, dostmt)) error("bad craft");
+local docond;
+if (!cnormPatchGetStmtConditionalExpr(dostmt, docond)) error("bad craft");
+if (!cnormPatchExpression(docond, "toto <= 100")) error("bad craft");
+local dobody;
+if (!cnormPatchGetStmtConditionalBody(dostmt, dobody)) error("bad craft");
+if (!cnormPatchCode(dobody, "printf(\"DO\");")) error("bad craft");
+
+////// CRAFT SWITCH
+if (!cnormPatchCode(main_code, "hook_switch:switch(_){}")) error("bad craft");
+if (!cnormPatchSetInjectPointLabel(main_code, "hook_switch")) error("bad craft");
+local switchstmt;
+if (!cnormPatchGetInjectPointNode(main_code, "hook_switch", 1, switchstmt)) error("bad craft");
+local switchcond;
+if (!cnormPatchGetStmtConditionalExpr(switchstmt, switchcond)) error("bad craft");
+if (!cnormPatchExpression(switchcond, "toto")) error("bad craft");
+local switchbody;
+if (!cnormPatchGetStmtConditionalBody(switchstmt, switchbody)) error("bad craft");
+if (!cnormPatchCode(switchbody, "case 100:toto += 1; case 200:printf(\"CASE\");break;default:{int a = 11; return a + toto;}")) error("bad craft");
+
+
+saveProject("testNodeLib.tree", stree);
+traceLine(cnorm2c(stree));
+
+
+

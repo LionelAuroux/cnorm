@@ -1,0 +1,12 @@
+/*
+	Test unit
+*/
+
+#include "cwTool.inc.cws"
+
+
+forfile file in "test/*.cwp"
+{
+	local source;
+	parseAsBNF("cwDoc.cwp", source, file);
+}

@@ -1,0 +1,29 @@
+/*
+**	Script d'enchainement C Normalise
+*/
+#include "cwTool.inc.cws"
+#include "cnorm.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+if ($lengthString(_ARGS[0]) == 0$)
+{
+  traceLine("USAGE: cnormValidator file.c");
+  exit(1);
+}
+
+local sExtension = rightString(_ARGS[0], 2);
+global sCnormPath = getEnv("CNORM_PATH");
+local sInput  = replaceString(sExtension, ".c_out", _ARGS[0]);
+local treeFile = getWorkingPath() + replaceString(sExtension, ".c_tree2", _ARGS[0]);
+
+local source;
+
+traceLine("\033[0m");
+traceLine("[CNORMVALIDATOR]\tProcessing: [" + sInput + "].");
+cnormFile(source, sInput);
+saveProject(treeFile, source);
+
+traceLine("[CNORMVALIDATOR] Comparing nodes...");
+// TODO
+traceLine("[CNORMVALIDATOR] OK.");
+

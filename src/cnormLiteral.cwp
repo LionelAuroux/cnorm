@@ -1,0 +1,121 @@
+/*
+** cnormLiteral.cwp for
+** "C normalise"
+** 
+** Authors:
+**	Lionel Auroux
+** Contributors:
+**	Cedric Lemaire
+**	David Giron
+**	David Amsallem	
+**
+** see cnorm.cwp for details
+*/
+
+/* INTERACTION AVEC AUTRE MODULE DU CNORM:
+** cnormExpressions::primary_expression -> literal(val)
+**
+*/
+
+//----------------------------------------------------------------------------
+//                            l i t e r a l
+//----------------------------------------------------------------------------
+
+dot ::= '.' [#!ignore !'.']
+;
+
+// literal are parsed with no type information built in. type handling must do that.
+literal(val : node) ::=
+	hexadecimal_constant(val)
+	| octal_constant(val)
+	| complex_constant(val)
+	| decimal_constant(val)
+	| string_constant(val)
+	| character_constant(val)
+;
+
+hexadecimal_prefix ::=  #!ignore '0' ['x'|'X']
+;
+hexadecimal_digit ::= #!ignore ['0'..'9'|'a'..'f'|'A'..'F']
+;
+hexadecimal_constant(val : node) ::=
+	[hexadecimal_prefix [hexadecimal_digit]+]:xValue
+	[ // hex floating representation
+		 [
+		  #!ignore dot #continue [hexadecimal_digit]+
+		  [ ['p'|'P'] #continue #readInteger ]?
+		 ]
+		| // normal hex number
+		 [
+		  unsigned_suffix
+		  |long_suffix
+		  ]0..3
+	]:xValueFl
+/**/	=> insert val = xValue + xValueFl;
+;
+
+unsigned_suffix ::= #!ignore ['u' | 'U']
+;
+long_suffix ::= #!ignore ['l' | 'L']
+;
+decimal_constant(val : node) ::=
+	// decimal
+/**/	=> local nValueFlu;
+/**/	=> local nValueFll;
+	#readInteger:nValue !dot
+	[
+		[unsigned_suffix => nValueFlu = 'u';]?
+		[long_suffix => nValueFll = nValueFll+ 'l';]*
+	]
+/**/	=> insert val = nValue + nValueFlu + nValueFll;
+;
+
+octal_prefix ::= #!ignore '0'
+;
+octal_digit ::= #!ignore ['0'..'7']
+;
+octal_constant(val : node) ::=
+	[
+		[octal_prefix [octal_digit]+]
+		[ // oct floating representation
+		 [
+		  #!ignore dot #continue [octal_digit]+
+		  [ ['p'|'P'] #continue #readInteger ]?
+		 ]
+		]?
+	]:val
+;
+
+exponent ::= #!ignore ['e'|'E'] ['+'|'-']? ['0'..'9']+
+;
+numeric_constant ::= #!ignore [#readInteger dot ['0'..'9']* | dot ['0'..'9']+] [exponent]?
+;
+float_suffix ::= #!ignore ['f'|'F']
+;
+complex_suffix ::= #!ignore ['i'|'I'|'j'|'J']
+;
+complex_constant(val : node) ::=
+/**/	=> local cValueFli;
+	numeric_constant:cValue
+	[long_suffix]?:cValueFll
+	[float_suffix]?:cValueFlf 
+	// c99 complex
+	[complex_suffix  => cValueFli = 'i';]?
+/**/	=> insert val = cValue + cValueFll + cValueFlf + cValueFli;
+;
+
+string_constant(val : node) ::=
+/**/	=> local sString;
+/**/	=> local sPrefix;
+	['L'#!ignore]?:sPrefix // for wide string
+	[#readCString:sV => sString += sV;]+ // auto concatenation
+/**/	=> insert val = sPrefix + '\"' + sString + '\"';
+;
+
+character_constant(val: node) ::=
+/**/	=> local c;
+/**/	=> local p;
+	['L'#!ignore]?:p // for wide char
+	"'" #!ignore [['\\' '\''] | ~['\''] ]*:c "'"
+/**/	=> insert val = p + "\'" + c + "\'";
+;

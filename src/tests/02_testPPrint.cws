@@ -1,0 +1,180 @@
+/*
+	UNIT Test PrettyPrint
+
+	check the prettyprint
+*/
+
+#include "cwTool.inc.cws"
+#include "cnormNode.inc.cws"
+#include "cnorm2c/prettyPrint.inc.cws"
+
+///////////
+
+local blockPP;
+local sStr;
+
+// TEST 0: root node
+{
+  local pp;  
+  // test root tree
+  local test = "";
+  prettyPrint_Root(pp);
+  traceLine(toString(pp));
+  sStr = prettyPrint(pp);
+  traceLine("test:" + sStr);
+  if (sStr != test)
+    {
+      traceLine("FAILED");
+      exit(42);
+    }
+  traceLine("OK");
+}
+// TEST 1: simple list
+{
+  local pp;
+  local lastPP;
+  prettyPrint_Root(pp);
+  // test basic list separate by ' '
+  local test = "tutu toto tata";
+  prettyPrint_NewListSeparatedBy(pp, lastPP, " ");
+  prettyPrint_AddItem(lastPP, "tutu");
+  prettyPrint_AddItem(lastPP, "toto");
+  prettyPrint_AddItem(lastPP, "tata");
+  traceLine(toString(lastPP));
+  sStr = prettyPrint(pp);
+  traceLine("test:" + sStr);
+  if (sStr != test)
+    {
+      traceLine("FAILED");
+      exit(42);
+    }
+  traceLine("OK");
+}
+// TEST 2: simple list separated by coma
+{
+  local pp;
+  local lastPP;
+  prettyPrint_Root(pp);
+  // test basic list separate by ',' and ';'
+  local test = "tutu,toto; tata,blabla,muf; nia";
+  prettyPrint_NewListSeparatedBy(pp, lastPP, "; ");
+  {
+    local sublist;
+    local sublistPP;
+    //prettyPrint_Root(sublist);
+    prettyPrint_NewListSeparatedBy(sublist, sublistPP, ",");
+    prettyPrint_AddItem(sublistPP, "tutu");
+    prettyPrint_AddItem(sublistPP, "toto");
+    prettyPrint_AddItemList(lastPP, sublist);
+  }
+  {
+    local sublist;
+    local sublistPP;
+    //prettyPrint_Root(sublist);
+    prettyPrint_NewListSeparatedBy(sublist, sublistPP, ",");
+    prettyPrint_AddItem(sublistPP, "tata");
+    prettyPrint_AddItem(sublistPP, "blabla");
+    prettyPrint_AddItem(sublistPP, "muf");
+    prettyPrint_AddItemList(lastPP, sublist);
+  }
+  prettyPrint_AddItem(lastPP, "nia");
+  traceLine(toString(pp));
+  sStr = prettyPrint(pp);
+  traceLine("test:" + sStr);
+  if (sStr != test)
+    {
+      traceLine("FAILED");
+      exit(42);
+    }
+  traceLine("OK");
+}
+// TEST 3: simple list end by semicolon
+{
+  local pp;
+  local lastPP;
+  local sublistPP;
+  prettyPrint_Root(pp);
+  // test basic list end by ','
+  local test = "tutu toto tata;";
+  prettyPrint_NewListEndBy(pp, lastPP, ";");
+  prettyPrint_NewListSeparatedBy(lastPP, sublistPP, " ");
+  prettyPrint_AddItem(sublistPP, "tutu");
+  prettyPrint_AddItem(sublistPP, "toto");
+  prettyPrint_AddItem(sublistPP, "tata");
+  traceLine(toString(pp));
+  sStr = prettyPrint(pp);
+  traceLine("test:" + sStr);
+  if (sStr != test)
+    {
+      traceLine("FAILED");
+      exit(42);
+    }
+  traceLine("OK");
+}
+// TEST 4: simple block with a list separate by coma
+{
+  local pp;
+  local lastPP;
+  prettyPrint_Root(pp);
+  // test basic list separate by ','
+  local test = "(tutu,toto,tata)";
+  prettyPrint_NewBlock(pp, lastPP, "(", ")");
+  local listPP;
+  prettyPrint_NewListSeparatedBy(lastPP, listPP, ",");
+  prettyPrint_AddItem(listPP, "tutu");
+  prettyPrint_AddItem(listPP, "toto");
+  prettyPrint_AddItem(listPP, "tata");
+  traceLine(toString(pp));
+  sStr = prettyPrint(pp);
+  traceLine("test:" + sStr);
+  if (sStr != test)
+    {
+      traceLine("FAILED");
+      exit(42);
+    }
+  traceLine("OK");
+}
+// TEST 5: simple block with a list end by semicolon
+{
+  local pp;
+  local lastPP;
+  prettyPrint_Root(pp);
+  // test basic list separate by ','
+  local test = "\n{\n\ttutu;\n\ttoto;\n\ttata;\n}";
+  prettyPrint_NewBlock(pp, lastPP, "{", "}", true, true);
+  local listPP;
+  prettyPrint_NewListEndBy(lastPP, listPP, ";", true);
+  prettyPrint_AddItem(listPP, "tutu");
+  prettyPrint_NewListEndBy(lastPP, listPP, ";", true);
+  prettyPrint_AddItem(listPP, "toto");
+  prettyPrint_NewListEndBy(lastPP, listPP, ";", true);
+  prettyPrint_AddItem(listPP, "tata");
+  traceLine(toString(pp));
+  sStr = prettyPrint(pp);
+  traceLine("test:" + sStr);
+  if (sStr != test)
+    {
+      traceLine("FAILED :<" + test + "> != <" + sStr +">");
+      exit(42);
+    }
+  traceLine("OK");
+}
+// TEST 6: tab list
+{
+  local pp;
+  local lastPP;
+  prettyPrint_Root(pp);
+  // test basic list separate by ' '
+  local test = "\ttutu";
+  prettyPrint_NewTabList(pp, lastPP, true);
+  prettyPrint_AddItem(lastPP, "tutu");
+  traceLine(toString(pp));
+  sStr = prettyPrint(pp);
+  traceLine("test:" + sStr);
+  if (sStr != test)
+    {
+      traceLine("FAILED");
+      exit(42);
+    }
+  traceLine("OK");
+}

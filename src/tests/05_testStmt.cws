@@ -1,0 +1,60 @@
+/*
+   UNIT TEST OF THE cnormStatements grammar
+ */
+#include "cnorm.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+local listTest = {
+	// basic stmt if
+	"\n{\n\tif (test == 42)\n\t{\n\t\tint a = 4 * b;\n\t}\n}",
+	"\n{\n\tif (test == 42)\t\n\t\ta = 4 * b;\n}",
+	"\n{\n\tif (test == 42)\t\n\t\ta = 4 * b;\n\telse\t\n\t\tb = 2;\n}",
+	"\n{\n\tdo\n\t{\n\t\tint a = 12;\n\t}\n\twhile (42);\n}",
+	"\n{\n\twhile (toto == 42)\t\n\t\ta *= 4.3;\n}",
+	"\n{\n\tfor (int i = 0; i < 3; ++i) \n\t{\n\t\ta *= 4.3;\n\t}\n}",
+	""
+};
+local i = 0;
+local nGoodTest = $getArraySize(listTest) - 1$;
+local nTest = 0;
+foreach item in listTest
+{
+	local c_block;
+	local thevalue = item;
+	if ($getArraySize(item) > 0$)
+	{thevalue = item[0];}
+	if (thevalue != "")
+	{
+		cnormDialect<"__std__">(c_block);
+		parseStringAsBNF({
+				#include "cnormNode.inc.cws"
+
+				test_unit ::= #ignore(C++)
+				/**/	=> cnormNodeRoot(this);
+				#continue
+				single_statement(this)
+				#continue
+				#empty
+				;
+
+				#include "cnormStatements.cwp"
+				#include "cnormExpressions.cwp"
+				#include "cnormDeclarations.cwp"
+		}, c_block, item);
+		i = $i + 1$;
+		saveProject("testStmt_" + i + ".out", c_block);
+		c_block = "testStmt_" + i;
+		local sStr = cnorm2c(c_block);
+		local bOk = (sStr == thevalue) ? "OK" : "KO";
+		traceLine("TEST:" + i + " <" + sStr + "> ?? <" + thevalue + ">:" + bOk);
+		if (sStr == thevalue)
+		{nTest = $nTest + 1$;}
+	}
+}
+
+traceLine(nTest + "/" + nGoodTest + " test OK");
+if (nTest != nGoodTest)
+{
+	traceLine("Test FAILED!");
+	exit(42);
+}

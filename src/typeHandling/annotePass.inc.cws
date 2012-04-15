@@ -1,0 +1,223 @@
+/*
+**	annotePass.inc.cws
+**	for cnorm
+**	made by auroux_l
+**
+**	the aim of this lib is to provide function to create lookup tables for type handling in C code after parsing
+**/
+
+#include "cnormNode.inc.cws"
+
+#if !existFunction(typeHandling_annotePass_version)
+
+function typeHandling_annotePass_version()
+{return "3.0";}
+
+// private 
+declare function _addBlock(local_node : node);
+declare function _addFunctions(local_node : node, slotid : value);
+declare function _addPrototypes(local_node : node, slotid : value);
+declare function _addParameters(local_node : node, slotid : value);
+declare function _addVariables(local_node : node, slotid : value);
+declare function _addStructs(local_node : node, slotid : value);
+declare function _addUnions(local_node : node, slotid : value);
+declare function _addEnums(local_node : node, slotid : value);
+
+// public passes
+declare function typeHandling_annotePass(local_node : reference);
+
+// add a function in registry
+// local_node : a node of the ast
+// slotid : id of the block
+function _addFunctions(local_node : node, slotid : value)
+{
+	localref ref_type = local_node#root.block_ref[slotid];
+	if (!existVariable(ref_type.functions))
+	{	insert ref_type.functions;}
+	insert ref_type.functions[local_node.name];
+	ref ref_type.functions[local_node.name] = local_node;
+}
+
+// add a prototype in registry
+// local_node : a node of the ast
+// slotid : id of the block
+function _addPrototypes(local_node : node, slotid : value)
+{
+	localref ref_type = local_node#root.block_ref[slotid];
+	if (!existVariable(ref_type.prototypes))
+	{	insert ref_type.prototypes;}
+	insert ref_type.prototypes[local_node.name];
+	ref ref_type.prototypes[local_node.name] = local_node;
+}
+
+// add a parameter in registry
+// local_node : a node of the ast
+// slotid : id of the block
+function _addParameters(local_node : node, slotid : value)
+{	
+	if (existVariable(local_node.name))
+	{
+		localref ref_type = local_node#root.block_ref[slotid];
+		if (!existVariable(ref_type.parameters))
+		{	insert ref_type.parameters;}
+		insert ref_type.parameters[local_node.name];
+		ref ref_type.parameters[local_node.name] = local_node;
+	}
+}
+
+// add a field in registry
+// local_node : a node of the ast
+// slotid : id of the block
+function _addFields(local_node : node, slotid : value)
+{	
+	if (existVariable(local_node.name))
+	{
+		localref ref_type = local_node#root.block_ref[slotid];
+		if (!existVariable(ref_type.fields))
+		{	insert ref_type.fields;}
+		insert ref_type.fields[local_node.name];
+		ref ref_type.fields[local_node.name] = local_node;
+	}
+}
+
+// add a variable in registry
+// local_node : a node of the ast
+// slotid : id of the block
+function _addVariables(local_node : node, slotid : value)
+{
+	localref ref_type = local_node#root.block_ref[slotid];
+	if (!existVariable(ref_type.variables))
+	{	insert ref_type.variables;}
+	insert ref_type.variables[local_node.name];
+	ref ref_type.variables[local_node.name] = local_node;
+}
+
+// add a struct in registry
+// local_node : a node of the ast
+// slotid : id of the block
+function _addStructs(local_node : node, slotid : value)
+{
+	localref ref_type = local_node#root.block_ref[slotid];
+	if (!existVariable(ref_type.structs))
+	{	insert ref_type.structs;}
+	insert ref_type.structs[local_node.ctype.identifier];
+	ref ref_type.structs[local_node.ctype.identifier] = local_node;
+}
+
+// add a union in registry
+// local_node : a node of the ast
+// slotid : id of the block
+function _addUnions(local_node : node, slotid : value)
+{
+	localref ref_type = local_node#root.block_ref[slotid];
+	if (!existVariable(ref_type.unions))
+	{	insert ref_type.unions;}
+	insert ref_type.unions[local_node.ctype.identifier];
+	ref ref_type.unions[local_node.ctype.identifier] = local_node;
+}
+
+// add a enum in registry
+// local_node : a node of the ast
+// slotid : id of the block
+function _addEnums(local_node : node, slotid : value)
+{
+	localref ref_type = local_node#root.block_ref[slotid];
+	if (!existVariable(ref_type.enums))
+	{	insert ref_type.enums;}
+	insert ref_type.enums[local_node.ctype.identifier];
+	ref ref_type.enums[local_node.ctype.identifier] = local_node;
+}
+
+// recursive function that add item in a block in the registry
+// local_node : a node of the ast
+function _addBlock(local_node : node)
+{
+	if (!existVariable(local_node.block_id))
+	{	error("BAD CONSTRUCTED BLOCK");}
+	local	slotid = local_node.block_id;
+	foreach item in local_node.block
+	{
+		if (cnormNode_checkDecl(item))
+		{
+			// declaration/definition of function or declaration variable
+			if (cnormNode_checkIsFuncDeclaration(item))
+			{
+				_addPrototypes(item, slotid);
+				_addBlock(item.ctype.param);
+			}
+			else if (cnormNode_checkIsFuncDefinition(item))
+			{
+				_addFunctions(item, slotid);
+				_addBlock(item.ctype.param);
+				_addBlock(item.body);
+				// inject parameter as local var
+				local param_slot = item.ctype.param.block_id;
+				local body_slot = item.body.block_id;
+				localref src = item#root.block_ref[param_slot];
+				localref dst = item#root.block_ref[body_slot];
+				if (existVariable(src.parameters))
+				{
+					foreach param in src.parameters
+					{
+						if (!existVariable(dst.variables))
+						{	insert dst.variables;}
+						local key_param = param.key();
+						insert dst.variables[key_param];
+						ref dst.variables[key_param] = param;
+					}
+				}
+			}
+			else if (item.type == "__param_decl__")
+			{	_addParameters(item, slotid);}
+			else if (item.type == "__field_decl__")
+			{_addFields(item, slotid);}
+			else if (item.ctype.storage != "typedef" && existVariable(item.name))
+			{_addVariables(item, slotid);}
+			// for struct
+			if (item.ctype.cdecl_type == "__composed__" && item.ctype.specifier == "struct")
+			{
+				_addStructs(item, slotid);
+				_addBlock(item.ctype.body);
+			}
+			// for union
+			if (item.ctype.cdecl_type == "__composed__" && item.ctype.specifier == "union")
+			{
+				_addUnions(item, slotid);
+				_addBlock(item.ctype.body);
+			}
+			// for enum
+			if (item.ctype.cdecl_type == "__enum__")
+			{_addEnums(item, slotid);}
+			// for pointer, deref for pfunc
+			if (item.ctype.cdecl_type == "__pointer__")
+			{
+				local deref;
+				cnormNodeDecl_DerefAll(item, deref);
+				if (cnormNode_checkIsFuncDeclaration(deref))
+				{	_addBlock(deref.ctype.param);}
+			}
+		}
+		// all statement
+		if (cnormNode_checkStmt(item))
+		{
+			if (existVariable(item.then))
+			{	_addBlock(item.then);}
+			if (existVariable(item.else))
+			{	_addBlock(item.else);}
+			if (existVariable(item.body))
+			{	_addBlock(item.body);}
+		}
+	}
+}
+
+// walk on all blocks to annotate elements
+function typeHandling_annotePass(local_node : reference)
+{
+	if (!cnormNode_checkRootBlock(local_node))
+	{return false;}
+	_addBlock(local_node);
+	return true;
+}
+
+
+#end

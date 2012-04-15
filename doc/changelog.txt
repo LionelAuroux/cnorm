@@ -1,0 +1,167 @@
+- decoupage du cnorm en 3 fichiers:				OK
+
+  . cnormDeclarations.cwp				OK
+  . cnormExpressions.cwp				OK
+  . cnormStatements.cwp					OK
+
+
+
+- regle unary_expression dans cnormExpressions.cwp:		OK
+
+  . deplacement de postfix_expression			OK
+    en derniere alternative de regle
+
+
+
+- reorganisation de la forme du noeud expression:		OK
+  (left - right - type - operator)
+  (dans cnormExpressions.cwp)
+
+	. assignement_expression			OK
+	  tests : a = 4;			OK
+		  b = 9;			OK
+		  a = b = 5;			OK
+		  a += 4;			OK
+		  b += a += b = 10;		OK
+
+	  L'operateur n'est plus inclu dans
+	  l'arbre a la lecture mais apres le
+	  glissement de noeud. Levee d'une
+	  erreur en cas d'expression
+	  d'assignation en rvalue d'un ternaire
+	  
+
+	. conditional_expression			OK
+	  tests: a ? 0 : 1;			OK
+		 a ? a = 1 : a = 0; (error)	OK
+		 (a = b) ? (a = c) : (a = d);	OK
+	  Aucun changement
+
+
+	. logical_or_expression				OK
+	  tests: a && b || c ? a && b : c || d;	OK
+	  Aucun changement
+
+
+	. logical_and_expression			OK
+	  tests: a && b || c ? a && b : c || d;	OK
+	  Aucun changement
+
+
+	. inclusive_or_expression			OK
+	  tests: a = b | c;			OK
+		 a && b || c ? a && b | c : c;	OK
+	  Aucun changement
+
+
+	. exclusive_or_expression			OK
+	  tests: a = b ^ c;			OK
+		 a && b || c ? a && b ^ c : c;	OK
+	  Aucun changement
+
+
+	. and_expression				OK
+	  tests: a = b & c;			OK
+		 a && b || c ? a && b & c : c;	OK
+	  Aucun changement
+
+
+	. equality_expression				OK
+	  test: a == b;				OK
+		a != b;				OK
+		a == b != c;			OK
+		a = b == c;			OK
+		a += b == c;			OK
+		a += b == c ? a += b == c : v;	OK
+	  Aucun changement
+
+
+	. relational_expression				OK
+	  test:   a <= b;			OK
+		  a >= b;			OK
+		  a < b != c;			OK
+		  a = b > c;			OK
+		  a += b <= c;			OK
+		  a += b == c ? a += b >= c : v;OK
+	  Aucun changement;
+
+
+	. shift_expression				OK
+	  tests:  a = a << 1;			OK
+	  Aucun changement
+
+
+	. additive_expression				OK
+	  tests: a = a + 1;			OK
+		 a + 1 == 3 ? 4 : 1 + 1;	OK
+		 a << 1 + 1 == 3 ? 4 : 1 + 1;	OK
+
+
+	. multiplicative_expression			OK
+	  tests: a = a % 1;			OK
+		 a * 4 - 1== 3 ? 4 : 1 / 1;	OK
+		 4 * a << 1 + 1 == 3 ? 4 : 1 + 1;OK
+
+
+	. unary_expression				OK
+	  tests: *a;				OK
+		 &&a;				OK
+		 ++a;				OK
+		 sizeof(a);			OK
+	  A des fins d'alignement, le noeud passe
+	  lors de l'appel de unary_expression dans
+	  unary_expression devient 'expr.expr' et
+	  plus 'expr';
+
+
+	. postfix_expression				OK
+	  tests: a[b + 1];			OK
+		 a[b][c];			OK
+		 a();				OK
+		 a->b;				OK
+		 a++;				OK
+		 a.b.c;				OK
+	  Alignement des noeuds sur le formatage
+	  'type - left - operator - right' ou 
+	  'type - expr - operator' pour ++/--.
+	  Plus de parsing direct pour '.' et '->',
+	  la regle primary_expression est maintenant
+	  appellee pour remplir le noeud 'nSubExpr'.
+	  
+
+	. primary_expression				OK
+	  tests:  a = (int)b;			OK
+		  a = (int) { 3, 4 };		OK
+	  __builtin_offsetof(struct B, a1.a.b); OK
+	__builtin_offsetof(struct B, a1[a][b]); OK
+	  stockage dans l'AST des informations parsees
+	  par offsetof_member_designator. Le deuxieme
+	  parametre est considere comme une field_expression
+	  ou une index_expression et stocke en tant que
+	  tel sur le modele de postfix_expression.
+
+
+	. constant					OK
+	  La premiere version de cette regle est trop
+	  monolithique. Elle va donc etre eclate en
+	  plusieurs sous regles selon le modele de la
+	  grammaire de l'iso_c99 revu, a savoir:
+	    - hexadecimal_constant
+	    - decimal_constant
+	    - octal_constant
+	    - complex_constant
+	    - string_constant
+	    - character_constant
+	   Les types sont stockes selon l'ancienne
+	   methode jusqu'a ajout de la normalisation
+	   des types.
+
+
+ - Normalisation des Statements						OK
+	. statement<case>					OK
+	  ajout du #back sur les deux types d'expressions
+	  ajout d'un #pushItem sur rangeExpression
+
+	. statement<return>
+	  gestion du return sans expression en elevant		OK
+	  l'artefact de noeud expression genere.

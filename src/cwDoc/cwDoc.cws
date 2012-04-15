@@ -1,0 +1,76 @@
+/*
+**	Main script of the Documentation Tool for codeworker
+**	parse and generate a documentation for a codeworker application
+*/
+
+if ($lengthString(_ARGS[0]) == 0$)
+{
+  traceLine("USAGE: cwDoc /path/of/project/");
+  exit(1);
+}
+
+#include "cwTool.inc.cws"
+
+// global variables
+local sPath = canonizePath(_ARGS[0]);
+local sCachePath = sPath + "/_cache_doc_";
+local sDocPath = sPath + "/_generated_doc_";
+local aListFiles;
+////////////////////// functions
+function	addNewFile(list_file : node, file : value, type : value)
+{
+	pushItem list_file;
+	insert list_file#back.type = type;
+	// composed all subdir
+	local sShortName;
+	if (startString(file, this.sPath))
+	{	
+		sShortName = subString(file, lengthString(this.sPath));
+		traceLine("short: " + sShortName);
+		sShortName = replaceString("/", "_", sShortName);
+	}
+	insert list_file#back.file_input = file;
+	insert list_file#back.file_cache = this.sCachePath + "/" 
+		+ sShortName + ".tree";
+	insert list_file#back.file_doc = this.sDocPath + "/" 
+		+ sShortName + ".html";
+}
+
+function	parse<T>(file : node)
+{	error("unknown format " + T);}
+
+function	parse<"BNF">(file : node)
+{
+	traceLine("Parse BNF " + file.file_input);
+	traceLine("Content:" + toString(file, true));
+	local source;
+	parseAsBNF("cwDoc.cwp", source, file.file_input);
+	traceLine("Tree:" + toString(source, true));
+}
+
+function	parse<"SCRIPT">(file : node)
+{
+	traceLine("Parse Script " + file.file_input);
+	traceLine("Content:" + toString(file, true));
+	local source;
+	parseAsBNF("cwDoc.cwp", source, file.file_input);
+	traceLine("Tree:" + toString(source, true));
+}
+
+///////////////////// Main
+// create list of files
+forfile file in cascading sPath + "/*.cwp"
+{	addNewFile(aListFiles, file, "BNF");}
+forfile file in cascading sPath + "/*.cws"
+{	addNewFile(aListFiles, file, "SCRIPT");}
+// create cache directory
+if (!existDirectory(sCachePath) && !createDirectory(sCachePath)) 
+	{error("Can't create " + sCachePath);}
+// parse all files
+foreach item in aListFiles
+{	parse<item.type>(item);
+#if !existFunction(countInputLines)
+	traceLine("PUMH");
+#end
+	error("ENDED");
+}

@@ -1,0 +1,19 @@
+/*
+  Petit script de generation de code C++ a partir du Cnorm
+*/
+
+local sScriptFile = "../src/cnorm.cws";
+local sDirectory = getWorkingPath() + "/src";
+local sCodeworkerPath = getWorkingPath() + "/include";
+
+traceLine("Searching source here:" + sCodeworkerPath);
+removeDirectory(sDirectory);
+compileToCpp(sScriptFile, sDirectory, sCodeworkerPath);
+
+local theFiles;
+if !scanFiles(theFiles, sDirectory, "*", true) error("should have worked!");
+
+traceLine("generated files:");
+foreach i in sorted theFiles traceLine(" " + i);
+
+traceLine("Done...");
