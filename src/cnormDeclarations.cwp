@@ -28,6 +28,7 @@
 /*
   Base of declarations : assembly expressions or C declarations
 */
+// EXTERN
 declaration(theBlock : node) ::= [asm_expr(theBlock) | cdecl(theBlock)]
 ;
 
@@ -126,25 +127,27 @@ declaration_specifier(theDecl : node) ::=
 /**/	=> local ctype;
 /**/	#check(cnormNodeDecl_GetCtype(theDecl, ctype))
 [
-	storage_class_specifier(ctype)
-	| function_specifiers(ctype)
-	| type_specifier(ctype)
-	| type_qualifier(ctype)
+        #readIdentifier:id
+ //       => traceLine("??" + id);
+        #check(cnormNodeDecl_Set(ctype, id))
+ //       =>traceLine("RES:" + toString(ctype, true));
+ //       =>traceLine("ROOT:" + toString(ctype#root.dialect, true));
+        // follow
+        [
+                #check(cnormNode_checkTypeOfId(ctype, id, "specifier_block"))
+                composed_type_specifier(ctype)
+                | #check(cnormNode_checkTypeOfId(ctype, id, "specifier_enum"))
+                enum_specifier(ctype)
+                | #check(cnormNode_checkTypeOfId(ctype, id, "typeof"))
+                typeof_expr(ctype)
+                | #check(cnormNode_checkTypeOfId(ctype, id, "asm"))
+                asm_decl_follow(ctype, id)
+                | #check(cnormNode_checkTypeOfId(ctype, id, "attribute"))
+                attr_decl_follow(ctype, id)
+        ]?
+        | typedef_name(ctype)
+        // TODO UNSTRICT
 ]
-;
-
-/*
-  Storage class specify where are data:
-  -auto: in the stack (default)
-  -register: in the register
-  -static: as local symbol
-  -extern: symbol is defined in other translation unit
-  -__thread: gnuC extension, in the TLS (thread local storage)
-*/
-storage_class_specifier(theCtype : node) ::= 
-	#readIdentifier:specifier
-/**/    #check(cnormNode_checkTypeOfId(theCtype, specifier, "storage"))
-/**/	#check(cnormNodeDecl_SetStorage(theCtype, specifier))
 ;
 
 /*
@@ -170,62 +173,11 @@ type_qualifier(theCtype : node) ::=
 ;
 
 /*
-  Function specifier
-*/
-function_specifiers(theCtype : node) ::= 
-	#readIdentifier:funspec
-/**/    #check(cnormNode_checkTypeOfId(theCtype, funspec, "funspecifier"))        
-/**/ 	#check(cnormNodeDecl_SetFunspecifier(theCtype, funspec))
-;
-
-/*
-  Base of type declarations
-*/
-type_specifier(theCtype : node) ::=
-[
-	prime_type(theCtype)
-	| composed_type_specifier(theCtype) 
-	| enum_specifier(theCtype)
-	| typedef_name(theCtype)
-	| typeof_expr(theCtype) // c99
-]
-;
-
-/*
-  Primitive C type
-*/
-prime_type(theCtype : node) ::=
-	[
-// sign or not
-		#readIdentifier:sign 
-/**/            #check(cnormNode_checkTypeGroupOfId(theCtype, sign, "sign"))
-/**/		#check(cnormNodeDecl_SetSigned(theCtype, sign))
-	]
-	|
-	[
-// short, long
-		#readIdentifier:specifier
-/**/            #check(cnormNode_checkTypeGroupOfId(theCtype, specifier, "specifier_size"))
-/**/		#check(cnormNodeDecl_SetSpecifier(theCtype, specifier))
-	]
-	|
-	[
-// primitive type
-		rootidentifier:id 
-/**/            #check(cnormNode_checkTypeOfId(theCtype, id, "type"))
-/**/		#check(cnormNodeDecl_SetIdentifier(theCtype, id))
-	]
-;
-
-/*
   Composed: struct, union, ...
 */
 name_of_composed_type(theCtype : node) ::= identifier(theCtype)
 ;
 composed_type_specifier(theCtype : node) ::=
-	#readIdentifier:specifier
-/**/    #check(cnormNode_checkTypeOfId(theCtype, specifier, "specifier_block"))
-/**/	#check(cnormNodeDecl_SetSpecifier(theCtype, specifier))
 	[
 /**/		=> local attr;
 		attribute_decl(attr, theCtype)
@@ -263,9 +215,6 @@ composed_fields(theCtype : node) ::=
 enum_name(theCtype : node) ::= identifier(theCtype)
 ;
 enum_specifier(theCtype : node) ::=
-	#readIdentifier:specifier
-/**/    #check(cnormNode_checkTypeOfId(theCtype, specifier, "specifier_enum"))
-/**/	#check(cnormNodeDecl_SetSpecifier(theCtype, specifier))
 [ 
 	enum_name(theCtype):id
 /**/	#check(cnormNodeDecl_SetIdentifier(theCtype, id))
@@ -301,8 +250,6 @@ typedef_name(theCtype : node) ::=
   Typeof: we use the type of the expression as type for a declaration
 */
 typeof_expr(theCtype : node) ::=
-	#readIdentifier:typeof
-/**/    #check(cnormNode_checkTypeOfId(theCtype, typeof, "typeof"))
 	'(' #continue(sError, "bad type_name or expression after '('")
 /**/	=> local local_node;
 /**/	#check(cnormNode_TypeofExpr(theCtype, local_node))
@@ -380,14 +327,32 @@ attribute_decl(theNode : node, theRef : node) ::=
 [
 	#readIdentifier:attr 
 /**/    #check(cnormNode_checkTypeOfId(theRef, attr, "attribute"))
-	'(' [dummy_with_paren]* ')'
+	'(' #continue(sError, "bad attribute expression after '('") [dummy_with_paren]* ')'
 
 	| #readIdentifier:asm_key
 /**/    #check(cnormNode_checkTypeOfId(theRef, asm_key, "asm"))
-		'(' [dummy_with_paren]* ')'
+		['(' #continue(sError, "bad assembler expression after '('") [dummy_with_paren]* ')'
+                |'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}'
+                ]
 	| #readIdentifier:{"__extension__"}
 ]:raw_data
 /**/	#check(cnormNode_Raw(theNode, raw_data))
+;
+
+asm_decl_follow(theCtype : node, id : value) ::=
+        => local attr;
+		['(' #continue(sError, "bad assembler expression after '('") [dummy_with_paren]* ')'
+                |'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}']:raw_data
+/**/	#check(cnormNode_Raw(attr, id + raw_data))
+/**/	#check(cnormNodeDecl_SetDeclSpecifierAttribute(theCtype, attr))
+;
+
+attr_decl_follow(theCtype : node, id : value) ::=
+//=>traceLine("ATTR DECL FOLLOW");
+        => local attr;
+		['(' #continue(sError, "bad attribute expression after '('") [dummy_with_paren]* ')']:raw_data
+/**/	#check(cnormNode_Raw(attr, id + raw_data))
+/**/	#check(cnormNodeDecl_SetDeclSpecifierAttribute(theCtype, attr))
 ;
 
 /*
@@ -519,8 +484,9 @@ direct_absolute_declarator(theDecl : node) ::=
    [
    	[
 		// lookahead for following definition/prototype/or pointer function
-		!![';'|','|'{'|'('|')']
-		|
+		//!![';'|','|'{'|'('|')']
+              //=>traceLine("it's");
+		//|
 		// In K&R, we have declaration after the closing ')'
 		#check(bPostDeclaration)
 		[
@@ -532,10 +498,10 @@ direct_absolute_declarator(theDecl : node) ::=
 			]*
 			//   ["..." => insert theDecl.ctype.ellipsis = true; ]?
 		]
-	]
+	]?
 	// map parameter
 /**/	#check(cnormNode_MapFieldOrParam(paramList))
-   ]?
+   ]//?
 ]
 ;
 
@@ -574,7 +540,7 @@ kr_parameter_type_list(theBlock : node) ::=
 /*
   Parameter type list
 */
-parameter_type_list(theBlock : node) ::= 	
+parameter_type_list(theBlock : node) ::=
 	[
 /**/		=> local lastdecl;
 // forward declaration
@@ -640,6 +606,7 @@ initializer(theExpr : node) ::=
 /*
   Initializer list : list of default value
 */
+// EXTERN
 initializer_list(theInit : node) ::= 
 /**/	=> local lastinit;
 /**/	#check(cnormNodeDecl_AddInit(theInit, lastinit))
@@ -679,6 +646,7 @@ designation_list(theInit : reference) ::=
 /*
   Type name : just a type
 */
+// EXTERN
 type_name(theNode : node) ::= [declaration_specifier(theNode) ]+ declarator(theNode)
 ;
 

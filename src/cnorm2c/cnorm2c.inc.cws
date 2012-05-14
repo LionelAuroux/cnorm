@@ -609,11 +609,13 @@ function	cnorm2c_CtypeEnd(theCtype : node, thePrettyAst : reference)
 	// for param
 	if (existVariable(theCtype.param))
 	{
+       // traceLine("YES PPPP" + toString(theCtype.param, true));
 		local paranth;
 		local subnode;
 		prettyPrint_NewBlock(thePrettyAst, paranth, "(", ")");
 		if ($getArraySize(theCtype.param.block) > 0$)
 		{
+         //       traceLine("gogo");
 			// forward decl
 			foreach idx in theCtype.param.map
 			{

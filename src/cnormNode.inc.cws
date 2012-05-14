@@ -28,6 +28,7 @@ declare function cnormNode_searchRoot(local_node : reference, out_ref : referenc
 declare function cnormNode_checkTypeOfId(local_node : node, id : value, type_id : value = "");
 declare function cnormNode_checkTypeGroupOfId(local_node : node, id : value, group_id : value);
 
+
 // check
 declare function cnormNode_checkRootBlock(local_node : node);
 declare function cnormNode_checkBlock(local_node : node);
@@ -71,6 +72,9 @@ declare function cnormNodeDecl_SetDeclSpecifierAttribute(local_node : node, subt
 declare function cnormNodeDecl_SetDeclComposedAttribute(local_node : node, subtree : node);
 declare function cnormNodeDecl_SetDeclarationAttribute(local_node : node, subtree : node);
 declare function cnormNodeDecl_Init(local_node : node);
+
+// declaration set with dialect
+declare function cnormNodeDecl_Set(local_node : node, ident : value);
 
 // statement
 declare function cnormNodeStmt(local_node : node, type : value);
@@ -181,11 +185,10 @@ function cnormNodeBlock(local_node : node, autoregister : value)
 // check the type of the identifier from dialect
 function cnormNode_checkTypeOfId(local_node : node, id : value, type_id : value)
 {
+//traceLine("check TOI:" + id + " is " + type_id);
         if (findElement(id, local_node#root.dialect.map_identifier))
         {
-                //traceLine("tid:" + type_id + " dialect:" + local_node#root.dialect.map_identifier[id]);
-                //if (local_node#root.dialect.map_identifier[id] == "")
-                //{ traceLine("dialect:" + toString(local_node#root.dialect, true));}
+ //       traceLine("found " + local_node#root.dialect.map_identifier[id]);
                 if (type_id != "" && local_node#root.dialect.map_identifier[id] != type_id)
                 {       return false;}
                 return true;
@@ -362,8 +365,10 @@ function cnormNode_DeclAsParam(local_node : reference)
 
 function cnormNode_MapFieldOrParam(local_node : reference, remap : node = null)
 {
+//   traceLine("It's a block?");
 	if (!cnormNode_checkBlock(local_node))
 	{return false;}
+//   traceLine("It's a block");
 	insert local_node.map;
 	local i = 0;
 	local size = getArraySize(local_node.block);
@@ -623,7 +628,6 @@ function cnormNodeDecl_SetQualifier(local_ctype : node, qualifier : value)
 {
 	if (!cnormNode_checkCtype(local_ctype))
 	{return false;}
-	//if (!findElement(qualifier, this.dialect.qualifier_list))
 	if (!cnormNode_checkTypeOfId(local_ctype, qualifier, "qualifier"))
 	{error(qualifier + " is not a qualifier");}
 	if (local_ctype.qualifier != "auto")
@@ -640,7 +644,6 @@ function cnormNodeDecl_SetStorage(local_ctype : node, storage : value)
 {
 	if (!cnormNode_checkCtype(local_ctype))
 	{return false;}
-	//if (!findElement(storage, this.dialect.storage_list))
 	if (!cnormNode_checkTypeOfId(local_ctype, storage, "storage"))
 	{error(storage + " is not a storage");}
 	if (local_ctype.storage != "auto")
@@ -653,7 +656,6 @@ function cnormNodeDecl_SetFunspecifier(local_ctype : node, funspecifier : value)
 {
 	if (!cnormNode_checkCtype(local_ctype))
 	{return false;}
-	//if (!findElement(funspecifier, this.dialect.funspecifier_list))
 	if (!cnormNode_checkTypeOfId(local_ctype, funspecifier, "funspecifier"))
 	{error(funspecifier + " is not a function specifier");}
 	if (local_ctype.funspecifier != "auto")
@@ -832,6 +834,40 @@ function cnormNodeDecl_SetDeclarationAttribute(local_node : node, subtree : node
 	pushItem local_node.attributes;
 	setall local_node.attributes#back = subtree;
 	return true;
+}
+
+function cnormNodeDecl_Set(local_node : node, ident : value)
+{
+        if (!findElement(ident, local_node#root.dialect.map_identifier))
+        {       return false;}
+        local sType = local_node#root.dialect.map_identifier[ident];
+        switch (sType)
+        {
+                case "funspecifier":{cnormNodeDecl_SetFunspecifier(local_node, ident);break;}
+                case "qualifier":{cnormNodeDecl_SetQualifier(local_node, ident);break;}
+                case "sign_unsigned":
+                case "sign_signed":{cnormNodeDecl_SetSigned(local_node, ident);break;}
+                case "specifier_size":
+                case "specifier_size_size":
+                case "specifier_block":
+                case "specifier_enum":{cnormNodeDecl_SetSpecifier(local_node, ident);break;}
+                case "storage":{cnormNodeDecl_SetStorage(local_node, ident);break;}
+                case "type":{cnormNodeDecl_SetIdentifier(local_node, ident);break;}
+                case "typeof":{insert local_node.typeof;break;}
+                case "unary":{
+                        // special case __extension__
+                        if (ident != "__extension__")
+                        {return false;}
+                        local attr;
+                        cnormNode_Raw(attr, "__extension__");
+                        cnormNodeDecl_SetDeclSpecifierAttribute(local_node, attr);
+                        break;
+                }
+                case "asm":
+                case "attribute":{/*insert local_node.attributes;*/break;}
+                default:return false;
+        }
+        return true;
 }
 
 // ****

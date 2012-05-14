@@ -73,84 +73,8 @@ function cnormDialect<"__unstrict__">(out_ref : reference)
 
 function cnormDialect<"__std__">(out_ref : reference)
 {
-// set the dialect as global (use in patchLib)
-//	insert this.dialect = "__std__";
-// build all literal lists for this dialect.
 	cnormNewDialect(out_ref, "__std__");
-
-//      // specific statements
-//      	local asm_keywords = {"asm", "__asm", "__asm__"};
-//      	local asm_qualifiers = {"volatile", "__volatile", "__volatile__"};
-//      	local attributes = {"attribute", "__attribute", "__attribute__", "__declspec"};
-//      	local custom_unary_op = {"__real", "__real__", "__imag", "__imag__", "__extension__"};
-//      	nodeMergeHashKey(out_ref.dialect.asm_keywords, asm_keywords);
-//      	nodeMergeHashKey(out_ref.dialect.asm_qualifiers, asm_qualifiers);
-//      	nodeMergeHashKey(out_ref.dialect.attributes, attributes);
-//      
-//      	nodeMergeHashKey(out_ref.dialect.custom_unary_op, custom_unary_op);
-//      // sign/unsign
-//      	local unsigned_list = {"unsigned", "__unsigned", "__unsigned__"};
-//      	local signed_list = {"signed", "__signed", "__signed__"};
-//      	nodeMergeHashKey(out_ref.dialect.unsigned_list, unsigned_list);
-//      	nodeMergeHashKey(out_ref.dialect.signed_list, signed_list);
-//      	nodeMergeHashKey(out_ref.dialect.allsign_list, out_ref.dialect.unsigned_list);
-//      	nodeMergeHashKey(out_ref.dialect.allsign_list, out_ref.dialect.signed_list);
-//      // all specifiers
-//      	local shortlong_list = {"short", "long"};
-//      	local composed_list = {"struct", "union"};
-//      	local enumerate_list = {"enum"};
-//      	local specifier_list = {"auto"};
-//      	local doublable_list = {"long"};
-//      	nodeMergeHashKey(out_ref.dialect.shortlong_list, shortlong_list);
-//      	nodeMergeHashKey(out_ref.dialect.composed_list, composed_list);
-//      	nodeMergeHashKey(out_ref.dialect.enumerate_list, enumerate_list);
-//      	// merge all sub specifier sets into a big set of specifier
-//      	nodeMergeHashKey(out_ref.dialect.specifier_list, out_ref.dialect.shortlong_list);
-//      	nodeMergeHashKey(out_ref.dialect.specifier_list, out_ref.dialect.composed_list);
-//      	nodeMergeHashKey(out_ref.dialect.specifier_list, out_ref.dialect.enumerate_list);
-//      	// special case specifier
-//      	nodeMergeHashKey(out_ref.dialect.doublable_list, doublable_list);
-//      // all qualifiers
-//      	local qualifier_list = {"auto", "const", "volatile", "restrict", "__volatile", "__volatile__", "__const", "__restrict",
-//      			"__cdecl", "__stdcall", "__fastcall", "__w64", "__ptr32", "__ptr64"};
-//      	nodeMergeHashKey(out_ref.dialect.qualifier_list, qualifier_list);
-//      // all storages
-//      	local funspecifier_list = {"inline", "__inline", "__inline__", "__forceinline"};
-//      	local storage_list = {"auto", "register", "typedef", "static", "extern", "__thread"};
-//      	nodeMergeHashKey(out_ref.dialect.funspecifier_list, funspecifier_list);
-//      	nodeMergeHashKey(out_ref.dialect.storage_list, storage_list);
-//      	// function specifier(inline) as a special case of storage, cause only one storage in a declaration (special case static inline)
-//      	//nodeMergeHashKey(out_ref.dialect.storage_list, funspecifier_list);
-//      // all basic type
-//      	local type_list = {"void", "char", "int", "float", "double", "_Complex", "__complex", "__complex__", "_Imaginary", "__imag",
-//      			"__imag__", "__real", "__real__", "_Bool", "__label__", "__builtin_va_list", "__int8", "__int16", "__int32", "__int64"};
-//      	nodeMergeHashKey(out_ref.dialect.type_list, type_list);
-//      // all keywords
-//      	local typeof_list = {"typeof", "__typeof", "__typeof__"};
-//      	local sizeof_list = {"sizeof", "__alignof", "__alignof__"};
-//      	local identifier_list = {"sizeof", "enum", "switch", "case", "default", "if", "else", "while", "do", "for", "goto", "continue", "break", "return", 
-//      				"__builtin_offsetof", "__extension__", "__declspec"};
-//      	nodeMergeHashKey(out_ref.dialect.typeof_list, typeof_list);
-//      	nodeMergeHashKey(out_ref.dialect.sizeof_list, sizeof_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, identifier_list);
-//      	// add all list in keywords
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.asm_keywords);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.attributes);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.unsigned_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.signed_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.specifier_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.funspecifier_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.composed_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.enumerate_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.doublable_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.qualifier_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.storage_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.type_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.typeof_list);
-//      	nodeMergeHashKey(out_ref.dialect.identifier_list, out_ref.dialect.sizeof_list);
-
-        // new dialect
-        //local map_id
+        // build all literal lists for this dialect.
         insert out_ref.dialect.map_identifier = {[
                 // ASM
                 "asm"                   : "asm"{},
@@ -162,8 +86,9 @@ function cnormDialect<"__std__">(out_ref : reference)
                 "__attribute__"         : "attribute"{},
                 //      windows attribute 
                 "__declspec"            : "attribute"{},
-                // SPECIFIER
+                ////////////////////////
                 "auto"                  : "qualifier"{},
+                // SPECIFIER
                 //      sign
                 "unsigned"              : "sign_unsigned"{}, 
                 "__unsigned"            : "sign_unsigned"{},
@@ -255,7 +180,6 @@ function cnormDialect<"__std__">(out_ref : reference)
                 "return"                : "reserved"{},
                 "__builtin_offsetof"    : "reserved"{}
         ]};
-        //merge out_ref.dialect.map_identifier = map_id;
 }
 
 // generic template to parse a file of the correct dialect
