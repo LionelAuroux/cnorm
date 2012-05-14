@@ -23,7 +23,7 @@ translation_unit ::=
 	#try
 	#ignore
 	=> {     
-                if (!existVariable(this.dialect.identifier_list))
+                if (!existVariable(this.dialect.map_identifier))
                 {       cnormDialect<this.dialect>(this);}
 		// dispatch rule depending of the value of this, set from _dispatchRule
                 switch (this)

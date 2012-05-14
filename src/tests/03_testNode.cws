@@ -10,7 +10,7 @@ local myAst;
 local lastCmd;
 
 /* cree une base */
-cnormDialect<"__std__">(this);
+cnormDialect<"__std__">(myAst);
 traceLine(toString(myAst, true));
 cnormNodeRoot(myAst);
 

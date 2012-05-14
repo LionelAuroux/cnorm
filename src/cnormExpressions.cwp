@@ -40,6 +40,7 @@ dummy_with_paren ::=
 [#!ignore
 	'(' [dummy_with_paren]* ')'
 	| #readCString
+        | #readCChar
 	| #readChar:c #check(c != "(" && c != ")" && c != "\"")
 ]
 ;
@@ -49,6 +50,7 @@ dummy_with_brace ::=
 [#!ignore
 	'{' [dummy_with_brace]* '}'
 	| #readCString
+        | #readCChar
 	| #readChar:c #check(c != "{" && c != "}" && c != "\"")
 ]
 ;
@@ -300,10 +302,10 @@ unary_expression(expr : node) ::=
 [
 	[
 		[
-                        unary_operator:sOperator
+                                unary_operator:sOperator
                         // check some specific unary op like __real or __imag
-                        | #readIdentifier:custom_unary_op
-                        #check(findElement(custom_unary_op, expr#root.dialect.custom_unary_op))
+                        |       #readIdentifier:custom_unary_op
+/**/                            #check(cnormNode_checkTypeOfId(expr, custom_unary_op, "unary"))
                 ]
 /**/		=> local right_expr;
 /**/		#check(cnormNode_UnaryExpr(expr, sOperator, right_expr))
@@ -313,7 +315,7 @@ unary_expression(expr : node) ::=
 	|
 	[
 		#readIdentifier:size_of 
-		#check(findElement(size_of, expr#root.dialect.sizeof_list))
+/**/            #check(cnormNode_checkTypeOfId(expr, size_of, "sizeof"))
 /**/  		=> local right_expr;
 /**/  		#check(cnormNode_SizeOf(expr, size_of, right_expr))
 /**/ 		#continue(sErr, "bad type_name or unary_expression after " + sOperator)
@@ -456,7 +458,7 @@ range_expression(expr : node) ::=
 */
 identifier(theNode : node) ::=
 	rootidentifier:sId
-/**/	#check(!findElement(sId,theNode#root.dialect.identifier_list))
+/**/	#check(!findElement(sId, theNode#root.dialect.map_identifier))
 ;
 
 /*

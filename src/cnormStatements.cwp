@@ -68,7 +68,7 @@ line_of_code(theBlock : node) ::=
 /**/	=> local lastNode;
 /**/	#check(cnormNodeBlock_GetLastNode(theBlock, lastNode))
 	single_statement(lastNode)
-	| =>traceLine("unstrict:"+toString(theBlock#root, true)); 
+	| //=>traceLine("unstrict:"+toString(theBlock#root, true)); 
         unstrict(theBlock)
 ]
 ;

@@ -101,7 +101,9 @@ foreach item in listTest
 		c_block = "testDecl_" + i;
 		local sStr = cnorm2c(c_block);
 		local bOk = (sStr == thevalue) ? "OK" : "KO";
-		traceLine("TEST:" + i +" <" + sStr + "> ?? <" + thevalue + ">:" + bOk);
+		traceLine("---- TEST:" + i +" \nin <" + thevalue + "> ?? \nout <" + sStr + ">:" + "\n TEST: " + i + " -> " + bOk + "\n-----\n");
+                if (bOk == "KO")
+                {traceLine("----LOG\n" + toString(c_block, true) + "\n-----");}
 		if (sStr == thevalue)
 		{nTest = $nTest + 1$;}
 	}

@@ -63,10 +63,10 @@ unstrict_param(theBlock : node) ::=
 asm_expr(theBlock : node) ::= 
 [
 	#readIdentifier:asm_key
-/**/	#check(findElement(asm_key, theBlock#root.dialect.asm_keywords))
+/**/	#check(cnormNode_checkTypeOfId(theBlock, asm_key, "asm"))
 	[
 		#readIdentifier:asm_quali
-/**/		#check(findElement(asm_quali, theBlock#root.dialect.asm_qualifiers))
+/**/            #check(cnormNode_checkTypeOfId(theBlock, asm_quali, "qualifier"))
 	]? 
 	['(' #continue(sError, "bad assembler expression after '('") [dummy_with_paren]* ')' [';']?
 	|'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}' [';']?
@@ -143,7 +143,7 @@ declaration_specifier(theDecl : node) ::=
 */
 storage_class_specifier(theCtype : node) ::= 
 	#readIdentifier:specifier
-/**/	#check(findElement(specifier, theCtype#root.dialect.storage_list))
+/**/    #check(cnormNode_checkTypeOfId(theCtype, specifier, "storage"))
 /**/	#check(cnormNodeDecl_SetStorage(theCtype, specifier))
 ;
 
@@ -155,7 +155,7 @@ storage_class_specifier(theCtype : node) ::=
 */
 type_qualifier(theCtype : node) ::= 
 	#readIdentifier:qualifier
-/**/	#check(findElement(qualifier, theCtype#root.dialect.qualifier_list))
+/**/    #check(cnormNode_checkTypeOfId(theCtype, qualifier, "qualifier"))        
 /**/	#check(cnormNodeDecl_SetQualifier(theCtype, qualifier))
 	|
 /**/	=> local attr;
@@ -174,7 +174,7 @@ type_qualifier(theCtype : node) ::=
 */
 function_specifiers(theCtype : node) ::= 
 	#readIdentifier:funspec
-/**/	#check(findElement(funspec, theCtype#root.dialect.funspecifier_list))	
+/**/    #check(cnormNode_checkTypeOfId(theCtype, funspec, "funspecifier"))        
 /**/ 	#check(cnormNodeDecl_SetFunspecifier(theCtype, funspec))
 ;
 
@@ -198,21 +198,21 @@ prime_type(theCtype : node) ::=
 	[
 // sign or not
 		#readIdentifier:sign 
-/**/		#check(findElement(sign, theCtype#root.dialect.allsign_list))
+/**/            #check(cnormNode_checkTypeGroupOfId(theCtype, sign, "sign"))
 /**/		#check(cnormNodeDecl_SetSigned(theCtype, sign))
 	]
 	|
 	[
 // short, long
 		#readIdentifier:specifier
-/**/		#check(findElement(specifier, theCtype#root.dialect.shortlong_list))
+/**/            #check(cnormNode_checkTypeGroupOfId(theCtype, specifier, "specifier_size"))
 /**/		#check(cnormNodeDecl_SetSpecifier(theCtype, specifier))
 	]
 	|
 	[
 // primitive type
 		rootidentifier:id 
-/**/		#check(findElement(id, theCtype#root.dialect.type_list))
+/**/            #check(cnormNode_checkTypeOfId(theCtype, id, "type"))
 /**/		#check(cnormNodeDecl_SetIdentifier(theCtype, id))
 	]
 ;
@@ -224,7 +224,7 @@ name_of_composed_type(theCtype : node) ::= identifier(theCtype)
 ;
 composed_type_specifier(theCtype : node) ::=
 	#readIdentifier:specifier
-/**/	#check(findElement(specifier, theCtype#root.dialect.composed_list))
+/**/    #check(cnormNode_checkTypeOfId(theCtype, specifier, "specifier_block"))
 /**/	#check(cnormNodeDecl_SetSpecifier(theCtype, specifier))
 	[
 /**/		=> local attr;
@@ -263,9 +263,9 @@ composed_fields(theCtype : node) ::=
 enum_name(theCtype : node) ::= identifier(theCtype)
 ;
 enum_specifier(theCtype : node) ::=
-	#readIdentifier:enum
-/**/	#check(findElement(enum, theCtype#root.dialect.enumerate_list))
-/**/	#check(cnormNodeDecl_SetSpecifier(theCtype, enum))
+	#readIdentifier:specifier
+/**/    #check(cnormNode_checkTypeOfId(theCtype, specifier, "specifier_enum"))
+/**/	#check(cnormNodeDecl_SetSpecifier(theCtype, specifier))
 [ 
 	enum_name(theCtype):id
 /**/	#check(cnormNodeDecl_SetIdentifier(theCtype, id))
@@ -302,7 +302,7 @@ typedef_name(theCtype : node) ::=
 */
 typeof_expr(theCtype : node) ::=
 	#readIdentifier:typeof
-/**/	#check(findElement(typeof, theCtype#root.dialect.typeof_list))
+/**/    #check(cnormNode_checkTypeOfId(theCtype, typeof, "typeof"))
 	'(' #continue(sError, "bad type_name or expression after '('")
 /**/	=> local local_node;
 /**/	#check(cnormNode_TypeofExpr(theCtype, local_node))
@@ -379,11 +379,11 @@ init_declarator(theDecl : node) ::=
 attribute_decl(theNode : node, theRef : node) ::=
 [
 	#readIdentifier:attr 
-/**/	#check(findElement(attr, theRef#root.dialect.attributes))
+/**/    #check(cnormNode_checkTypeOfId(theRef, attr, "attribute"))
 	'(' [dummy_with_paren]* ')'
 
 	| #readIdentifier:asm_key
-/**/	#check(findElement(asm_key, theRef#root.dialect.asm_keywords))
+/**/    #check(cnormNode_checkTypeOfId(theRef, asm_key, "asm"))
 		'(' [dummy_with_paren]* ')'
 	| #readIdentifier:{"__extension__"}
 ]:raw_data

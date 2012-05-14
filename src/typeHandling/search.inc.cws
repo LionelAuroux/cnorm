@@ -62,6 +62,7 @@ function typeHandling_search(local_node : node, istype : value)
 {
 	localref root_types = local_node#root.block_ref;
 	local	local_id = typeHandling_getid(local_node);
+        insert this.count = 0;
 	while (true)
 	{
 		if (findElement(istype, root_types[local_id].types))
@@ -70,6 +71,9 @@ function typeHandling_search(local_node : node, istype : value)
 			local_id = root_types[local_id].parent;
 		else
 		        return false;
+                this.count = $this.count + 1$;
+                if ($this.count > 1000$)
+                {error("ABORT: no found info for type:" + istype);}
 	}
 	return false;
 }
@@ -79,8 +83,14 @@ function typeHandling_search(local_node : node, istype : value)
 function typeHandling_getid(local_node : reference)
 {
 	localref node_ref = local_node;
+        insert this.count = 0;
 	while (!existVariable(node_ref.block_id))
-	{	ref node_ref = node_ref#parent;}
+	{	ref node_ref = node_ref#parent;
+        
+                this.count = $this.count + 1$;
+                if ($this.count > 1000$)
+                {error("ABORT: no found block_id");}
+        }
 	return node_ref.block_id;
 }
 
@@ -89,8 +99,14 @@ function typeHandling_getid(local_node : reference)
 function typeHandling_getname(local_node : reference)
 {
 	localref node_ref = local_node;
+        insert this.count = 0;
 	while (!existVariable(node_ref.name) && node_ref.type != "__root_block__")
-	{	ref node_ref = node_ref#parent;}
+	{	ref node_ref = node_ref#parent;
+        
+                this.count = $this.count + 1$;
+                if ($this.count > 1000$)
+                {error("ABORT: no found name");}
+        }
 	if (existVariable(node_ref.name)) return node_ref.name;
 	return "__unknown__";
 }

@@ -9,7 +9,7 @@
 
 local myAst;
 
-cnormDialect<"__std__">(this);
+cnormDialect<"__std__">(myAst);
 cnormNodeRoot(myAst);
 
 {// cree un noeud simple
