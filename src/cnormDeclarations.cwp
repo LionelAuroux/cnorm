@@ -484,9 +484,9 @@ direct_absolute_declarator(theDecl : node) ::=
    [
    	[
 		// lookahead for following definition/prototype/or pointer function
-		//!![';'|','|'{'|'('|')']
+		!![';'|','|'{'|'('|')']
               //=>traceLine("it's");
-		//|
+		|
 		// In K&R, we have declaration after the closing ')'
 		#check(bPostDeclaration)
 		[
