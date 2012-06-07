@@ -39,26 +39,6 @@ function cnormNewDialect(out_ref : reference, name : value)
 {
 	insert out_ref.dialect = name;
 	insert out_ref.dialect.parsing_mode = "strict";
-//      	insert out_ref.dialect.asm_keywords;
-//      	insert out_ref.dialect.asm_qualifiers;
-//      	insert out_ref.dialect.attributes;
-//      	insert out_ref.dialect.custom_unary_op;
-//      	insert out_ref.dialect.unsigned_list;
-//      	insert out_ref.dialect.signed_list;
-//      	insert out_ref.dialect.allsign_list;
-//      	insert out_ref.dialect.funspecifier_list;
-//      	insert out_ref.dialect.shortlong_list;
-//      	insert out_ref.dialect.specifier_list;
-//      	insert out_ref.dialect.composed_list;
-//      	insert out_ref.dialect.enumerate_list;
-//      	insert out_ref.dialect.doublable_list;
-//      	insert out_ref.dialect.qualifier_list;
-//      	insert out_ref.dialect.storage_list;
-//      	insert out_ref.dialect.type_list;
-//      	insert out_ref.dialect.typeof_list;
-//      	insert out_ref.dialect.sizeof_list;
-//      	insert out_ref.dialect.identifier_list;
-
         // new dialect
         insert out_ref.dialect.map_identifier;
 }

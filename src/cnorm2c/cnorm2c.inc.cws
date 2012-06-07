@@ -22,40 +22,42 @@ declare function	cnorm2c(theNode : node);
 /////////////////////////// general dispatch template functions
 function	cnorm2c_Node<T>(theNode : node, thePrettyAst : reference)
 {
-	error("unkown node type " + T);
+	error("unknown node type " + T);
 }
 
 function	cnorm2c_Stmt<T>(theNode : node, thePrettyAst : reference)
 {
-	error("unkown node stmt type " + T);
+	error("unknown node stmt type " + T);
 }
 
 function	cnorm2c_Expr<T>(theNode : node, thePrettyAst : reference)
 {
-	error("unkown node expr type " + T);
+	error("unknown node expr type " + T);
 }
 
 function	cnorm2c_Ctype<T>(theNode : node, thePrettyAst : reference)
 {
-	error("unkown decl ctype type " + T);
+	error("unknown decl ctype type " + T);
 }
 /////////////////////////// top level dispatch function, any node could be call from here
 
 function	cnorm2c_Node<"__root_block__">(theNode : node, thePrettyAst : reference)
 {
 	local subBlock;
-	prettyPrint_NewListEndBy(thePrettyAst, subBlock);
-	foreach entry in theNode.block
-	{cnorm2c_Node<entry.type>(entry, subBlock);}
+        if ($getArraySize(theNode.block) > 0$ && existVariable(theNode.block#front.type))
+        {
+	        prettyPrint_NewListEndBy(thePrettyAst, subBlock);
+	        foreach entry in theNode.block
+	        {cnorm2c_Node<entry.type>(entry, subBlock);}
+        }
 }
 
 function	cnorm2c_Node<"__block__">(theNode : node, thePrettyAst : reference)
 {
 	local subBlock;
-	local size = getArraySize(theNode.block);
-	prettyPrint_NewBlock(thePrettyAst, subBlock, "{", "}", true, true);
-	foreach entry in theNode.block
-	{cnorm2c_Node<entry.type>(entry, subBlock);}
+        prettyPrint_NewBlock(thePrettyAst, subBlock, "{", "}", true, true);
+        foreach entry in theNode.block
+        {if (existVariable(entry.type) && entry.type != "") cnorm2c_Node<entry.type>(entry, subBlock);}
 }
 
 function	cnorm2c_Node<"__block_init__">(theNode : node, thePrettyAst : reference)
@@ -461,6 +463,9 @@ function	cnorm2c_CtypeBegin(theCtype : node, thePrettyAst : reference)
 	// __extension__ special case
 	if (existVariable(theCtype.attributes.extension))
 	{	cnorm2c_Node<theCtype.attributes.extension.type>(theCtype.attributes.extension, thePrettyAst);}
+	// extern, static, register, typedef 
+	if (existVariable(theCtype.storage) && theCtype.storage != "auto")
+	{prettyPrint_AddItem(thePrettyAst, theCtype.storage);}
 	// typeof
 	if (existVariable(theCtype.typeof))
 	{
@@ -476,9 +481,6 @@ function	cnorm2c_CtypeBegin(theCtype : node, thePrettyAst : reference)
 		else
 		{	cnorm2c_Node<theCtype.typeof.type>(theCtype.typeof, subexp);}
 	}
-	// extern, static, register, typedef 
-	if (existVariable(theCtype.storage) && theCtype.storage != "auto")
-	{prettyPrint_AddItem(thePrettyAst, theCtype.storage);}
 	// inline and virtual,explicit in C++
 	if (existVariable(theCtype.funspecifier) && theCtype.funspecifier != "auto")
 	{prettyPrint_AddItem(thePrettyAst, theCtype.funspecifier);}

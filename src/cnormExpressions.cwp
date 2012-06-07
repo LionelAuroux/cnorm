@@ -387,6 +387,7 @@ primary_expression(expr : node) ::=
 /**/	=> local right_expr;
 /**/	#check(cnormNode_CastExpr(expr, left_expr, right_expr))
 	type_name(left_expr):t
+        => cnormNode_unstrictClean(left_expr);
 	')' 
 	[ // normal cast
 		unary_expression(right_expr)
@@ -397,7 +398,26 @@ primary_expression(expr : node) ::=
 		'}'
 	]
 ]
-|// we clean artefact (LL parser)
+|
+        => cnormNode_unstrictClean(expr);
+/*
+                // UNSTRICT
+                => {
+                        if (expr#root.dialect.parsing_mode == "unstrict")
+                        {
+                                traceLine("AFTER CAST:" + toString(expr#root.unknown));
+                                local slotid = typeHandling_getid(expr);
+                                localref block_node = expr#root.block_ref[slotid];
+                                traceLine("AFTER CAST EXPR:" + toString(expr.left, true) + "\n last:" + expr#root.unknown#back);
+                                if (expr.left.name == expr#root.unknown#back)
+                                {
+                                        removeElement(expr#root.unknown, expr#root.unknown#back);
+                                        //block_node.unknown = "";
+                                }
+                        }
+                }
+                */
+// we clean artefact (LL parser)
 => clearVariable(expr);
 	'('
 /**/	#insert(expr.body)
@@ -421,7 +441,21 @@ primary_expression(expr : node) ::=
 /**/	=> local left_expr;
 /**/	=> local right_expr;
 /**/	#check(cnormNode_OffsetExpr(expr, left_expr, right_expr))
-	type_name(left_expr) ',' postfix_expression(right_expr)
+	type_name(left_expr) 
+        => cnormNode_unstrictClean(left_expr);
+        /*
+                // UNSTRICT
+                => {
+                        if (expr#root.dialect.parsing_mode == "unstrict")
+                        {
+                                local slotid = typeHandling_getid(expr);
+                                localref block_node = expr#root.block_ref[slotid];
+                                if (existVariable(block_node.unknown))
+                                { traceLine("BUILTIN EXPR:" + block_node.unknown);}
+                        }
+                }
+                */
+        ',' postfix_expression(right_expr)
 	')'
 ]
 ;
@@ -458,6 +492,7 @@ range_expression(expr : node) ::=
 */
 identifier(theNode : node) ::=
 	rootidentifier:sId
+        // TODO: add unknown
 /**/	#check(!findElement(sId, theNode#root.dialect.map_identifier))
 ;
 

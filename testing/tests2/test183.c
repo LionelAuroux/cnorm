@@ -55974,7 +55974,7 @@ typedef struct _VPB {
     struct _DEVICE_OBJECT *RealDevice;
     ULONG SerialNumber;
     ULONG ReferenceCount;
-    WCHAR VolumeLabel[(32 * sizeof(WCHAR)) / sizeof(WCHAR)];
+ //   WCHAR VolumeLabel[(32 * sizeof(WCHAR)) / sizeof(WCHAR)];
 } VPB, *PVPB;
 
 

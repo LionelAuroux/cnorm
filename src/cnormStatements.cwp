@@ -36,8 +36,10 @@ single_statement(theStmt : node) ::=
 */
 compound_statement(theBlock : node) ::=
 '{'
+        => traceLine("compound begin");
 /**/	#check(cnormNodeBlock(theBlock, true))
 	block_item_list(theBlock) 
+        => traceLine("compound end");
 '}'
 ;
 
@@ -56,20 +58,44 @@ block_item_list(theBlock : node) ::=
 line_of_code(theBlock : node) ::=
 /**/	#check(cnormNode_checkBlock(theBlock)) 
 [
+=>traceLine("isdecl?");
 	// declaration of variable
 	declaration(theBlock)
 	| // or code
+=>traceLine("isexpr?");
+        // if at minima one line of code was parsed
+        => {// unstrictCleanSwitchToExpr
+                if (theBlock#root.dialect.parsing_mode == "unstrict")
+                {
+                        traceLine("ARTEFACT:" + theBlock.block#back.name);
+                        local slotid = typeHandling_getid(theBlock);
+                        localref block_node = theBlock#root.block_ref[slotid];
+                        traceLine("ISEXPR:" + block_node.unknown);
+                        if (block_node.unknown != "")
+                        {if ($getArraySize(theBlock.block) > 0$) cnormNode_unstrictClean(theBlock.block#back); else cnormNode_unstrictClean(theBlock);}
+                        else
+                        {
+                                // special case, the last field in global unknown was collected by function_or_variable_identifier
+                                traceLine("special case : remove");
+                                removeLastElement(theBlock#root.unknown);
+                        }
+                }
+           }
+        => traceLine("switch to expression into block");
 => {
 	if (getArraySize(theBlock#root.block_ref) && existVariable(theBlock#root.block_ref#back) 
 		&& !existVariable(theBlock#root.block_ref#back.ref.type))
 	{	removeLastElement(theBlock#root.block_ref);}
 }
+        [
+        => removeLastElement(theBlock.block);
 /**/	#pushItem(theBlock.block)
 /**/	=> local lastNode;
 /**/	#check(cnormNodeBlock_GetLastNode(theBlock, lastNode))
 	single_statement(lastNode)
-	| //=>traceLine("unstrict:"+toString(theBlock#root, true)); 
-        unstrict(theBlock)
+        ]
+	//| //=>traceLine("unstrict:"+toString(theBlock#root, true)); 
+        //unstrict(theBlock) => traceLine("End lineofcode unstrict");
 ]
 ;
 
@@ -240,6 +266,6 @@ statement<"return">(theStmt : node) ::=
 /* C expression ended by ; */
 expression_statement(theStmt : node) ::=
 /**/	=> local expr;
-/**/	=> cnormNodeStmt_Expr(theStmt, expr);
+/**/	#check(cnormNodeStmt_Expr(theStmt, expr))
 	[expression(expr)]? ';'
 ;
