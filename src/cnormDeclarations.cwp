@@ -57,6 +57,8 @@ unstrict(theBlock : node) ::=
                                 #check(block_node.unknown == "") 
                                 =>traceLine("BREAK DECL NIANIA:" + peekChar() + " -- " + block_node.unknown);
                                 => removeLastElement(theBlock.block);
+                                => if ($getArraySize(theBlock#root.unknown) > 0$) traceLine(">>" + theBlock#root.unknown#back);
+                                => if ($getArraySize(theBlock#root.unknown) > 0$) removeLastElement(theBlock#root.unknown);
                                 #break
                |
                         // handle recursion
@@ -64,7 +66,7 @@ unstrict(theBlock : node) ::=
                         => insert theBlock#root.unknown[block_node.unknown] = block_node.unknown;
                         => block_node.unknown = "";
 	]+
-        => traceLine("END GUESSING:" + toString(theBlock, true));
+        => traceLine("END GUESSING:" + toString(theBlock, true) + ":" + peekChar());
         cdecl_end(theBlock)
         => traceLine("OUT UNSTRICT");
 ;
@@ -75,7 +77,7 @@ unstrict_forward(theNode : node) ::=
         => local slotid = typeHandling_getid(theNode);
         => localref block_node = theNode#root.block_ref[slotid];
         [
-                        => traceLine("unstrict FW SLOT:" + slotid);
+                        => traceLine("unstrict FW SLOT:" + slotid + ":" + block_node.unknown);
                         =>traceLine("unstrict FW retry with unknown:" + toString(theNode#root.unknown, true));
         		[ declaration_specifier(theNode)]+  =>traceLine("NIA");  declarator(theNode)
                         !![';']
@@ -90,6 +92,7 @@ unstrict_forward(theNode : node) ::=
                                 #check(block_node.unknown == "") 
                                 =>traceLine("BREAK FW DECL NIANIA:" + peekChar() + " -- " + block_node.unknown);
                                 => removeLastElement(theNode.block);
+                                => removeLastElement(theNode#root.unknown);
                                 #break
                |
                         // handle recursion
@@ -169,8 +172,8 @@ cdecl_end(theBlock : node) ::=
 /**/	        => local lastNode;
 /**/	        #check(cnormNodeBlock_GetLastNode(theBlock, lastNode))
                                
-// function?
 	  [ 
+// function?
 	  // try implementation
 	   #insert(lastNode.body)
 	   compound_statement(lastNode.body)
@@ -190,6 +193,7 @@ cdecl_begin(theBlock : node) ::=
 	[declaration_specifier(firstNode)]*
 	[init_declarator(firstNode)]?
 		[ ','
+                        => cnormNode_unstrictClean(firstNode);
 // use case : T a,b;
 // copy the specification of 'T' as type of 'b'
 /**/			#pushItem(theBlock.block)
@@ -253,7 +257,6 @@ declaration_specifier(theDecl : node) ::=
                         */
                         => cnormNode_unstrictSet(theDecl, id);
                         #check(false)
-                
                ]
 	]
 ]
@@ -382,6 +385,7 @@ init_declarator(theDecl : node) ::=
         =>traceLine("initdecl after declarator");
 // bitfield or constructor(cxxnorm) 
 	[ ':'
+        => cnormNode_unstrictClean(theDecl);
 /**/	#check(theDecl.ctype.identifier != "auto")
 /**/	#continue
 /**/	#insert(theDecl.colon_expr) 
@@ -397,12 +401,14 @@ init_declarator(theDecl : node) ::=
 	]*
 // default value
 	['=' #continue(sErr, "bad token after '=', unexpected " + peekChar())
-
+        => traceLine("ASSS STATE");
+        => cnormNode_unstrictClean(theDecl);
 
 /**/	#insert(theDecl.assign_expr) 
 /**/	=> local init;
 /**/	#check(cnormNodeDecl_SetAssignExpr(theDecl, init))
-	initializer(init) 
+	initializer(init):nini 
+        => traceLine("readed assign:" + nini);
 	]?
 // CHECK SOME POST CONSTRAINTS
 [ 	
@@ -412,8 +418,10 @@ init_declarator(theDecl : node) ::=
 	|
 // other case, we have finish
 /**/	=> local empty;
+        => traceLine("not a typedef:" + peekChar());
 ]
-/**/	!![','|';'|'{'] // end of init_declarator
+/**/	!![','|';'|'{'|'}'] // end of init_declarator
+        => cnormNode_unstrictClean(theDecl);
 /**/[
 // if we are in a __composed__, check with a lookahead 
 /**/	#check(cnormNode_checkInComposed(theDecl))
@@ -622,6 +630,7 @@ pointer(theDecl : node) ::=
 // const/volatile in the pointer level
 /**/		=> local ctype;
 /**/		#check(cnormNodeDecl_GetCtype(theDecl, ctype))
+=>traceLine("ct:" + toString(ctype, true));
 		type_qualifier(ctype)
 	|
 // other *

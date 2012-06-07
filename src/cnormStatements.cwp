@@ -60,10 +60,15 @@ line_of_code(theBlock : node) ::=
 [
 =>traceLine("isdecl?");
 	// declaration of variable
-	declaration(theBlock)
+	[declaration(theBlock) //=> traceLine("Fin declaration normal in lineofcode");
+	        | =>traceLine("unstrict lineofcode:"+toString(theBlock#root.unknown, true)); 
+                unstrict(theBlock) => traceLine("End lineofcode unstrict");
+        ]
 	| // or code
-=>traceLine("isexpr?");
+=>traceLine("isexpr?:" + peekChar());
+=> cnormNode_unstrictClean(theBlock);
         // if at minima one line of code was parsed
+        /*
         => {// unstrictCleanSwitchToExpr
                 if (theBlock#root.dialect.parsing_mode == "unstrict")
                 {
@@ -81,21 +86,23 @@ line_of_code(theBlock : node) ::=
                         }
                 }
            }
+           */
         => traceLine("switch to expression into block");
-=> {
-	if (getArraySize(theBlock#root.block_ref) && existVariable(theBlock#root.block_ref#back) 
+=> {// drop artefact in block_ref hierarchy
+	if ($getArraySize(theBlock#root.block_ref) > 0$ && existVariable(theBlock#root.block_ref#back) 
 		&& !existVariable(theBlock#root.block_ref#back.ref.type))
 	{	removeLastElement(theBlock#root.block_ref);}
 }
         [
-        => removeLastElement(theBlock.block);
+        => traceLine("TRY EXPR");
+        //=> removeLastElement(theBlock.block);
 /**/	#pushItem(theBlock.block)
 /**/	=> local lastNode;
 /**/	#check(cnormNodeBlock_GetLastNode(theBlock, lastNode))
+        => traceLine("SINGLE STMT:" + lastNode + " -> " + peekChar());
 	single_statement(lastNode)
+        => traceLine("OK SINGLE STMT");
         ]
-	//| //=>traceLine("unstrict:"+toString(theBlock#root, true)); 
-        //unstrict(theBlock) => traceLine("End lineofcode unstrict");
 ]
 ;
 

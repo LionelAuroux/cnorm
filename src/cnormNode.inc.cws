@@ -351,6 +351,7 @@ function cnormNode_unstrictClean(local_node : node)
         // RESET
         if (existVariable(block_node.unknown))
         {
+                traceLine("in ctx:" + block_node.unknown);
                 if (existVariable(local_node#root.unknown) && findElement(block_node.unknown, local_node#root.unknown))
                 {
                         traceLine("CLEAN:" + block_node.unknown);
@@ -375,13 +376,16 @@ function cnormNode_unstrictSet(local_node : node, id : value)
                 traceLine("FVI SLOT:" + id);
                 if (existVariable(block_node.unknown) && block_node.unknown != "")
                 {
+                        /*
                         if (local_node.name == block_node.unknown)
                         {
                                 // for function parameter we handle the localization of unknown here
                                 traceLine("REAFFECT");
-                                insert local_node.ctype.unknown[block_node.unknown] = block_node.unknown;
+                          //      insert local_node.ctype.unknown[block_node.unknown] = block_node.unknown;
                         }
+                        
                         traceLine("2 or more fvid in this level:" + block_node.unknown + " with " + id);
+                        */
                 }
                 insert block_node.unknown = id;
                 traceLine(">>:" + id);
@@ -396,6 +400,7 @@ function cnormNode_DeclAsField(local_node : reference)
 	if (!cnormNode_checkDecl(local_node))
 	{return false;}
 	local_node.type = "__field_decl__";
+        cnormNode_unstrictClean(local_node);
 	return true;
 }
 
@@ -406,44 +411,7 @@ function cnormNode_DeclAsParam(local_node : reference)
 	if (!cnormNode_checkDecl(local_node))
 	{return false;}
 	local_node.type = "__param_decl__";
-// TRY UNSTRICT
-// TODO: cf other DeclAs*
-	// in unstrict, the last unknown is the name
-        //local slotid = typeHandling_getid(local_node);
-        //localref block_node = local_node#root.block_ref[slotid];
-        //traceLine("autre cas pourrie:" + block_node.unknown);
-        /*
-	if (existVariable(local_node.ctype.unknown) && !existVariable(local_node.name))
-	{
-        traceLine("cas pourrie param:" + local_node.ctype.unknown#back);
-
-
-		insert local_node.name = local_node.ctype.unknown#back;
-                if (findElement(local_node.name, local_node.ctype.unknown))
-                {removeElement(local_node.ctype.unknown, local_node.name);}
-                if (existVariable(local_node#root.unknown) && findElement(local_node.name, local_node#root.unknown))
-                { 
-                        traceLine("REMOVE1:" + local_node.name);
-                        removeElement(local_node#root.unknown, local_node.name);
-                }
-		if ($getArraySize(local_node.ctype.unknown) == 0$)
-		{	removeVariable(local_node.ctype.unknown);}
-
-		//if ($getArraySize(local_node#root.unknown) == 0$)
-		//{	removeVariable(local_node#root.unknown);}
-	}
-
-        */
         cnormNode_unstrictClean(local_node);
-        // RESET
-        /*
-        if (findElement(block_node.unknown, local_node#root.unknown))
-        {
-                traceLine("REMOVE2:" + block_node.unknown);
-                removeElement(local_node#root.unknown, block_node.unknown);
-        }
-        if (existVariable(block_node.unknown)) block_node.unknown = "";
-        */
 	return true;
 }
 
@@ -595,10 +563,12 @@ function cnormNodeDecl_SetSpecifier(local_ctype : node, specifier : value)
 	// if the specifier is already set, allow only doublable specifier to be added (long)
 	if (local_ctype.specifier != "auto")
 	{
-		if (local_ctype.specifier != "" && local_ctype.specifier != specifier && !cnormNode_checkTypeOfId(local_ctype, specifier, "specifier_size_size"))
-		{ error(specifier + " already defined and != of " + local_ctype.specifier);}
-		local_ctype.specifier += " " + specifier;
-		return true;
+		if (local_ctype.specifier != "" && /*local_ctype.specifier != specifier && !*/cnormNode_checkTypeOfId(local_ctype, specifier, "specifier_size_size"))
+		//{ error(specifier + " already defined and != of " + local_ctype.specifier);}
+                {
+		        local_ctype.specifier += " " + specifier;
+		        return true;
+                }
 	}
 	// manage composed/enumerate specifier
 	if (cnormNode_checkTypeOfId(local_ctype, specifier, "specifier_block"))
@@ -717,8 +687,6 @@ function cnormNodeDecl_SetQualifier(local_ctype : node, qualifier : value)
 	{return false;}
 	if (!cnormNode_checkTypeOfId(local_ctype, qualifier, "qualifier"))
 	{error(qualifier + " is not a qualifier");}
-	if (local_ctype.qualifier != "auto" && local_ctype.qualifier != qualifier)
-	{error("already defined qualifier:" + qualifier + " in old:" + local_ctype.qualifier);}
 	local_ctype.qualifier = qualifier;
 	return true;
 }
