@@ -32,105 +32,71 @@
 declaration(theBlock : node) ::= [asm_expr(theBlock) | cdecl(theBlock)]
 ;
 
-/*
-	fucking unstrict declaration
-*/
+// fucking unstrict declaration
 unstrict(theBlock : node) ::=
         #check(theBlock#root.dialect.parsing_mode == "unstrict")
-        //=> traceLine("IN UNSTRICT");
         => local slotid = typeHandling_getid(theBlock);
         => localref block_node = theBlock#root.block_ref[slotid];
         [
-          //              => traceLine("unstrict SLOT:" + slotid);
-            //            =>traceLine("unstrict retry with unknown:" + toString(theBlock#root.unknown, true));
                         => removeLastElement(theBlock.block);
         		cdecl_begin(theBlock)
                         !![';'|'{']
-              //          => traceLine("after decl unstrict:" + peekChar());
                         // if at minima one line of code was parsed
                         => if ($getArraySize(theBlock.block) > 0$) cnormNode_unstrictClean(theBlock.block#back); else cnormNode_unstrictClean(theBlock);
-                //        => traceLine("afterclean:<" + block_node.unknown + ">");
                         // only once in normal case
                         #break
                |        
                         // handle end of recursion
-                                #check(block_node.unknown == "") 
-                                =>traceLine("BREAK DECL NIANIA:" + peekChar() + " -- " + block_node.unknown);
-                                => removeLastElement(theBlock.block);
-                                //=> if ($getArraySize(theBlock#root.unknown) > 0$) traceLine("DECL NIANIA>>" + theBlock#root.unknown#back);
-                                //=> if ($getArraySize(theBlock#root.unknown) > 0$) removeLastElement(theBlock#root.unknown);
-                                #break
+                        #check(block_node.unknown == "") 
+                        => removeLastElement(theBlock.block);
+                        #break
                |
                         // handle recursion
-                        =>traceLine("unstrict echec retry:" + block_node.unknown);
                         => insert theBlock#root.unknown[block_node.unknown] = block_node.unknown;
                         => block_node.unknown = "";
 	]+
-       // => traceLine("END GUESSING:" + toString(theBlock, true) + ":" + peekChar());
         cdecl_end(theBlock)
-      //  => traceLine("OUT UNSTRICT");
 ;
 
+// fucking unstrict forward declaration
 unstrict_forward(theNode : node) ::=
         #check(theNode#root.dialect.parsing_mode == "unstrict")
-        => traceLine("IN FW UNSTRICT");
         => local slotid = typeHandling_getid(theNode);
         => localref block_node = theNode#root.block_ref[slotid];
         [
-                        => traceLine("unstrict FW SLOT:" + slotid + ":" + block_node.unknown);
-                        =>traceLine("unstrict FW retry with unknown:" + toString(theNode#root.unknown, true));
-        		[ declaration_specifier(theNode)]+  =>traceLine("NIA");  declarator(theNode)
+        		[ declaration_specifier(theNode)]+ declarator(theNode)
                         !![';']
-                        => traceLine("after decl FW unstrict:" + peekChar());
                         => cnormNode_unstrictClean(theNode);
-                        => traceLine("afterclean FW:<" + block_node.unknown + ">");
                         // only once in normal case
                         #break
                |        
                         // handle end of recursion
-                                #check(block_node.unknown == "") 
-                                =>traceLine("BREAK FW DECL NIANIA:" + peekChar() + " -- " + block_node.unknown);
-                                => removeLastElement(theNode.block);
-                                => removeLastElement(theNode#root.unknown);
-                                #break
+                        #check(block_node.unknown == "") 
+                        => removeLastElement(theNode.block);
+                        => removeLastElement(theNode#root.unknown);
+                        #break
                |
                         // handle recursion
-                        =>traceLine("unstrict FW echec retry:" + block_node.unknown);
                         => insert theNode#root.unknown[block_node.unknown] = block_node.unknown;
                         => block_node.unknown = "";
 	]+
-        => traceLine("END FW GUESSING:" + toString(theNode, true));
-        => traceLine("OUT UNSTRICT FW");
 ;
-/*
-	fucking unstrict declaration_specifier for type_name
-*/
+
+// fucking unstrict declaration_specifier for type_name
 unstrict_typename(theNode : node) ::=
         #check(theNode#root.dialect.parsing_mode == "unstrict")
         => local slotid = typeHandling_getid(theNode);
         => localref block_node = theNode#root.block_ref[slotid];
-        	
-                        => traceLine("TN SLOT:" + slotid);
-                 //       => if (existVariable(block_node.unknown)) block_node.unknown = "";
                [
-                =>traceLine("unstrict_typename retry with unknown:" + toString(theNode#root.unknown, true));
-                =>traceLine("unstrict_typename current block:" + toString(theNode, true));
-                =>traceLine("Here:" + peekChar());
-        		[ declaration_specifier(theNode)]+  =>traceLine("NIA");  declarator(theNode)
+        		[ declaration_specifier(theNode)]+ declarator(theNode)
                         !![','|')']
-                        =>traceLine("AIN");
                         => cnormNode_unstrictClean(theNode);
-                        => traceLine("arret unk:" + block_node.unknown + ":" + peekChar());
-                        | 
+               | 
                         // handling end of recursion
-                                #check(block_node.unknown == "") 
-                                =>traceLine("BREAK NIANIA:" + peekChar() + " -- " + block_node.unknown);
-                                #break
-                        | 
-                        //////////???????????
-                       // =>traceLine("unstrict_typename echec retry:" + block_node.unknown);
+                        #check(block_node.unknown == "") 
+                        #break
+               | 
                         // handling recursion
-                        =>traceLine("unstrict_typename retry:" + toString(block_node.unknown));
                         => insert theNode#root.unknown[block_node.unknown] = block_node.unknown;
                         => block_node.unknown = "";
 	       ]+
@@ -151,6 +117,7 @@ asm_expr(theBlock : node) ::=
 	|'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}' [';']?
 	]
 ]:raw_data
+
 // create a new node in the AST, reference it, and set it as RAW
 /**/	#pushItem(theBlock.block)
 /**/	=> local firstNode;
@@ -302,9 +269,10 @@ composed_fields(theCtype : node) ::=
 /**/	=> local composed_body;
 /**/	#check(cnormNodeDecl_GetBody(theCtype, composed_body))
 /**/	#check(cnormNodeBlock(composed_body, true))
-    [	declaration(composed_body) | => traceLine("try unstrict composed!!!:" + toString(composed_body, true));
-    => traceLine("blabla:" + composed_body#root.dialect.parsing_mode);
-        unstrict_forward(composed_body.block#back) => traceLine("End composed unstrict");]* 
+    [	declaration(composed_body) |
+        // TODO: not supported
+        unstrict(composed_body)
+    ]*
   '}'
 // map the fields in the block
 /**/ #check(cnormNode_MapFieldOrParam(composed_body))
