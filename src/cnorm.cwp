@@ -79,7 +79,7 @@ translation_unit ::=
 // initialize the context to reference the root
 	declaration(this) | unstrict(this)
 ]*
-/**/	#continue(sError, "bad token at end of file, unexpected " + peekChar()) #empty
+/**/	#continue(sError, "bad token at end of file, unexpected <" + peekChar() + ">") #empty
 #catch(sError)
 | #check(cnormLogError(this, sError))
 ;

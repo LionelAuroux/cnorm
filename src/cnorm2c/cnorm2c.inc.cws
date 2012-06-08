@@ -556,17 +556,17 @@ function	cnorm2c_CtypeBegin(theCtype : node, thePrettyAst : reference)
 	{
 		local listEnum;
 		prettyPrint_NewBlock(thePrettyAst, listEnum, "{", "}", true, true);
-		foreach item in theCtype.enum
+		foreach item in theCtype.enum.map
 		{
 			local oneEnum;
 			prettyPrint_NewListEndBy(listEnum, oneEnum, ",", true);
 			// if contain an expression
-			if (existVariable(item.type))
+			if (existVariable(theCtype.enum.block[item].type))
 			{
 				local exprEnum;
 				prettyPrint_NewListSeparatedBy(oneEnum, exprEnum, " = ");
 				prettyPrint_AddItem(exprEnum, item.key());
-				cnorm2c_Node<item.type>(item, exprEnum);
+				cnorm2c_Node<theCtype.enum.block[item].type>(theCtype.enum.block[item], exprEnum);
 			}
 			else
 				prettyPrint_AddItem(oneEnum, item.key());

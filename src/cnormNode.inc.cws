@@ -499,7 +499,7 @@ function cnormNodeDecl_SetSigned(local_ctype : node, data : value)
         if (!cnormNode_checkTypeGroupOfId(local_ctype, data, "sign"))
         {error(data + " is not a sign flag");}
         if (cnormNode_checkTypeOfId(local_ctype, data, "sign_unsigned"))
-	{insert local_ctype.unsigned;}
+	{insert local_ctype.unsigned = true;}
 	return true;
 }
 
@@ -585,9 +585,15 @@ function cnormNodeDecl_MapEnum(local_ctype : node, key : value, out_ref : refere
 	{return false;}
 	if (local_ctype.cdecl_type != "__enum__")
 	{error("local_ctype is not a enum type");}
-	if (!findElement(key, local_ctype.enum))
-	{insert local_ctype.enum[key] = true;}
-	ref out_ref = local_ctype.enum[key];
+        local i = getArraySize(local_ctype.enum.block);
+	if (!findElement(key, local_ctype.enum.map))
+	{
+                insert local_ctype.enum.map[key] = i;
+                pushItem local_ctype.enum.block;
+        }
+        else
+                i = local_ctype.enum.map[key];
+	ref out_ref = local_ctype.enum.block#[$i$];
 	return true;
 }
 

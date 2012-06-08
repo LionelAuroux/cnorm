@@ -260,8 +260,9 @@ init_declarator(theDecl : node) ::=
 // bitfield or constructor(cxxnorm) 
         [ ':'
 /**/    => cnormNode_unstrictClean(theDecl);
-/**/    #check(theDecl.ctype.identifier != "auto")
-/**/    #continue(sErr, "Failed after : in declaration")
+// force type int only qualified/specified variable
+/**/    => if (theDecl.ctype.identifier == "auto") theDecl.ctype.identifier = "int";
+/**///    #continue(sErr, "Failed after : in declaration")
 /**/    #insert(theDecl.colon_expr) 
 /**/    => local colon;
 /**/    #check(cnormNodeDecl_SetColonExpr(theDecl, colon))
@@ -290,14 +291,12 @@ init_declarator(theDecl : node) ::=
 /**/	=> local empty;
 ]
 /**/    !![','|';'|'{'|'}'] // end of init_declarator
-        => cnormNode_unstrictClean(theDecl);
+/**/    => cnormNode_unstrictClean(theDecl);
 /**/    [
 // if we are in a __composed__
 /**/    #check(cnormNode_checkInComposed(theDecl))
 /**/    #check(cnormNode_DeclAsField(theDecl))
 /**/    ]?
-// disallow empty decl i.e "foobar;" in local scope, pass in global scope or for non empty decl
-/**/    #check(cnormNode_checkEmptyDeclGlobScope(theDecl))
 ;
 
 /*
@@ -395,42 +394,31 @@ direct_absolute_declarator(theDecl : node) ::=
 // array
         '[' 
 /**/    => cnormNode_unstrictClean(theDecl);
-/**/    => local bSpecialCase = false;
 /**/    => local aryDim;
-/**/    => local opt_ctype;
+/**/    #check(cnormNodeDecl_AddDim(ctype, aryDim))
+/**/    => pushItem ctype.listqual;
+/**/    => localref opt_ctype = ctype.listqual#back;
 /**/    => insert opt_ctype.type = "__ctype__";
 /**/    => insert opt_ctype.qualifier = "auto";
-/**/    => insert opt_ctype.storage = "auto";
-/**/    #check(cnormNodeDecl_AddDim(ctype, aryDim))
+/**/     => insert opt_ctype.storage = "auto";
 /* c99 static in direct absolute declarator */
         [
                 "static"
-/**/            => bSpecialCase = true;
         ]?:store1
-        [#check(theDecl#root.dialect.parsing_mode != "unstrict")
+        [
                 type_qualifier(opt_ctype)
-/**/            => bSpecialCase = true;
         ]*
         [
                 "static"
-/**/            => bSpecialCase = true;
         ]?:store2
 /* c99 end */
         [
                 assignment_expression(aryDim)
 	        | '*' 
-/**/             => bSpecialCase = true;
 /**/            => insert opt_ctype.star = true;
         ]?
 /**/    => local store = (store1 != "") ? store1 : (store2 != "") ? store2 : "";
 /**/    => if (store) cnormNodeDecl_SetStorage(opt_ctype, store);
-/**/    => {
-/**/            if (bSpecialCase)
-/**/            {
-/**/	                insert aryDim.ctype;
-/**/                    setall aryDim.ctype = opt_ctype;
-/**/            }
-/**/       }
         ']'
 ]+
 | [
