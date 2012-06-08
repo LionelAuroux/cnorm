@@ -24,13 +24,620 @@
 //                           D E C L A R A T I O N S
 //----------------------------------------------------------------------------
 
-
 /*
   Base of declarations : assembly expressions or C declarations
 */
 // EXTERN
 declaration(theBlock : node) ::= [asm_expr(theBlock) | cdecl(theBlock)]
 ;
+
+/*
+  GNU C assembly block at top level
+*/
+asm_expr(theBlock : node) ::= 
+        [
+                #readIdentifier:asm_key
+/**/            #check(cnormNode_checkTypeOfId(theBlock, asm_key, "asm"))
+                [
+                        #readIdentifier:asm_quali
+/**/                    #check(cnormNode_checkTypeOfId(theBlock, asm_quali, "qualifier"))
+                ]?
+                [
+                        '(' #continue(sError, "bad assembler expression after '('") [dummy_with_paren]* ')' [';']?
+                       |'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}' [';']?
+                ]
+        ]:raw_data
+// create a new node in the AST, reference it, and set it as RAW
+/**/    #pushItem(theBlock.block)
+/**/    => local firstNode;
+/**/    #check(cnormNodeBlock_GetLastNode(theBlock, firstNode))
+/**/    #check(cnormNode_Raw(firstNode, raw_data))
+;
+
+/*
+  One C declaration,
+  in two part since unstrict mode (cdecl_begin only used in unstrict declaration)
+*/
+cdecl(theBlock : node) ::=
+        cdecl_begin(theBlock)
+        cdecl_end(theBlock)
+;
+
+// first part of a declaration
+cdecl_begin(theBlock : node) ::=
+// create a new node in the AST, reference it, and set it as Decl
+/**/    #pushItem(theBlock.block)
+/**/    => local firstNode;
+/**/    #check(cnormNodeBlock_GetLastNode(theBlock, firstNode))
+/**/    #check(cnormNodeDecl(firstNode))
+        [declaration_specifier(firstNode)]*
+        [init_declarator(firstNode)]?
+        [ ','
+/**/            => cnormNode_unstrictClean(firstNode);
+// use case : T a,b;
+// copy the specification of 'T' as type of 'b'
+/**/            #pushItem(theBlock.block)
+/**/            => local nextNode;
+/**/            #check(cnormNodeBlock_GetLastNode(theBlock, nextNode))
+/**/            #check(cnormNodeDecl(nextNode))
+/**/            #check(cnormNodeDecl_CopyDecl(nextNode, firstNode))
+                init_declarator(nextNode)
+        ]*
+;
+
+// last part of a declaration
+cdecl_end(theBlock : node) ::=
+/**/    => local lastNode;
+/**/    #check(cnormNodeBlock_GetLastNode(theBlock, lastNode))
+        [ 
+                // function?
+/**/            #check(cnormNode_checkIsFuncDeclaration(lastNode))
+                // try implementation
+/**/            #insert(lastNode.body)
+                compound_statement(lastNode.body)
+                |
+                ';'
+        ]
+;
+
+/*
+  Here all that could be put at the left of a C declaration
+*/
+declaration_specifier(theDecl : node) ::=
+// get a reference on the Ctype part of the Decl
+/**/    => local ctype;
+/**/    #check(cnormNodeDecl_GetCtype(theDecl, ctype))
+[
+        #readIdentifier:id
+/**/    #check(cnormNodeDecl_Set(ctype, id))
+        // follow
+        [
+/**/            #check(cnormNode_checkTypeOfId(ctype, id, "specifier_block"))
+                composed_type_specifier(ctype)
+                | 
+/**/            #check(cnormNode_checkTypeOfId(ctype, id, "specifier_enum"))
+                enum_specifier(ctype)
+                | 
+/**/            #check(cnormNode_checkTypeOfId(ctype, id, "typeof"))
+                typeof_expr(ctype)
+                | 
+/**/            #check(cnormNode_checkTypeOfId(ctype, id, "asm"))
+                asm_decl_follow(ctype, id)
+                | 
+/**/            #check(cnormNode_checkTypeOfId(ctype, id, "attribute"))
+                attr_decl_follow(ctype, id)
+        ]?
+        | typedef_name(ctype)
+// TRY UNSTRICT GRAMMAR MODE 
+        |[ #check(theDecl#root.dialect.parsing_mode == "unstrict")
+                #readIdentifier:id
+                // not a special word
+/**/            #check(!cnormNode_checkTypeGroupOfId(ctype, id, ""))
+/**/            [
+/**/                    #check(theDecl#root.unknown[id])
+/**/                    // we store in local
+/**/                    => insert ctype.unknown[id] = id;
+/**/            |       // store in unknown and retry
+/**/                    => cnormNode_unstrictSet(theDecl, id);
+/**/                    #check(false)
+/**/            ]
+	]
+]
+;
+
+/*
+  Type qualifier :
+  -const : can't be modify, symbol are store in .rodata
+  -volatile : fetch/store the data from memory after/before each modification 
+  -attributes/special specifiers
+*/
+type_qualifier(theCtype : node) ::= 
+	#readIdentifier:qualifier
+/**/    #check(cnormNode_checkTypeOfId(theCtype, qualifier, "qualifier"))        
+/**/	#check(cnormNodeDecl_SetQualifier(theCtype, qualifier))
+	|
+/**/	=> local attr;
+	attribute_decl(attr, theCtype)
+/**/	#check(cnormNodeDecl_SetDeclSpecifierAttribute(theCtype, attr))
+;
+
+/*
+  Composed: struct, union, ...
+*/
+name_of_composed_type(theCtype : node) ::= identifier(theCtype)
+;
+composed_type_specifier(theCtype : node) ::=
+	[
+/**/		=> local attr;
+		attribute_decl(attr, theCtype)
+/**/		#check(cnormNodeDecl_SetDeclComposedAttribute(theCtype, attr))
+	]?
+	[ 
+		name_of_composed_type(theCtype):id
+/**/		#check(cnormNodeDecl_SetIdentifier(theCtype, id))
+	]?
+	[ 
+		composed_fields(theCtype)
+	]?
+;
+
+/*
+  Composed fields
+*/
+composed_fields(theCtype : node) ::= 
+        '{' 
+/**/    => local composed_body;
+/**/    #check(cnormNodeDecl_GetBody(theCtype, composed_body))
+/**/    #check(cnormNodeBlock(composed_body, true))
+        [       
+                declaration(composed_body) 
+                |
+                // TODO: not fully supported
+                unstrict(composed_body)
+        ]*
+        '}'
+// map the fields in the block
+/**/    #check(cnormNode_MapFieldOrParam(composed_body))
+;
+
+/*
+  Enum
+*/
+enum_name(theCtype : node) ::= identifier(theCtype)
+;
+enum_specifier(theCtype : node) ::=
+[ 
+        enum_name(theCtype):id
+/**/    #check(cnormNodeDecl_SetIdentifier(theCtype, id))
+]?
+[ '{' [enumerator_list(theCtype)]? '}' ]?
+;
+
+/*
+  Enumerator list
+*/
+enumerator_list(theCtype : node) ::= enumerator(theCtype) [ ',' #continue(sError, "bad enumerator_list after ','") [ enumerator(theCtype) ]? ]*
+;
+
+/*
+  Enumerator : item in enum
+*/
+enumerator(theCtype : node) ::= 
+        identifier(theCtype):id
+/**/    => local expr;
+/**/    #check(cnormNodeDecl_MapEnum(theCtype, id, expr))
+        [ '=' #continue(sError, "bad constant expression after '='") constant_expression(expr)  ]?
+;
+
+/*
+  Typedef name : just an identifier that is previously defined as a type
+*/
+typedef_name(theCtype : node) ::= 
+        identifier(theCtype):id
+/**/    #check(cnormNodeDecl_SetTypedefName(theCtype, id))
+;
+
+/*
+  Typeof: we use the type of the expression as type for a declaration
+*/
+typeof_expr(theCtype : node) ::=
+        '(' #continue(sError, "bad type_name or expression after '('")
+/**/    => local local_node;
+/**/    #check(cnormNode_TypeofExpr(theCtype, local_node))
+        [
+                type_name(local_node) !!')'
+                | 
+                expression(local_node)
+        ]
+        ')'
+;
+
+/*
+  Initialisation of the variable
+*/
+init_declarator(theDecl : node) ::=
+        declarator(theDecl)
+// bitfield or constructor(cxxnorm) 
+        [ ':'
+/**/    => cnormNode_unstrictClean(theDecl);
+/**/    #check(theDecl.ctype.identifier != "auto")
+/**/    #continue(sErr, "Failed after : in declaration")
+/**/    #insert(theDecl.colon_expr) 
+/**/    => local colon;
+/**/    #check(cnormNodeDecl_SetColonExpr(theDecl, colon))
+        constant_expression(colon)
+        ]?
+// c99 attribut 
+        [ 
+/**/    => local attr;
+        attribute_decl(attr, theDecl)
+/**/    #check(cnormNodeDecl_SetDeclarationAttribute(theDecl, attr))
+        ]*
+// default value
+        ['=' #continue(sErr, "bad token after '=', unexpected " + peekChar())
+/**/    => cnormNode_unstrictClean(theDecl);
+/**/    #insert(theDecl.assign_expr) 
+/**/    => local init;
+/**/    #check(cnormNodeDecl_SetAssignExpr(theDecl, init))
+        initializer(init)
+        ]?
+// CHECK SOME POST CONSTRAINTS
+[
+// typedef?
+        #check(cnormNode_checkAndRegisterTypedef(theDecl))
+        |
+// other case, we have finish
+/**/	=> local empty;
+]
+/**/    !![','|';'|'{'|'}'] // end of init_declarator
+        => cnormNode_unstrictClean(theDecl);
+/**/    [
+// if we are in a __composed__
+/**/    #check(cnormNode_checkInComposed(theDecl))
+/**/    #check(cnormNode_DeclAsField(theDecl))
+/**/    ]?
+// disallow empty decl i.e "foobar;" in local scope, pass in global scope or for non empty decl
+/**/    #check(cnormNode_checkEmptyDeclGlobScope(theDecl))
+;
+
+/*
+  Attributes
+*/
+attribute_decl(theNode : node, theRef : node) ::=
+[
+        #readIdentifier:attr 
+/**/    #check(cnormNode_checkTypeOfId(theRef, attr, "attribute"))
+        '(' #continue(sError, "bad attribute expression after '('") [dummy_with_paren]* ')'
+        | #readIdentifier:asm_key
+/**/    #check(cnormNode_checkTypeOfId(theRef, asm_key, "asm"))
+                ['(' #continue(sError, "bad assembler expression after '('") [dummy_with_paren]* ')'
+                |'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}'
+                ]
+        | #readIdentifier:{"__extension__"}
+]:raw_data
+/**/    #check(cnormNode_Raw(theNode, raw_data))
+;
+
+asm_decl_follow(theCtype : node, id : value) ::=
+/**/    => local attr;
+                ['(' #continue(sError, "bad assembler expression after '('") [dummy_with_paren]* ')'
+                |'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}']:raw_data
+/**/    #check(cnormNode_Raw(attr, id + raw_data))
+/**/    #check(cnormNodeDecl_SetDeclSpecifierAttribute(theCtype, attr))
+;
+
+attr_decl_follow(theCtype : node, id : value) ::=
+        => local attr;
+                ['(' #continue(sError, "bad attribute expression after '('") [dummy_with_paren]* ')']:raw_data
+/**/    #check(cnormNode_Raw(attr, id + raw_data))
+/**/    #check(cnormNodeDecl_SetDeclSpecifierAttribute(theCtype, attr))
+;
+
+/*
+  Declarator : main part of all declaration
+*/
+declarator(theDecl : node) ::=  [ pointer(theDecl) ]? absolute_declarator(theDecl)
+;
+
+// trivial
+function_or_variable_identifier(theDecl : node) ::=
+        identifier(theDecl):id
+/**/    #check(cnormNodeDecl_SetName(theDecl, id))
+;
+
+/*
+  Absolute declarator : a very complex rule, able to represent simple variable, function pointer, array
+*/
+absolute_declarator(theDecl : node) ::=
+// take a reference of the current node for dereferencing
+/**/    => localref deref = theDecl;
+[ 
+        [
+//      function pointer
+        '(' 
+                #check(cnormNodeDecl_AddFuncRef(theDecl))
+                [
+// const/volatile in the function pointer level
+// TODO: see test179.c. how to understand: void (__cdecl func)(void)
+/**/                    => local ctype;
+/**/                    #check(cnormNodeDecl_GetCtype(theDecl, ctype))
+                        type_qualifier(ctype)
+                ]?
+                [
+                        pointer(theDecl)
+                ]?
+// after a pointer, reference the inside part
+/**/            #check(cnormNodeDecl_DerefAll(theDecl, deref)) 
+                declarator(theDecl)
+        ')'
+        ]
+        |
+        [
+// could be empty in cast or function param list
+        function_or_variable_identifier(theDecl)
+        ]?
+]
+// case when the decl is empty
+//#check(theDecl.type == "__decl__" && existVariable(theDecl.name))
+        [ 
+// array definition or parameter list for function
+        direct_absolute_declarator(deref) 
+        ]?
+;
+
+/*
+  Direct absolute declarator : for array definition or function parameter
+*/
+direct_absolute_declarator(theDecl : node) ::=
+/**/    => local ctype;
+/**/    #check(cnormNodeDecl_GetCtype(theDecl, ctype))
+[
+// array
+        '[' 
+/**/    => cnormNode_unstrictClean(theDecl);
+/**/    => local bSpecialCase = false;
+/**/    => local aryDim;
+/**/    => local opt_ctype;
+/**/    => insert opt_ctype.type = "__ctype__";
+/**/    => insert opt_ctype.qualifier = "auto";
+/**/    => insert opt_ctype.storage = "auto";
+/**/    #check(cnormNodeDecl_AddDim(ctype, aryDim))
+/* c99 static in direct absolute declarator */
+        [
+                "static"
+/**/            => bSpecialCase = true;
+        ]?:store1
+        [#check(theDecl#root.dialect.parsing_mode != "unstrict")
+                type_qualifier(opt_ctype)
+/**/            => bSpecialCase = true;
+        ]*
+        [
+                "static"
+/**/            => bSpecialCase = true;
+        ]?:store2
+/* c99 end */
+        [
+                assignment_expression(aryDim)
+	        | '*' 
+/**/             => bSpecialCase = true;
+/**/            => insert opt_ctype.star = true;
+        ]?
+/**/    => local store = (store1 != "") ? store1 : (store2 != "") ? store2 : "";
+/**/    => if (store) cnormNodeDecl_SetStorage(opt_ctype, store);
+/**/    => {
+/**/            if (bSpecialCase)
+/**/            {
+/**/	                insert aryDim.ctype;
+/**/                    setall aryDim.ctype = opt_ctype;
+/**/            }
+/**/       }
+        ']'
+]+
+| [
+// function parameter
+/**/    => local bPostDeclaration = false;
+/**/    => local paramList;
+        [
+        '(' 
+/**/            => cnormNode_unstrictClean(theDecl);
+/**/            #check(cnormNodeDecl_GetParam(theDecl, paramList))
+/**/            #check(cnormNodeBlock(paramList, true))
+                [#check(theDecl#root.dialect.parsing_mode != "unstrict") 
+                /* style K&R */ 
+                kr_parameter_type_list(paramList)
+/**/            => bPostDeclaration = true;
+                |
+                /* style ANSI */ 
+                parameter_type_list(paramList) 
+                ]?
+	')'
+        ]
+        [
+                // lookahead for following definition/prototype/or pointer function
+                !![';'|','|'{'|'('|')']
+                |
+                // In K&R, we have declaration after the closing ')'
+                #check(bPostDeclaration)
+                [
+                        [
+                                declaration(paramList)
+/**/                            => local lastdecl;
+/**/                            #check(cnormNodeBlock_GetLastNode(paramList, lastdecl))
+/**/                            #check(cnormNode_DeclAsParam(lastdecl))
+                        ]*
+                        // TODO: ellipsis in K&R ???
+                        //   ["..." => insert theDecl.ctype.ellipsis = true; ]?
+                ]
+        ]? // for attributes after declaration in init_declarator
+// map parameter
+/**/#check(cnormNode_MapFieldOrParam(paramList))
+]
+;
+
+/*
+  Pointer : list of '*' optionnaly separated by const/volatile qualifier 
+*/
+pointer(theDecl : node) ::=
+        "*" 
+/**/    #check(cnormNodeDecl_AddRef(theDecl))
+        [
+// const/volatile in the pointer level
+/**/            => local ctype;
+/**/            #check(cnormNodeDecl_GetCtype(theDecl, ctype))
+                type_qualifier(ctype)
+        |
+// other *
+                "*"
+/**/            #check(cnormNodeDecl_AddRef(theDecl))
+        ]*
+;
+
+/*
+        K&R parameter type list: just a list of identifier
+*/
+kr_parameter_type_list(theBlock : node) ::=
+        identifier(theBlock):param
+/**/    #check(typeHandling_search(theBlock.block, param) == false)
+/**/    => insert theBlock.map[param];
+        [       ','
+                identifier(theBlock):param 
+/**/            #check(typeHandling_search(theBlock.block, param) == false)
+/**/            => insert theBlock.map[param];
+        ]*
+// after consuming all, we must be at the end of parenthesis
+        !!')'
+;
+
+/*
+  Parameter type list
+*/
+parameter_type_list(theBlock : node) ::=
+        [
+/**/		=> local lastdecl;
+// forward declaration
+                [
+/**/                    #pushItem(theBlock.block)
+/**/                    #check(cnormNodeDecl(theBlock.block#back))
+                        forward_decl(theBlock.block#back) ';'
+                ]
+/**/            #check(cnormNodeBlock_GetLastNode(theBlock, lastdecl))
+/**/            #check(cnormNode_DeclAsForwardDeclParam(lastdecl))
+/**/    ]*
+// if we have consumed forward declaration, clean the last non forward declaration
+/**/    [ #check($getArraySize(theBlock.block) > 0$) => if (theBlock.block#back.type == "__decl__") removeLastElement(theBlock.block);]?
+[ // only one ellispsis
+        "..."
+/**/    => insert theBlock.ellipsis = true;
+|
+        parameter_list(theBlock)
+        [ 
+// ellipsis
+        ',' "..."
+/**/    => insert theBlock.ellipsis = true;
+        ]?
+]
+;
+
+/*
+  Parameter list
+*/
+parameter_list(theBlock : node) ::=
+/**/    => local theParam;
+/**/    #pushItem(theBlock.block)
+/**/    #check(cnormNodeBlock_GetLastNode(theBlock, theParam))
+     	parameter_declaration(theParam) 
+        [ 
+                ','
+/**/            #pushItem(theBlock.block)
+/**/            #check(cnormNodeBlock_GetLastNode(theBlock, theParam))
+                parameter_declaration(theParam):strParam
+                #check(strParam != "")
+        ]*
+;
+
+/*
+  Parameter declaration : just one param
+*/
+parameter_declaration(theNode : node) ::=
+// one or many specifier
+/**/	#check(cnormNodeDecl(theNode))
+        type_name(theNode) 
+/**/	#check(cnormNode_DeclAsParam(theNode))
+;
+
+/*
+  Initializer : set the default value of a declaration
+*/
+initializer(theExpr : node) ::=  
+        '{' #continue(sError, "bad initializer_list after '{'")
+/**/            #check(cnormNodeDecl_Init(theExpr))
+                [initializer_list(theExpr)]? 
+// last ',' but empty
+                [',']? 
+        '}'
+        | assignment_expression(theExpr)
+/**/            => cnormNode_unstrictClean(theExpr);
+;
+
+/*
+  Initializer list : list of default value
+*/
+// EXTERN
+initializer_list(theInit : node) ::= 
+/**/    => local lastinit;
+/**/    #check(cnormNodeDecl_AddInit(theInit, lastinit))
+        [designation(lastinit)]?
+        initializer(lastinit)
+        [ ',' !'}' #continue(sError, "bad initializer after ','") // lookahead and continue because we could finish by a single ','
+/**/            #check(cnormNodeDecl_AddInit(theInit, lastinit))
+                [designation(lastinit)]?
+                initializer(lastinit)
+        ]*
+;
+
+/*
+  Designation : only in c99. we could put field reference in the initializer list
+*/
+designation(theInit : reference) ::= 
+                [ designation_list(theInit) ]+ ['=']?
+                | identifier(theInit):name ':'
+/**/            #check(cnormNodeDecl_AddFieldDesignation(theInit, name, theInit))
+;
+designation_list(theInit : reference) ::=
+[
+        [ '[' 
+/**/            => local expr;
+/**/            #check(cnormNodeDecl_AddIndexDesignation(theInit, expr, theInit))
+                [
+                        range_expression(expr)	/* GnuC */
+                        | constant_expression(expr) 
+                ]
+          ']'
+        |
+                dot identifier(theInit):name
+/**/            #check(cnormNodeDecl_AddFieldDesignation(theInit, name, theInit))
+        ]
+]
+;
+
+/*
+  Type name : just a type
+*/
+// EXTERN
+type_name(theNode : node) ::= 
+        [declaration_specifier(theNode)]+ declarator(theNode) !![','|')']
+        | unstrict_typename(theNode)
+;
+
+// EXTERN
+forward_decl(theNode: node) ::=
+        [declaration_specifier(theNode)]+ declarator(theNode) !![';']
+        | unstrict_forward(theNode)
+;
+
+//----------------------------------------------------------------------------
+//                           U N S T R I C T  P A R T
+//----------------------------------------------------------------------------
 
 // fucking unstrict declaration
 unstrict(theBlock : node) ::=
@@ -100,653 +707,4 @@ unstrict_typename(theNode : node) ::=
                         => insert theNode#root.unknown[block_node.unknown] = block_node.unknown;
                         => block_node.unknown = "";
 	       ]+
-;
-
-/*
-  GNU C assembly block at top level
-*/
-asm_expr(theBlock : node) ::= 
-[
-	#readIdentifier:asm_key
-/**/	#check(cnormNode_checkTypeOfId(theBlock, asm_key, "asm"))
-	[
-		#readIdentifier:asm_quali
-/**/            #check(cnormNode_checkTypeOfId(theBlock, asm_quali, "qualifier"))
-	]? 
-	['(' #continue(sError, "bad assembler expression after '('") [dummy_with_paren]* ')' [';']?
-	|'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}' [';']?
-	]
-]:raw_data
-
-// create a new node in the AST, reference it, and set it as RAW
-/**/	#pushItem(theBlock.block)
-/**/	=> local firstNode;
-/**/	#check(cnormNodeBlock_GetLastNode(theBlock, firstNode))
-/**/	#check(cnormNode_Raw(firstNode, raw_data))
-;
-
-/*
-  One C declaration
-*/
-cdecl(theBlock : node) ::=
-        cdecl_begin(theBlock)
-        cdecl_end(theBlock)
-        //=> traceLine("FIN CDECL");
-;
-
-cdecl_end(theBlock : node) ::=
-/**/	        => local lastNode;
-/**/	        #check(cnormNodeBlock_GetLastNode(theBlock, lastNode))
-                               
-	  [ 
-// function?
-          #check(cnormNode_checkIsFuncDeclaration(lastNode))
-	  // try implementation
-	   #insert(lastNode.body)
-	   compound_statement(lastNode.body)
-                |
-                ';'
-          //      => traceLine("COMMA OF CDECL");
-           ]
-;
-
-cdecl_begin(theBlock : node) ::=
-// create a new node in the AST, reference it, and set it as Decl
-/**/	#pushItem(theBlock.block)
-/**/	=> local firstNode;
-/**/	#check(cnormNodeBlock_GetLastNode(theBlock, firstNode))
-/**/	=> localref current = firstNode; // reference the actual node
-/**/	#check(cnormNodeDecl(firstNode))
-	[declaration_specifier(firstNode)]*
-	[init_declarator(firstNode)]?
-		[ ','
-                        => cnormNode_unstrictClean(firstNode);
-// use case : T a,b;
-// copy the specification of 'T' as type of 'b'
-/**/			#pushItem(theBlock.block)
-/**/			=> local nextNode;
-/**/    		#check(cnormNodeBlock_GetLastNode(theBlock, nextNode))
-/**/  			#check(cnormNodeDecl(nextNode))
-/**/    		#check(cnormNodeDecl_CopyDecl(nextNode, firstNode))
-			init_declarator(nextNode)
-
-/**/    		=> ref current = nextNode; // reference the actual node
-   		]*
-;
-
-/*
-  Here all that could be put at the left of a C declaration
-*/
-declaration_specifier(theDecl : node) ::=
-// get a reference on the Ctype part of the Decl
-/**/	=> local ctype;
-/**/	#check(cnormNodeDecl_GetCtype(theDecl, ctype))
-[
-        #readIdentifier:id
-       // => traceLine("id??" + id);
-        #check(cnormNodeDecl_Set(ctype, id))
-      // =>traceLine("RES:" + toString(ctype, true));
- //       =>traceLine("ROOT:" + toString(ctype#root.dialect, true));
-        // follow
-        [
-                #check(cnormNode_checkTypeOfId(ctype, id, "specifier_block"))
-                composed_type_specifier(ctype)
-                | #check(cnormNode_checkTypeOfId(ctype, id, "specifier_enum"))
-                enum_specifier(ctype)
-                | #check(cnormNode_checkTypeOfId(ctype, id, "typeof"))
-                typeof_expr(ctype)
-                | #check(cnormNode_checkTypeOfId(ctype, id, "asm"))
-                asm_decl_follow(ctype, id)
-                | #check(cnormNode_checkTypeOfId(ctype, id, "attribute"))
-                attr_decl_follow(ctype, id)
-        ]?
-        | typedef_name(ctype)
-// TRY UNSTRICT GRAMMAR MODE 
-
-	|[ #check(theDecl#root.dialect.parsing_mode == "unstrict")
-		#readIdentifier:id
-                // not a special word
-                #check(!cnormNode_checkTypeGroupOfId(ctype, id, ""))
-               // => traceLine("unknown?" + id);
-               [
-		#check(theDecl#root.unknown[id])
-                => traceLine("found unknown 1:" + id);
-                // we store in local
-		=> insert ctype.unknown[id] = id;
-                // we learn of previous unknown qualifier
-                //=> removeElement(theDecl#root.unknown, id);
-
-                | // store in unknown and retry
-                        =>traceLine("GRAAAAAAAA");
-                        => cnormNode_unstrictSet(theDecl, id);
-                        #check(false)
-               ]
-	]
-]
-;
-
-/*
-  Type qualifier :
-  -const : can't be modify, symbol are store in .rodata
-  -volatile : fetch/store the data from memory after/before each modification 
-  -attributes/special specifiers
-*/
-type_qualifier(theCtype : node) ::= 
-	#readIdentifier:qualifier
-/**/    #check(cnormNode_checkTypeOfId(theCtype, qualifier, "qualifier"))        
-/**/	#check(cnormNodeDecl_SetQualifier(theCtype, qualifier))
-	|
-/**/	=> local attr;
-	attribute_decl(attr, theCtype)
-/**/	#check(cnormNodeDecl_SetDeclSpecifierAttribute(theCtype, attr))
-;
-
-/*
-  Composed: struct, union, ...
-*/
-name_of_composed_type(theCtype : node) ::= identifier(theCtype)
-;
-composed_type_specifier(theCtype : node) ::=
-	[
-/**/		=> local attr;
-		attribute_decl(attr, theCtype)
-/**/		#check(cnormNodeDecl_SetDeclComposedAttribute(theCtype, attr))
-	]?
-	[ 
-		name_of_composed_type(theCtype):id
-/**/		#check(cnormNodeDecl_SetIdentifier(theCtype, id))
-	]?
-	[ 
-		composed_fields(theCtype)
-	]?
-;
-
-/*
-  Composed fields
-*/
-composed_fields(theCtype : node) ::= 
-  '{' 
-/**/	=> local composed_body;
-/**/	#check(cnormNodeDecl_GetBody(theCtype, composed_body))
-/**/	#check(cnormNodeBlock(composed_body, true))
-    [	declaration(composed_body) |
-        // TODO: not supported
-        unstrict(composed_body)
-    ]*
-  '}'
-// map the fields in the block
-/**/ #check(cnormNode_MapFieldOrParam(composed_body))
-;
-
-/*
-  Enum
-*/
-enum_name(theCtype : node) ::= identifier(theCtype)
-;
-enum_specifier(theCtype : node) ::=
-[ 
-	enum_name(theCtype):id
-/**/	#check(cnormNodeDecl_SetIdentifier(theCtype, id))
-]?
-[ '{' [enumerator_list(theCtype)]? '}' ]?
-;
-
-/*
-  Enumerator list
-*/
-enumerator_list(theCtype : node) ::= enumerator(theCtype) [ ',' #continue(sError, "bad enumerator_list after ','") [ enumerator(theCtype) ]? ]*
-;
-
-/*
-  Enumerator : item in enum
-*/
-enumerator(theCtype : node) ::= 
-	identifier(theCtype):id
-/**/	=> local expr;
-/**/	#check(cnormNodeDecl_MapEnum(theCtype, id, expr))
-	[ '=' #continue(sError, "bad constant expression after '='") constant_expression(expr)  ]?
-;
-
-/*
-  Typedef name : just an identifier that is previously defined as a type
-*/
-typedef_name(theCtype : node) ::= 
-	identifier(theCtype):id
-/**/	#check(cnormNodeDecl_SetTypedefName(theCtype, id))
-;
-
-/*
-  Typeof: we use the type of the expression as type for a declaration
-*/
-typeof_expr(theCtype : node) ::=
-	'(' #continue(sError, "bad type_name or expression after '('")
-/**/	=> local local_node;
-/**/	#check(cnormNode_TypeofExpr(theCtype, local_node))
-	[
-        => traceLine("GUESS TYPENAME");
-		type_name(local_node) !!')'
-		| 
-        => traceLine("GUESS EXPR");
-                expression(local_node)
-	]
-	')'
-;
-
-/*
-  Initialisation of the variable
-*/
-init_declarator(theDecl : node) ::=
-      declarator(theDecl)
-        =>traceLine("initdecl after declarator");
-// bitfield or constructor(cxxnorm) 
-	[ ':'
-        => cnormNode_unstrictClean(theDecl);
-/**/	#check(theDecl.ctype.identifier != "auto")
-/**/	#continue(sErr, "Failed after : in declaration")
-/**/	#insert(theDecl.colon_expr) 
-/**/	=> local colon;
-/**/	#check(cnormNodeDecl_SetColonExpr(theDecl, colon))
-	constant_expression(colon)
-	]?
-// c99 attribut 
-	[ 
-		=> local attr;
-		attribute_decl(attr, theDecl)
-/**/		#check(cnormNodeDecl_SetDeclarationAttribute(theDecl, attr))
-	]*
-// default value
-	['=' #continue(sErr, "bad token after '=', unexpected " + peekChar())
-        => traceLine("ASSS STATE");
-        => cnormNode_unstrictClean(theDecl);
-
-/**/	#insert(theDecl.assign_expr) 
-/**/	=> local init;
-/**/	#check(cnormNodeDecl_SetAssignExpr(theDecl, init))
-	initializer(init):nini 
-        => traceLine("readed assign:" + nini);
-	]?
-// CHECK SOME POST CONSTRAINTS
-[ 	
-=>traceLine("Constraint");
-// typedef?
-	#check(cnormNode_checkAndRegisterTypedef(theDecl))
-	|
-// other case, we have finish
-/**/	=> local empty;
-        => traceLine("not a typedef:" + peekChar());
-]
-/**/	!![','|';'|'{'|'}'] // end of init_declarator
-        => cnormNode_unstrictClean(theDecl);
-/**/[
-// if we are in a __composed__, check with a lookahead 
-/**/	#check(cnormNode_checkInComposed(theDecl))
-/**/	#check(cnormNode_DeclAsField(theDecl))
-/**/]?
-// disallow empty decl i.e "foobar;" in local scope, pass in global scope or for non empty decl
-=>traceLine("GlobScope?");
-/**/#check(cnormNode_checkEmptyDeclGlobScope(theDecl))
-=>traceLine("End Declarator");
-;
-
-/*
-  Attributes
-*/
-attribute_decl(theNode : node, theRef : node) ::=
-[
-	#readIdentifier:attr 
-/**/    #check(cnormNode_checkTypeOfId(theRef, attr, "attribute"))
-	'(' #continue(sError, "bad attribute expression after '('") [dummy_with_paren]* ')'
-
-	| #readIdentifier:asm_key
-/**/    #check(cnormNode_checkTypeOfId(theRef, asm_key, "asm"))
-		['(' #continue(sError, "bad assembler expression after '('") [dummy_with_paren]* ')'
-                |'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}'
-                ]
-	| #readIdentifier:{"__extension__"}
-]:raw_data
-/**/	#check(cnormNode_Raw(theNode, raw_data))
-;
-
-asm_decl_follow(theCtype : node, id : value) ::=
-        => local attr;
-		['(' #continue(sError, "bad assembler expression after '('") [dummy_with_paren]* ')'
-                |'{' #continue(sError, "bad assembler expression after '{'") [dummy_with_brace]* '}']:raw_data
-/**/	#check(cnormNode_Raw(attr, id + raw_data))
-/**/	#check(cnormNodeDecl_SetDeclSpecifierAttribute(theCtype, attr))
-;
-
-attr_decl_follow(theCtype : node, id : value) ::=
-//=>traceLine("ATTR DECL FOLLOW");
-        => local attr;
-		['(' #continue(sError, "bad attribute expression after '('") [dummy_with_paren]* ')']:raw_data
-/**/	#check(cnormNode_Raw(attr, id + raw_data))
-/**/	#check(cnormNodeDecl_SetDeclSpecifierAttribute(theCtype, attr))
-;
-
-/*
-  Declarator : main part of all declaration
-*/
-declarator(theDecl : node) ::=  [ pointer(theDecl) ]? absolute_declarator(theDecl)
-;
-
-function_or_variable_identifier(theDecl : node) ::=
-	identifier(theDecl):id
-/**/	#check(cnormNodeDecl_SetName(theDecl, id))
-;
-
-/*
-  Absolute declarator : a very complex rule, able to represent simple variable, function pointer, array
-*/
-absolute_declarator(theDecl : node) ::=
-/**/	=> localref deref = theDecl; // take a reference of the current node
-[ 
-  [
-// function pointer
-   '(' 
-   	#check(cnormNodeDecl_AddFuncRef(theDecl))
-   	[
-// const/volatile in the function pointer level
-// TODO: see test179.c. how to understand: void (__cdecl func)(void)
-/**/		=> local ctype;
-/**/		#check(cnormNodeDecl_GetCtype(theDecl, ctype))
-		type_qualifier(ctype)
-	]?
-   	[
-		pointer(theDecl)
-	]?
-/**/	#check(cnormNodeDecl_DerefAll(theDecl, deref)) // after a pointer, reference the inside part
-	declarator(theDecl)
-   ')'
-   ]
-  |
-  [
-// could be empty in cast or function param list
-	function_or_variable_identifier(theDecl)
-  ]?
-]
-/**/// case when the decl is empty
-  //#check(theDecl.type == "__decl__" && existVariable(theDecl.name))
-  [ 
-// array definition or parameter list for function
-	direct_absolute_declarator(deref) 
-  ]?
-;
-
-/*
-  Direct absolute declarator : for array definition or function parameter
-*/
-direct_absolute_declarator(theDecl : node) ::=
-/**/	=> local ctype;
-/**/	#check(cnormNodeDecl_GetCtype(theDecl, ctype))
-[
-// array
-	'[' 
-        => cnormNode_unstrictClean(theDecl);
-	//#continue(sErr, "bad token after '['")
-/**/	=> local bSpecialCase = false;
-/**/	=> local aryDim;
-/**/	=> local opt_ctype;
-/**/	=> insert opt_ctype.type = "__ctype__";
-/**/	=> insert opt_ctype.qualifier = "auto";
-/**/	=> insert opt_ctype.storage = "auto";
-/**/	#check(cnormNodeDecl_AddDim(ctype, aryDim))
-	/* c99 static in direct absolute declarator */
-	  [
-	  	"static"
-/**/		=> bSpecialCase = true;
-	  ]?:store1
-	  [#check(theDecl#root.dialect.parsing_mode != "unstrict")
-	   	type_qualifier(opt_ctype)
-/**/		=> bSpecialCase = true;
-	  ]*
-	  [
-	  	"static"
-/**/		=> bSpecialCase = true;
-	]?:store2
-	/* c99 end */
-	 [
-         => traceLine("----BEGIN ASS IN ARRAY");
-	  assignment_expression(aryDim)
-         => traceLine("----END ASS IN ARRAY");
-	  | '*' 
-/**/	  => bSpecialCase = true;
-/**/	  => insert opt_ctype.star = true;
-	 ]?
-/**/	 => local store = (store1 != "") ? store1 : (store2 != "") ? store2 : "";
-/**/	 => if (store) cnormNodeDecl_SetStorage(opt_ctype, store);
-/**/	 => {
-/**/	 	if (bSpecialCase)
-/**/		{
-/**/	 		insert aryDim.ctype;
-/**/	 		setall aryDim.ctype = opt_ctype;
-/**/		}
-/**/	    }
-	']'
-]+
-| [
-// function parameter
-/**/	=> local bPostDeclaration = false;
-/**/	=> local paramList;
-   [
-	'(' 
-        => cnormNode_unstrictClean(theDecl);
-
-        =>traceLine("directAbsDecl PARAM");
-/**/	#check(cnormNodeDecl_GetParam(theDecl, paramList))
-/**/	#check(cnormNodeBlock(paramList, true))
-        => traceLine("nia2");
-	[#check(theDecl#root.dialect.parsing_mode != "unstrict") 
-        => traceLine("K&R");
-		/* style K&R */ 
-		kr_parameter_type_list(paramList)
-/**/		=> bPostDeclaration = true;
-        => traceLine("YES");
-	 |
-        => traceLine("ANSI");
-		/* style ANSI */ 
-		parameter_type_list(paramList) 
-                => traceLine("IS A PARAM LIST");
-	]?
-        =>traceLine("SUITE AVANT ):" + peekChar());
-	')'
-        => {
-                
-                local slotid = typeHandling_getid(paramList);
-                localref block_node = theDecl#root.block_ref[slotid];
-                traceLine("FIN PARAM:" + toString(block_node, true));
-                traceLine("FIN PARAM GLOB:" + toString(theDecl#root.unknown, true));
-        }
-   ]
-   	[
-		// lookahead for following definition/prototype/or pointer function
-		!![';'|','|'{'|'('|')']
-		|
-		// In K&R, we have declaration after the closing ')'
-		#check(bPostDeclaration)
-		[
-		    	[
-				declaration(paramList)
-/**/				=> local lastdecl;
-/**/				#check(cnormNodeBlock_GetLastNode(paramList, lastdecl))
-/**/				#check(cnormNode_DeclAsParam(lastdecl))
-			]*
-                        // TODO: ellipsis in K&R ???
-			//   ["..." => insert theDecl.ctype.ellipsis = true; ]?
-		]
-	]? // for attributes after declaration in init_declarator
-// map parameter
-=>traceLine("MAP PARAM");
-/**/#check(cnormNode_MapFieldOrParam(paramList))
-]
-;
-
-/*
-  Pointer : list of '*' optionnaly separated by const/volatile qualifier 
-*/
-pointer(theDecl : node) ::=
-	"*" 
-/**/    #check(cnormNodeDecl_AddRef(theDecl))
-	[
-// const/volatile in the pointer level
-/**/		=> local ctype;
-/**/		#check(cnormNodeDecl_GetCtype(theDecl, ctype))
-=>traceLine("ct:" + toString(ctype, true));
-		type_qualifier(ctype)
-	|
-// other *
-		"*"
-/**/		#check(cnormNodeDecl_AddRef(theDecl))
-	]*
-;
-
-/*
-	K&R parameter type list: just a list of identifier
-*/
-kr_parameter_type_list(theBlock : node) ::=
-	identifier(theBlock):param
-/**/	#check(typeHandling_search(theBlock.block, param) == false)
-/**/	=> insert theBlock.map[param];
-	[','
-	 identifier(theBlock):param 
-/**/	 #check(typeHandling_search(theBlock.block, param) == false)
-/**/	 => insert theBlock.map[param];
-	]*
-        // after consuming all, we must be at the end of parenthesis
-        !!')'
-;
-
-/*
-  Parameter type list
-*/
-parameter_type_list(theBlock : node) ::=
-	[//#check(theBlock#root.dialect.parsing_mode != "unstrict") 
-/**/		=> local lastdecl;
-// forward declaration
-                =>traceLine("forwardDecl begin");
-		[
-                        #pushItem(theBlock.block)
-/**/	                #check(cnormNodeDecl(theBlock.block#back))
-                        forward_decl(theBlock.block#back) ';' => traceLine("End forward decl unstrict"); 
-                ]
-                =>traceLine("forwardDecl end");
-                => traceLine("BLOCK:" + toString(theBlock, true));
-/**/		#check(cnormNodeBlock_GetLastNode(theBlock, lastdecl))
-=>traceLine("FWD");
-/**/		#check(cnormNode_DeclAsForwardDeclParam(lastdecl))
-/**/	]*
-// if we have consumed forward declaration, clean the last non forward declaration
-/**/	[ #check($getArraySize(theBlock.block) > 0$) => if (theBlock.block#back.type == "__decl__") removeLastElement(theBlock.block);]?
-[ // only one ellispsis
-	"..."
-/**/	=> insert theBlock.ellipsis = true;
-|
-        => traceLine("Normal DECL PARAM Begin");
-	parameter_list(theBlock)
-        => traceLine("Normal DECL PARAM End:" + peekChar());
-	[ 
-// ellipsis
-	',' "..." =>traceLine("ELLIPSIS");
-/**/	=> insert theBlock.ellipsis = true;
-	]?
-]
-;
-
-/*
-  Parameter list
-*/
-parameter_list(theBlock : node) ::=
-/**/	=> local theParam;
-/**/	#pushItem(theBlock.block)
-/**/	#check(cnormNodeBlock_GetLastNode(theBlock, theParam))
-        => traceLine("*** FIRST PARAM");
-     	parameter_declaration(theParam) 
-        => traceLine("*** FIRST PARAM OK");
-	[ 
-	','
-        => traceLine("*** NEXT PARAM");
-/**/	#pushItem(theBlock.block)
-/**/	#check(cnormNodeBlock_GetLastNode(theBlock, theParam))
-	parameter_declaration(theParam):strParam
-        #check(strParam != "")
-	]*
-;
-
-/*
-  Parameter declaration : just one param
-*/
-parameter_declaration(theNode : node) ::=
-// one or many specifier
-/**/	#check(cnormNodeDecl(theNode))
-	//[ declaration_specifier(theNode) ]+ declarator(theNode)
-        type_name(theNode) 
-/**/	#check(cnormNode_DeclAsParam(theNode))
-;
-
-/*
-  Initializer : set the default value of a declaration
-*/
-initializer(theExpr : node) ::=  
-	'{' #continue(sError, "bad initializer_list after '{'")
-/**/		#check(cnormNodeDecl_Init(theExpr))
-		[initializer_list(theExpr)]? 
-// last ',' but empty
-		[',']? 
-	'}'
-	| assignment_expression(theExpr)
-                // UNSTRICT
-                => cnormNode_unstrictClean(theExpr);
-;
-
-/*
-  Initializer list : list of default value
-*/
-// EXTERN
-initializer_list(theInit : node) ::= 
-/**/	=> local lastinit;
-/**/	#check(cnormNodeDecl_AddInit(theInit, lastinit))
-	[designation(lastinit)]?
-	initializer(lastinit)
-	[ ',' !'}' #continue(sError, "bad initializer after ','") // lookahead and continue because we could finish by a single ','
-/**/		#check(cnormNodeDecl_AddInit(theInit, lastinit))
-		[designation(lastinit)]?
-		initializer(lastinit)
-	]*
-;
-
-/*
-  Designation : only in c99. we could put field reference in the initializer list
-*/
-designation(theInit : reference) ::= [ designation_list(theInit) ]+ ['=']?
-		| identifier(theInit):name ':'
-/**/		#check(cnormNodeDecl_AddFieldDesignation(theInit, name, theInit))
-;
-designation_list(theInit : reference) ::=
-[
-	[ '[' 
-/**/		=> local expr;
-/**/		#check(cnormNodeDecl_AddIndexDesignation(theInit, expr, theInit))
-		[
-			range_expression(expr)	/* GnuC */
-			| constant_expression(expr) 
-		]
-	  ']'
-	|
-		dot identifier(theInit):name
-/**/		#check(cnormNodeDecl_AddFieldDesignation(theInit, name, theInit))
-	]
-]
-;
-
-/*
-  Type name : just a type
-*/
-// EXTERN
-type_name(theNode : node) ::= [declaration_specifier(theNode)]+ declarator(theNode) !![','|')']
-        | unstrict_typename(theNode)
-;
-
-// EXTERN
-forward_decl(theNode: node) ::= => traceLine("FWDECL Normal:" + toString(theNode, true)); 
-        [declaration_specifier(theNode)]+ declarator(theNode) !![';'] => traceLine("FWDECL NORMAL FIN");
-        | unstrict_forward(theNode)
 ;

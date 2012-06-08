@@ -11,7 +11,7 @@ TESTED = ${SRC:.c=.i}
 	@../bin/cnorm $< > $<.log && echo $< "Success"
 	@echo -n ">> valid " $< " "
 	@../bin/cnormValidator $< >> $<.log && echo "Success" || echo "FAIL"
-	@../bin/cnorm -u $< > $<.log && echo $< "Success Unstrict"
+#	@../bin/cnorm -u $< > $<.log && echo $< "Success Unstrict"
 #	@echo -n ">> valid UNSTRICT " $< " "
 #	@../bin/cnormValidator $< >> $<.log && echo "Success" || echo "FAIL"
 	@touch $@

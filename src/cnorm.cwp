@@ -77,7 +77,7 @@ translation_unit ::=
 /**/	#check(cnormNodeRoot(this))
 [
 // initialize the context to reference the root
-	declaration(this) | unstrict(this) => traceLine("End global unstrict");
+	declaration(this) | unstrict(this)
 ]*
 /**/	#continue(sError, "bad token at end of file, unexpected " + peekChar()) #empty
 #catch(sError)

@@ -38,20 +38,20 @@
 // for asm chunks of code
 dummy_with_paren ::=
 [#!ignore
-	'(' [dummy_with_paren]* ')'
-	| #readCString
+        '(' [dummy_with_paren]* ')'
+        | #readCString
         | #readCChar
-	| #readChar:c #check(c != "(" && c != ")" && c != "\"")
+        | #readChar:c #check(c != "(" && c != ")" && c != "\"")
 ]
 ;
 
 // for asm chunks of code (windows)
 dummy_with_brace ::=
 [#!ignore
-	'{' [dummy_with_brace]* '}'
-	| #readCString
+        '{' [dummy_with_brace]* '}'
+        | #readCString
         | #readCChar
-	| #readChar:c #check(c != "{" && c != "}" && c != "\"")
+        | #readChar:c #check(c != "{" && c != "}" && c != "\"")
 ]
 ;
 
@@ -59,14 +59,14 @@ dummy_with_brace ::=
   Expression are described in priority order from low to high (LL parser).
 */
 expression(expr : node) ::=
-	assignment_expression(expr)
-	[
-		',':sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad assignment expression after ','")
-		assignment_expression(right_expr)
-	]*
+        assignment_expression(expr)
+        [
+                ',':sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad assignment expression after ','")
+                assignment_expression(right_expr)
+        ]*
 ;
 
 /*
@@ -86,202 +86,202 @@ assignment_operator ::=
   | "|="
 ;
 assignment_expression(expr : node) ::= 
-	conditional_expression(expr)
-	[
-		assignment_operator:sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad assignment_expression after '" + sOperator + "'")
-		assignment_expression(right_expr)
-	]*
+        conditional_expression(expr)
+        [
+                assignment_operator:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad assignment_expression after '" + sOperator + "'")
+                assignment_expression(right_expr)
+        ]*
 ;
 
 /*
   a constant_expression doesn't have side effect.
 */
 constant_expression(expr : node) ::= 
-	conditional_expression(expr)
+        conditional_expression(expr)
 ;
 
 /*
   ternary operator have lowest priority
 */
 conditional_expression(expr : node) ::=
-	logical_or_expression(expr)
-	[
-		'?':sOperator
-/**/		=> local then_expr;
-/**/		=> local else_expr;
-/**/		#check(cnormNode_ToTernary(expr, then_expr, else_expr))
-/**/		#continue(sErr, "bad expression after '?'")
-		[ expression(then_expr) ]?
-		':' 
-		[ conditional_expression(else_expr) ]?
-	]?
+        logical_or_expression(expr)
+        [
+                '?':sOperator
+/**/            => local then_expr;
+/**/            => local else_expr;
+/**/            #check(cnormNode_ToTernary(expr, then_expr, else_expr))
+/**/            #continue(sErr, "bad expression after '?'")
+                [ expression(then_expr) ]?
+                ':' 
+                [ conditional_expression(else_expr) ]?
+        ]?
 ;
 
 /*
   logical OR
 */
 logical_or_expression(expr : node) ::=
-	logical_and_expression(expr)
-	[
-		"||":sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad logical_and_expression after '||'")
-		logical_and_expression(right_expr)
-	]*
+        logical_and_expression(expr)
+        [
+                "||":sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad logical_and_expression after '||'")
+                logical_and_expression(right_expr)
+        ]*
 ;
 
 /*
   logical AND
 */
 logical_and_expression(expr : node) ::=	
-	inclusive_or_expression(expr)
-	[
-		"&&":sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad inclusive_or_expression after '&&'")
-		inclusive_or_expression(right_expr)
-	]*
+        inclusive_or_expression(expr)
+        [
+                "&&":sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad inclusive_or_expression after '&&'")
+                inclusive_or_expression(right_expr)
+        ]*
 ;
 
 /*
   binary inclusive OR
 */
 OR ::=
-	['|' [#!ignore !['|'|'=']]] // only one |
+        ['|' [#!ignore !['|'|'=']]] // only one |
 ;
 inclusive_or_expression(expr : node) ::=
-	exclusive_or_expression(expr)
-	[
-		OR:sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad exclusive_or_expression after '|'")
-		exclusive_or_expression(right_expr)
-	]*
+        exclusive_or_expression(expr)
+        [
+                OR:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad exclusive_or_expression after '|'")
+                exclusive_or_expression(right_expr)
+        ]*
 ;
 
 /*
   binary exclusive OR
 */
 XOR ::=
-	['^' [#!ignore !'=']] // only one ^
+        ['^' [#!ignore !'=']] // only one ^
 ;
 exclusive_or_expression(expr : node) ::=
-	and_expression(expr)
-	[
-		XOR:sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad and_expression after '^'")
-		and_expression(right_expr)
-	]*
+        and_expression(expr)
+        [
+                XOR:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad and_expression after '^'")
+                and_expression(right_expr)
+        ]*
 ;
 
 /*
   binary AND
 */
 AND ::=
-	['&' [#!ignore !['&'|'=']]] // seulement &
+        ['&' [#!ignore !['&'|'=']]] // seulement &
 ;
 and_expression(expr : node) ::=
-	equality_expression(expr)
-	[
-		AND:sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad equality_expression after '&'")
-		equality_expression(right_expr)
-	]*
+        equality_expression(expr)
+        [
+                AND:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad equality_expression after '&'")
+                equality_expression(right_expr)
+        ]*
 ;
 
 /*
   egality operator before comparaison
 */
 EQ_NEQ ::=
-	["==" | "!="]:sOperator
+        ["==" | "!="]:sOperator
 ;
 equality_expression(expr : node) ::=
-	relational_expression(expr)
-	[
-		EQ_NEQ:sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad relational_expression after '" + sOperator + "'")
-		relational_expression(right_expr)
-	]*
+        relational_expression(expr)
+        [
+                EQ_NEQ:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad relational_expression after '" + sOperator + "'")
+                relational_expression(right_expr)
+        ]*
 ;
 
 /*
  comparaison operator <=,<,>,>=
 */
 CMP ::=
-	["<=" | ">=" | '<' [#!ignore !'<'] | '>' [#!ignore !'>'] ]
+        ["<=" | ">=" | '<' [#!ignore !'<'] | '>' [#!ignore !'>'] ]
 ;
 relational_expression(expr : node) ::=
-	shift_expression(expr) 
-	[
-		CMP:sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad shift_expression after '" + sOperator + "'")
-		shift_expression(right_expr)
-	]*
+        shift_expression(expr) 
+        [
+                CMP:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad shift_expression after '" + sOperator + "'")
+                shift_expression(right_expr)
+        ]*
 ;
 
 /*
   binary shift
 */
 SHIFT ::=
-	["<<" [#!ignore !'='] | ">>" [#!ignore !'=']]
+        ["<<" [#!ignore !'='] | ">>" [#!ignore !'=']]
 ;
 shift_expression(expr : node) ::=
-	additive_expression(expr)
-	[
-		SHIFT:sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad additive_expression after '" + sOperator + "'")
-		additive_expression(right_expr)
-	]*
+        additive_expression(expr)
+        [
+                SHIFT:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad additive_expression after '" + sOperator + "'")
+                additive_expression(right_expr)
+        ]*
 ;
 
 /*
   binary + and -
 */
 PLUS ::=
-	['+' [#!ignore !['+'|'=']] | '-' [#!ignore !['-'|'>'|'=']] ]
+        ['+' [#!ignore !['+'|'=']] | '-' [#!ignore !['-'|'>'|'=']] ]
 ;
 additive_expression(expr : node) ::=
-	multiplicative_expression(expr)
-	[
-		PLUS:sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad multiplicative_expression after '" + sOperator + "'")
-		multiplicative_expression(right_expr)
-	]*
+        multiplicative_expression(expr)
+        [
+                PLUS:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad multiplicative_expression after '" + sOperator + "'")
+                multiplicative_expression(right_expr)
+        ]*
 ;
 
 /*
  binary * / %
 */
 MUL ::=
-	[['*' | '/' | '%'] [#!ignore !'=']]
+        [['*' | '/' | '%'] [#!ignore !'=']]
 ;
 multiplicative_expression(expr : node) ::=
-	unary_expression(expr)
-	[
-		MUL:sOperator
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad unary_expression after '" + sOperator + "'")
-		unary_expression(right_expr)
-	]*
+        unary_expression(expr)
+        [
+                MUL:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad unary_expression after '" + sOperator + "'")
+                unary_expression(right_expr)
+        ]*
 ;
 
 /*
@@ -300,72 +300,71 @@ unary_operator ::=
 ;
 unary_expression(expr : node) ::=
 [
-	[
-		[
-                                unary_operator:sOperator
+        [
+                [
+                        unary_operator:sOperator
+                        |
                         // check some specific unary op like __real or __imag
-                        |       #readIdentifier:custom_unary_op
-/**/                            #check(cnormNode_checkTypeOfId(expr, custom_unary_op, "unary"))
+                        #readIdentifier:custom_unary_op
+/**/                    #check(cnormNode_checkTypeOfId(expr, custom_unary_op, "unary"))
                 ]
-/**/		=> local right_expr;
-/**/		#check(cnormNode_UnaryExpr(expr, sOperator, right_expr))
-/**/		#continue(sErr, "bad unary_expression after unary '" + sOperator + "'")
-		unary_expression(right_expr)
-	]
-	|
-	[
-		#readIdentifier:size_of 
+/**/            => local right_expr;
+/**/            #check(cnormNode_UnaryExpr(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad unary_expression after unary '" + sOperator + "'")
+                unary_expression(right_expr)
+        ]
+        |
+        [
+                #readIdentifier:size_of 
 /**/            #check(cnormNode_checkTypeOfId(expr, size_of, "sizeof"))
-/**/  		=> local right_expr;
-/**/  		#check(cnormNode_SizeOf(expr, size_of, right_expr))
-/**/ 		#continue(sErr, "bad type_name or unary_expression after " + sOperator)
-		[ 
-/**/			#check(cnormNodeDecl(right_expr))
-			'(' type_name(right_expr) ')' //
-		|
-/**/			#check(cnormNode_TerminalId(right_expr, "")) // empty expr
-		  	unary_expression(right_expr)
-		]
-	]
+/**/            => local right_expr;
+/**/            #check(cnormNode_SizeOf(expr, size_of, right_expr))
+/**/            #continue(sErr, "bad type_name or unary_expression after " + sOperator)
+                [ 
+/**/                    #check(cnormNodeDecl(right_expr))
+                        '(' type_name(right_expr) ')' 
+                |
+/**/                    #check(cnormNode_TerminalId(right_expr, "")) // empty expr
+                        unary_expression(right_expr)
+                ]
+        ]
 ]
 | 
-[
-	postfix_expression(expr)
-]
+        postfix_expression(expr)
 ;
 
 /*
   we encapsulate a primary expression into postfix
 */
 postfix_expression(expr : node) ::= 
-	primary_expression(expr)
-   [
-    [
-/**/   	=> local subexpr;
-    	[
-		'['
-/**/		#insert(expr.list)
-/**/		#check(cnormNode_ToIndex(expr, subexpr))
-		expression(subexpr) 
-		']'
-    	|
-		'('
-/**/		#insert(expr.list)
-/**/		#check(cnormNode_ToCall(expr, subexpr))
-		[function_call_parameter_list(subexpr)]? 
-		')'
-	]
-    ]
-    |
-	[dot | "->"]:sOperator
-/**/	=> local right_expr;
-/**/	#check(cnormNode_ToBinary(expr, sOperator, right_expr))
-/**/	#continue(sErr, "bad primary_expression after '" + sOperator + "'")
-        primary_expression(right_expr)
-    |
-	["++" | "--"]:sOperator
-/**/	#check(cnormNode_ToPost(expr, sOperator))
-  ]* 
+        primary_expression(expr)
+        [
+                [
+/**/            => local subexpr;
+                        [
+                        '['
+/**/                    #insert(expr.list)
+/**/                    #check(cnormNode_ToIndex(expr, subexpr))
+                        expression(subexpr)
+                        ']'
+                        |
+                        '('
+/**/                    #insert(expr.list)
+/**/                    #check(cnormNode_ToCall(expr, subexpr))
+                        [function_call_parameter_list(subexpr)]? 
+                        ')'
+                        ]
+                ]
+        |
+                [dot | "->"]:sOperator
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, sOperator, right_expr))
+/**/            #continue(sErr, "bad primary_expression after '" + sOperator + "'")
+                primary_expression(right_expr)
+        |
+                ["++" | "--"]:sOperator
+/**/            #check(cnormNode_ToPost(expr, sOperator))
+        ]* 
 ;
 
 #include "cnormLiteral.cwp"
@@ -375,59 +374,64 @@ postfix_expression(expr : node) ::=
 */
 primary_expression(expr : node) ::= 
 [
-/**/	=> local val;
-	literal(val)
-/**/	#check(cnormNode_TerminalLiteral(expr, val))
+/**/    => local val;
+        literal(val)
+/**/    #check(cnormNode_TerminalLiteral(expr, val))
 |
-	identifier(expr):id
-/**/	#check(cnormNode_TerminalId(expr, id))
+        identifier(expr):id
+/**/    #check(cnormNode_TerminalId(expr, id))
 |
-[	'(' 
-/**/	=> local left_expr;
-/**/	=> local right_expr;
-/**/	#check(cnormNode_CastExpr(expr, left_expr, right_expr))
-	type_name(left_expr):t
-        => cnormNode_unstrictClean(left_expr);
-	')' 
-	[ // normal cast
-		unary_expression(right_expr)
-	 | // c99 compound literal 
-		'{' #continue(sErr, "bad initializer_list in compound literal after '{'")
-/**/		#check(cnormNodeDecl_Init(right_expr))
-	 	[initializer_list(right_expr)]? [',']? 
-		'}'
-	]
+// CAST
+[       '(' 
+/**/    => local left_expr;
+/**/    => local right_expr;
+/**/    #check(cnormNode_CastExpr(expr, left_expr, right_expr))
+        type_name(left_expr):t
+/**/    => cnormNode_unstrictClean(left_expr);
+        ')' 
+        [
+                // normal cast
+                unary_expression(right_expr)
+                |// c99 compound literal 
+                '{' #continue(sErr, "bad initializer_list in compound literal after '{'")
+/**/            #check(cnormNodeDecl_Init(right_expr))
+                [initializer_list(right_expr)]? [',']? 
+                '}'
+        ]
 ]
 |
-        => cnormNode_unstrictClean(expr);
+// PRIORITY
+/**/    => cnormNode_unstrictClean(expr);
 // we clean artefact (LL parser)
-=> clearVariable(expr);
-	'('
-/**/	#insert(expr.body)
-/**/	=> local subexpr;
-/**/	#check(cnormNode_ParanthesisExpr(expr, subexpr))
-	expression(subexpr) 
-	')'
+/**/    => clearVariable(expr);
+        '('
+/**/    #insert(expr.body)
+/**/    => local subexpr;
+/**/    #check(cnormNode_ParanthesisExpr(expr, subexpr))
+        expression(subexpr) 
+        ')'
 |	
-	'(' '{' #continue(sErr, "bad block_item_list after '({'")
-/**/	#insert(expr.body)
-/**/	=> local subexpr;
-/**/	#check(cnormNode_CompoundExpr(expr, subexpr))
-/**/	#check(typeHandling_register(subexpr))
-	block_item_list(subexpr)
-/**/	#continue(sErr, "bad token before '})' :<" + peekChar() + ">")
-	'}' ')' // c99
+// COMPOUND STATEMENT
+        '(' '{' #continue(sErr, "bad block_item_list after '({'")
+/**/    #insert(expr.body)
+/**/    => local subexpr;
+/**/    #check(cnormNode_CompoundExpr(expr, subexpr))
+/**/    #check(typeHandling_register(subexpr))
+        block_item_list(subexpr)
+/**/    #continue(sErr, "bad token before '})' :<" + peekChar() + ">")
+        '}' ')'
 |
-	// GnuC __builtin_offsetof
-	"__builtin_offsetof" 
-	'('
-/**/	=> local left_expr;
-/**/	=> local right_expr;
-/**/	#check(cnormNode_OffsetExpr(expr, left_expr, right_expr))
-	type_name(left_expr) 
-        => cnormNode_unstrictClean(left_expr);
-        ',' postfix_expression(right_expr)
-	')'
+// GnuC __builtin_offsetof
+        "__builtin_offsetof" 
+        '('
+/**/    => local left_expr;
+/**/    => local right_expr;
+/**/    #check(cnormNode_OffsetExpr(expr, left_expr, right_expr))
+        type_name(left_expr) 
+/**/    => cnormNode_unstrictClean(left_expr);
+        ','
+        postfix_expression(right_expr)
+        ')'
 ]
 ;
 
@@ -435,26 +439,26 @@ primary_expression(expr : node) ::=
   list of parameter for function
 */
 function_call_parameter_list(expr : node) ::= 
-/**/	=> local pnext;
-/**/	#check(cnormNode_CallParam(expr, pnext))
-	assignment_expression(pnext)
-	[ 
-		',' 
-/**/		#check(cnormNode_CallParam(expr, pnext))
-/**/		#continue(sErr, "bad assignment_expression after ','")
-		assignment_expression(pnext)
-	]*
+/**/    => local pnext;
+/**/    #check(cnormNode_CallParam(expr, pnext))
+        assignment_expression(pnext)
+        [ 
+                ',' 
+/**/            #check(cnormNode_CallParam(expr, pnext))
+/**/            #continue(sErr, "bad assignment_expression after ','")
+                assignment_expression(pnext)
+        ]*
 ;
 
 /* c99. only in initializers */
 range_expression(expr : node) ::=
-	constant_expression(expr) 
-	[
-		"..." 
-/**/		=> local right_expr;
-/**/		#check(cnormNode_ToBinary(expr, "...", right_expr))
-/**/		#continue(sErr, "bad constant_expressionr after '...'")
-		constant_expression(right_expr)
+        constant_expression(expr) 
+        [
+                "..." 
+/**/            => local right_expr;
+/**/            #check(cnormNode_ToBinary(expr, "...", right_expr))
+/**/            #continue(sErr, "bad constant_expressionr after '...'")
+                constant_expression(right_expr)
         ]?
 ;
 
@@ -462,13 +466,10 @@ range_expression(expr : node) ::=
  just an identifier
 */
 identifier(theNode : node) ::=
-	rootidentifier:sId
-        // TODO: add unknown
-/**/	#check(!findElement(sId, theNode#root.dialect.map_identifier))
+        rootidentifier:sId
+/**/    #check(!findElement(sId, theNode#root.dialect.map_identifier))
 ;
 
-/*
- grammar for one identifier
-*/
+// rule for one identifier easily overloadable
 rootidentifier ::= #readIdentifier 
 ;
