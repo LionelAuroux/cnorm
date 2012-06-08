@@ -54,7 +54,7 @@
 //                           B E G I N - C - N O R M
 //----------------------------------------------------------------------------
 
-#ignore ::= 
+#ignore["CNORM"] ::= 
 [
 	['#' ->[['\r']? '\n']]
 	| ["//" ->[['\r']? '\n']]
@@ -72,7 +72,7 @@
 */
 translation_unit ::=
 #try
-/**/	#ignore
+/**/	#ignore("CNORM")
 // create the unique ROOT
 /**/	#check(cnormNodeRoot(this))
 [

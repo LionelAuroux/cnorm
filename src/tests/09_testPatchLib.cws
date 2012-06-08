@@ -39,6 +39,7 @@ bRes = cnormPatchGetFunctionBlockNode(func[0], insideBlock);
 if (!bRes) error("bad craft");
 // add inside the block some code
 bRes = cnormPatchCode(insideBlock, "BLA pum = 4.3;");
+traceLine("GRUU:" + toString(insideBlock, true));
 if (!bRes) error("bad craft");
 bRes = cnormPatchCode(insideBlock, "if (pum == 4.3) printf(\"GRAA\\n\");");
 if (!bRes) error("bad craft");

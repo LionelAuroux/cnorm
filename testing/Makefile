@@ -8,12 +8,10 @@ TESTED = ${SRC:.c=.i}
 .SUFFIXES : .c .i
 
 .c.i : 
-	@../bin/cnorm $< > $<.log && echo $< "Success"
-	@echo -n ">> valid " $< " "
-	@../bin/cnormValidator $< >> $<.log && echo "Success" || echo "FAIL"
-#	@../bin/cnorm -u $< > $<.log && echo $< "Success Unstrict"
-#	@echo -n ">> valid UNSTRICT " $< " "
-#	@../bin/cnormValidator $< >> $<.log && echo "Success" || echo "FAIL"
+	@../bin/cnorm $< > $<.log && echo $< "Success" || echo $< "FAIL"
+	@../bin/cnormValidator $< >> $<.log && echo $< "valid Success" || echo $< "valid FAIL"
+	@../bin/cnorm -u $< > $<.log && echo $< "unstrict Success" || echo $< "unstrict FAIL"
+	@../bin/cnormValidator $< >> $<.log && echo $< "unstrict valid Success" || echo $< "unstrict valid FAIL"
 	@touch $@
 
 all : ${TESTED}

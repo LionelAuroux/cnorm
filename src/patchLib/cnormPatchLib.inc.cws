@@ -209,8 +209,7 @@ function cnormPatchGetComposedFiedlNode(local_node : node, out_ref : reference)
 {
 	if (!cnormNode_checkDecl(local_node) && !cnormNode_checkIsComposed(local_node.ctype))
 	{return false;}
-	ref out_ref = local_node.ctype.body;
-	return true;
+        return cnormNodeDecl_GetBody(local_node.ctype, out_ref);
 }
 
 // get the block of one enum

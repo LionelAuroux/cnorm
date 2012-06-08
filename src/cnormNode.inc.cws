@@ -312,7 +312,7 @@ function cnormNode_checkAndRegisterTypedef(local_node : node)
 // check if we are an empty node in the global scope
 function cnormNode_checkEmptyDeclGlobScope(local_node : node)
 {
-        traceLine("GlobScope:0:" + toString(local_node, true));
+        //traceLine("GlobScope:0:" + toString(local_node, true));
 	if (local_node.ctype.cdecl_type == "__primary__"
 		&& local_node.ctype.storage == "auto" 
 		&& local_node.ctype.qualifier == "auto" 
@@ -321,19 +321,19 @@ function cnormNode_checkEmptyDeclGlobScope(local_node : node)
 		&& local_node.ctype.identifier == "auto"
 		&& !existVariable(local_node.ctype.typeof))
 	{	
-        traceLine("GlobScope:1");
+        //traceLine("GlobScope:1");
 		if (local_node#parent#parent.type == "__root_block__")
 		{	return true;}
 		// if unknown type (unstrict mode), it's a declaration
 		if (existVariable(local_node.ctype.unknown))
 		{	return true;}
-                traceLine("NOT A EMPTY GLOB SCOPE");
+                //traceLine("NOT A EMPTY GLOB SCOPE");
 		// disallow in block
 		return false;
 	}
 	if (existVariable(local_node.name))
 	{	return true;}
-        traceLine("NOT A EMPTY GLOB SCOPE");
+        //traceLine("NOT A EMPTY GLOB SCOPE");
 	// disallow in block
 	return false;
 }
@@ -349,10 +349,10 @@ function cnormNode_unstrictClean(local_node : node)
         // RESET
         if (existVariable(block_node.unknown))
         {
-                traceLine("in ctx:" + block_node.unknown);
+                //traceLine("in ctx:" + block_node.unknown);
                 if (existVariable(local_node#root.unknown) && findElement(block_node.unknown, local_node#root.unknown))
                 {
-                        traceLine("CLEAN:" + block_node.unknown);
+                  //      traceLine("CLEAN:" + block_node.unknown);
                         removeElement(local_node#root.unknown, block_node.unknown);
                 }
 		if (existVariable(local_node#root.unknown) && $getArraySize(local_node#root.unknown) == 0$)
@@ -371,9 +371,9 @@ function cnormNode_unstrictSet(local_node : node, id : value)
                 //
                 local slotid = typeHandling_getid(local_node);
                 localref block_node = local_node#root.block_ref[slotid];
-                traceLine("FVI SLOT:" + id);
+                //traceLine("FVI SLOT:" + id);
                 insert block_node.unknown = id;
-                traceLine(">>:" + id);
+                //traceLine(">>:" + id);
                 insert local_node#root.unknown[id] = id;
         }
 }

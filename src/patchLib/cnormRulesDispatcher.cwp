@@ -21,7 +21,7 @@
 #overload
 translation_unit ::= 
 	#try
-	#ignore
+	#ignore("CNORM")
 	=> {     
                 if (!existVariable(this.dialect.map_identifier))
                 {       cnormDialect<this.dialect>(this);}
@@ -43,6 +43,7 @@ translation_unit ::=
 				else if (!cnormNode_checkBlock(this))
 				{	cnormNodeBlock(this, true);}
 				#applyBNFRule line_of_codes(this);
+                                traceLine("fin:" + toString(this.block, true));
 				break;
 			}
 			case "function_param":
@@ -78,8 +79,9 @@ translation_unit ::=
 // global declarations
 declarations(theBlock : node) ::= 
 	[ 
-		declaration(theBlock) 
+		declaration(theBlock) | unstrict(this)
 	]+
+        #continue #empty
 ;
 
 // chunk of code somewhere
@@ -87,6 +89,7 @@ line_of_codes(theBlock : node) ::=
 	[ 
 		line_of_code(theBlock) 
 	]+
+        #continue #empty
 ;
 
 // a param in the parameter list
@@ -101,9 +104,11 @@ su_fields(theBlock : node) ::=
 		line_of_code(theBlock) 
 	]+
 /**/	#check(cnormNode_MapFieldOrParam(theBlock))
+        #continue #empty
 ;
 
 // enum fields 
 e_fields(theCtype : node) ::= enumerator_list(theCtype)
+        #continue #empty
 ;
 

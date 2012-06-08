@@ -63,9 +63,7 @@ line_of_code(theBlock : node) ::=
 /**/            if ($getArraySize(theBlock#root.block_ref) > 0$ && existVariable(theBlock#root.block_ref#back) 
 /**/            && !existVariable(theBlock#root.block_ref#back.ref.type))
 /**/            {	removeLastElement(theBlock#root.block_ref);}
-/**/    }
-// clean artefact failed declaration
-/**/    => if ($getArraySize(theBlock.block) > 0$ && theBlock.block#back.name == "") removeLastElement(theBlock.block);
+/**/       }
         [
 /**/    #pushItem(theBlock.block)
 /**/    => local lastNode;

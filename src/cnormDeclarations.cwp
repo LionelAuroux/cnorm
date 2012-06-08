@@ -663,6 +663,10 @@ unstrict(theBlock : node) ::=
                         => block_node.unknown = "";
 	]+
         cdecl_end(theBlock)
+        |
+// remove artefact                
+/**/    => removeLastElement(theBlock.block);
+        #check(false)
 ;
 
 // fucking unstrict forward declaration
