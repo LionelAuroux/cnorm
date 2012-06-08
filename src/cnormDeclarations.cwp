@@ -37,19 +37,19 @@ declaration(theBlock : node) ::= [asm_expr(theBlock) | cdecl(theBlock)]
 */
 unstrict(theBlock : node) ::=
         #check(theBlock#root.dialect.parsing_mode == "unstrict")
-        => traceLine("IN UNSTRICT");
+        //=> traceLine("IN UNSTRICT");
         => local slotid = typeHandling_getid(theBlock);
         => localref block_node = theBlock#root.block_ref[slotid];
         [
-                        => traceLine("unstrict SLOT:" + slotid);
-                        =>traceLine("unstrict retry with unknown:" + toString(theBlock#root.unknown, true));
+          //              => traceLine("unstrict SLOT:" + slotid);
+            //            =>traceLine("unstrict retry with unknown:" + toString(theBlock#root.unknown, true));
                         => removeLastElement(theBlock.block);
         		cdecl_begin(theBlock)
                         !![';'|'{']
-                        => traceLine("after decl unstrict:" + peekChar());
+              //          => traceLine("after decl unstrict:" + peekChar());
                         // if at minima one line of code was parsed
                         => if ($getArraySize(theBlock.block) > 0$) cnormNode_unstrictClean(theBlock.block#back); else cnormNode_unstrictClean(theBlock);
-                        => traceLine("afterclean:<" + block_node.unknown + ">");
+                //        => traceLine("afterclean:<" + block_node.unknown + ">");
                         // only once in normal case
                         #break
                |        
@@ -57,8 +57,8 @@ unstrict(theBlock : node) ::=
                                 #check(block_node.unknown == "") 
                                 =>traceLine("BREAK DECL NIANIA:" + peekChar() + " -- " + block_node.unknown);
                                 => removeLastElement(theBlock.block);
-                                => if ($getArraySize(theBlock#root.unknown) > 0$) traceLine(">>" + theBlock#root.unknown#back);
-                                => if ($getArraySize(theBlock#root.unknown) > 0$) removeLastElement(theBlock#root.unknown);
+                                //=> if ($getArraySize(theBlock#root.unknown) > 0$) traceLine("DECL NIANIA>>" + theBlock#root.unknown#back);
+                                //=> if ($getArraySize(theBlock#root.unknown) > 0$) removeLastElement(theBlock#root.unknown);
                                 #break
                |
                         // handle recursion
@@ -66,9 +66,9 @@ unstrict(theBlock : node) ::=
                         => insert theBlock#root.unknown[block_node.unknown] = block_node.unknown;
                         => block_node.unknown = "";
 	]+
-        => traceLine("END GUESSING:" + toString(theBlock, true) + ":" + peekChar());
+       // => traceLine("END GUESSING:" + toString(theBlock, true) + ":" + peekChar());
         cdecl_end(theBlock)
-        => traceLine("OUT UNSTRICT");
+      //  => traceLine("OUT UNSTRICT");
 ;
 
 unstrict_forward(theNode : node) ::=
@@ -82,7 +82,6 @@ unstrict_forward(theNode : node) ::=
         		[ declaration_specifier(theNode)]+  =>traceLine("NIA");  declarator(theNode)
                         !![';']
                         => traceLine("after decl FW unstrict:" + peekChar());
-                        // if at minima one line of code was parsed
                         => cnormNode_unstrictClean(theNode);
                         => traceLine("afterclean FW:<" + block_node.unknown + ">");
                         // only once in normal case
@@ -165,7 +164,7 @@ asm_expr(theBlock : node) ::=
 cdecl(theBlock : node) ::=
         cdecl_begin(theBlock)
         cdecl_end(theBlock)
-        => traceLine("FIN CDECL");
+        //=> traceLine("FIN CDECL");
 ;
 
 cdecl_end(theBlock : node) ::=
@@ -174,12 +173,13 @@ cdecl_end(theBlock : node) ::=
                                
 	  [ 
 // function?
+          #check(cnormNode_checkIsFuncDeclaration(lastNode))
 	  // try implementation
 	   #insert(lastNode.body)
 	   compound_statement(lastNode.body)
                 |
                 ';'
-                => traceLine("COMMA OF CDECL");
+          //      => traceLine("COMMA OF CDECL");
            ]
 ;
 
@@ -216,9 +216,9 @@ declaration_specifier(theDecl : node) ::=
 /**/	#check(cnormNodeDecl_GetCtype(theDecl, ctype))
 [
         #readIdentifier:id
-        => traceLine("id??" + id);
+       // => traceLine("id??" + id);
         #check(cnormNodeDecl_Set(ctype, id))
-       =>traceLine("RES:" + toString(ctype, true));
+      // =>traceLine("RES:" + toString(ctype, true));
  //       =>traceLine("ROOT:" + toString(ctype#root.dialect, true));
         // follow
         [
@@ -235,11 +235,12 @@ declaration_specifier(theDecl : node) ::=
         ]?
         | typedef_name(ctype)
 // TRY UNSTRICT GRAMMAR MODE 
+
 	|[ #check(theDecl#root.dialect.parsing_mode == "unstrict")
 		#readIdentifier:id
                 // not a special word
                 #check(!cnormNode_checkTypeGroupOfId(ctype, id, ""))
-                => traceLine("unknown?" + id);
+               // => traceLine("unknown?" + id);
                [
 		#check(theDecl#root.unknown[id])
                 => traceLine("found unknown 1:" + id);
@@ -248,13 +249,8 @@ declaration_specifier(theDecl : node) ::=
                 // we learn of previous unknown qualifier
                 //=> removeElement(theDecl#root.unknown, id);
 
-                
                 | // store in unknown and retry
-                       /* 
-                        => local slotid = typeHandling_getid(theDecl);
-                        => localref block_node = theDecl#root.block_ref[slotid];
-                        => insert block_node.unknown = id;
-                        */
+                        =>traceLine("GRAAAAAAAA");
                         => cnormNode_unstrictSet(theDecl, id);
                         #check(false)
                ]
@@ -276,17 +272,6 @@ type_qualifier(theCtype : node) ::=
 /**/	=> local attr;
 	attribute_decl(attr, theCtype)
 /**/	#check(cnormNodeDecl_SetDeclSpecifierAttribute(theCtype, attr))
-// TRY UNSTRICT GRAMMAR MODE 
-	|[ #check(theCtype#root.dialect.parsing_mode == "unstrict")
-        //// TODO: be more precise  qualifier,type,macro
-		//if ($getArraySize(local_node#root.unknown) == 0$)
-		//{	removeVariable(local_node#root.unknown);}
-		#readIdentifier:id
-		#check(theCtype#root.unknown[id])
-                => traceLine("found unknown 2:" + id);
-                // we store in local
-		=> insert theCtype.unknown[id] = id;
-	]
 ;
 
 /*
@@ -317,7 +302,9 @@ composed_fields(theCtype : node) ::=
 /**/	=> local composed_body;
 /**/	#check(cnormNodeDecl_GetBody(theCtype, composed_body))
 /**/	#check(cnormNodeBlock(composed_body, true))
-    [	declaration(composed_body) | unstrict(composed_body) => traceLine("End composed unstrict");]* 
+    [	declaration(composed_body) | => traceLine("try unstrict composed!!!:" + toString(composed_body, true));
+    => traceLine("blabla:" + composed_body#root.dialect.parsing_mode);
+        unstrict_forward(composed_body.block#back) => traceLine("End composed unstrict");]* 
   '}'
 // map the fields in the block
 /**/ #check(cnormNode_MapFieldOrParam(composed_body))
@@ -387,7 +374,7 @@ init_declarator(theDecl : node) ::=
 	[ ':'
         => cnormNode_unstrictClean(theDecl);
 /**/	#check(theDecl.ctype.identifier != "auto")
-/**/	#continue
+/**/	#continue(sErr, "Failed after : in declaration")
 /**/	#insert(theDecl.colon_expr) 
 /**/	=> local colon;
 /**/	#check(cnormNodeDecl_SetColonExpr(theDecl, colon))
@@ -476,7 +463,6 @@ declarator(theDecl : node) ::=  [ pointer(theDecl) ]? absolute_declarator(theDec
 
 function_or_variable_identifier(theDecl : node) ::=
 	identifier(theDecl):id
-        => cnormNode_unstrictSet(theDecl, id);
 /**/	#check(cnormNodeDecl_SetName(theDecl, id))
 ;
 
@@ -579,7 +565,6 @@ direct_absolute_declarator(theDecl : node) ::=
 
         =>traceLine("directAbsDecl PARAM");
 /**/	#check(cnormNodeDecl_GetParam(theDecl, paramList))
-        => traceLine("nia1");
 /**/	#check(cnormNodeBlock(paramList, true))
         => traceLine("nia2");
 	[#check(theDecl#root.dialect.parsing_mode != "unstrict") 
@@ -596,6 +581,13 @@ direct_absolute_declarator(theDecl : node) ::=
 	]?
         =>traceLine("SUITE AVANT ):" + peekChar());
 	')'
+        => {
+                
+                local slotid = typeHandling_getid(paramList);
+                localref block_node = theDecl#root.block_ref[slotid];
+                traceLine("FIN PARAM:" + toString(block_node, true));
+                traceLine("FIN PARAM GLOB:" + toString(theDecl#root.unknown, true));
+        }
    ]
    	[
 		// lookahead for following definition/prototype/or pointer function
@@ -733,21 +725,8 @@ initializer(theExpr : node) ::=
 		[',']? 
 	'}'
 	| assignment_expression(theExpr)
-        
                 // UNSTRICT
-                => {
-                        if (theExpr#root.dialect.parsing_mode == "unstrict")
-                        {
-                                local slotid = typeHandling_getid(theExpr);
-                                localref block_node = theExpr#root.block_ref[slotid];
-                                if (existVariable(block_node.unknown) && block_node.unknown != "")
-                                { traceLine("ASSIGN EXPR:" + block_node.unknown);
-                                        removeElement(theExpr#root.unknown, block_node.unknown);
-                                        block_node.unknown = "";
-                                }
-                        }
-            }
-                
+                => cnormNode_unstrictClean(theExpr);
 ;
 
 /*

@@ -36,10 +36,8 @@ single_statement(theStmt : node) ::=
 */
 compound_statement(theBlock : node) ::=
 '{'
-        => traceLine("compound begin");
 /**/	#check(cnormNodeBlock(theBlock, true))
 	block_item_list(theBlock) 
-        => traceLine("compound end");
 '}'
 ;
 
@@ -67,26 +65,6 @@ line_of_code(theBlock : node) ::=
 	| // or code
 =>traceLine("isexpr?:" + peekChar());
 => cnormNode_unstrictClean(theBlock);
-        // if at minima one line of code was parsed
-        /*
-        => {// unstrictCleanSwitchToExpr
-                if (theBlock#root.dialect.parsing_mode == "unstrict")
-                {
-                        traceLine("ARTEFACT:" + theBlock.block#back.name);
-                        local slotid = typeHandling_getid(theBlock);
-                        localref block_node = theBlock#root.block_ref[slotid];
-                        traceLine("ISEXPR:" + block_node.unknown);
-                        if (block_node.unknown != "")
-                        {if ($getArraySize(theBlock.block) > 0$) cnormNode_unstrictClean(theBlock.block#back); else cnormNode_unstrictClean(theBlock);}
-                        else
-                        {
-                                // special case, the last field in global unknown was collected by function_or_variable_identifier
-                                traceLine("special case : remove");
-                                removeLastElement(theBlock#root.unknown);
-                        }
-                }
-           }
-           */
         => traceLine("switch to expression into block");
 => {// drop artefact in block_ref hierarchy
 	if ($getArraySize(theBlock#root.block_ref) > 0$ && existVariable(theBlock#root.block_ref#back) 
@@ -95,7 +73,8 @@ line_of_code(theBlock : node) ::=
 }
         [
         => traceLine("TRY EXPR");
-        //=> removeLastElement(theBlock.block);
+        // clean artefact failed declaration
+        => if ($getArraySize(theBlock.block) > 0$ && theBlock.block#back.name == "") removeLastElement(theBlock.block);
 /**/	#pushItem(theBlock.block)
 /**/	=> local lastNode;
 /**/	#check(cnormNodeBlock_GetLastNode(theBlock, lastNode))

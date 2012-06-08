@@ -28,6 +28,3 @@ clean :
 		tests/*.c.pp \
                 tests/*.i \
 	@echo "All are cleaned"
-
-foo :
-	../bin/cnorm tests/foo.c

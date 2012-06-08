@@ -189,10 +189,8 @@ function cnormNodeBlock(local_node : node, autoregister : value)
 // check the type of the identifier from dialect
 function cnormNode_checkTypeOfId(local_node : node, id : value, type_id : value)
 {
-//traceLine("check TOI:" + id + " is " + type_id);
         if (findElement(id, local_node#root.dialect.map_identifier))
         {
- //       traceLine("found " + local_node#root.dialect.map_identifier[id]);
                 if (type_id != "" && local_node#root.dialect.map_identifier[id] != type_id)
                 {       return false;}
                 return true;
@@ -321,7 +319,6 @@ function cnormNode_checkEmptyDeclGlobScope(local_node : node)
 		&& local_node.ctype.specifier == "auto"
 		&& local_node.ctype.funspecifier == "auto"
 		&& local_node.ctype.identifier == "auto"
-		//&& (existVariable(local_node.name) && local_node.name != "" || !existVariable(local_node.name))
 		&& !existVariable(local_node.ctype.typeof))
 	{	
         traceLine("GlobScope:1");
@@ -330,11 +327,13 @@ function cnormNode_checkEmptyDeclGlobScope(local_node : node)
 		// if unknown type (unstrict mode), it's a declaration
 		if (existVariable(local_node.ctype.unknown))
 		{	return true;}
+                traceLine("NOT A EMPTY GLOB SCOPE");
 		// disallow in block
 		return false;
 	}
 	if (existVariable(local_node.name))
 	{	return true;}
+        traceLine("NOT A EMPTY GLOB SCOPE");
 	// disallow in block
 	return false;
 }
@@ -343,7 +342,6 @@ function cnormNode_checkEmptyDeclGlobScope(local_node : node)
 // clean the state of this.unknown for unstrict handling
 function cnormNode_unstrictClean(local_node : node)
 {
-
         if (local_node#root.dialect.parsing_mode != "unstrict")
         {       return false;}
         local slotid = typeHandling_getid(local_node);
@@ -374,19 +372,6 @@ function cnormNode_unstrictSet(local_node : node, id : value)
                 local slotid = typeHandling_getid(local_node);
                 localref block_node = local_node#root.block_ref[slotid];
                 traceLine("FVI SLOT:" + id);
-                if (existVariable(block_node.unknown) && block_node.unknown != "")
-                {
-                        /*
-                        if (local_node.name == block_node.unknown)
-                        {
-                                // for function parameter we handle the localization of unknown here
-                                traceLine("REAFFECT");
-                          //      insert local_node.ctype.unknown[block_node.unknown] = block_node.unknown;
-                        }
-                        
-                        traceLine("2 or more fvid in this level:" + block_node.unknown + " with " + id);
-                        */
-                }
                 insert block_node.unknown = id;
                 traceLine(">>:" + id);
                 insert local_node#root.unknown[id] = id;
@@ -417,10 +402,8 @@ function cnormNode_DeclAsParam(local_node : reference)
 
 function cnormNode_MapFieldOrParam(local_node : reference, remap : node = null)
 {
-//   traceLine("It's a block?");
 	if (!cnormNode_checkBlock(local_node))
 	{return false;}
-//   traceLine("It's a block");
 	insert local_node.map;
 	local i = 0;
 	local size = getArraySize(local_node.block);

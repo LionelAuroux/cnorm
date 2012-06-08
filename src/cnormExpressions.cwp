@@ -400,23 +400,6 @@ primary_expression(expr : node) ::=
 ]
 |
         => cnormNode_unstrictClean(expr);
-/*
-                // UNSTRICT
-                => {
-                        if (expr#root.dialect.parsing_mode == "unstrict")
-                        {
-                                traceLine("AFTER CAST:" + toString(expr#root.unknown));
-                                local slotid = typeHandling_getid(expr);
-                                localref block_node = expr#root.block_ref[slotid];
-                                traceLine("AFTER CAST EXPR:" + toString(expr.left, true) + "\n last:" + expr#root.unknown#back);
-                                if (expr.left.name == expr#root.unknown#back)
-                                {
-                                        removeElement(expr#root.unknown, expr#root.unknown#back);
-                                        //block_node.unknown = "";
-                                }
-                        }
-                }
-                */
 // we clean artefact (LL parser)
 => clearVariable(expr);
 	'('
@@ -443,18 +426,6 @@ primary_expression(expr : node) ::=
 /**/	#check(cnormNode_OffsetExpr(expr, left_expr, right_expr))
 	type_name(left_expr) 
         => cnormNode_unstrictClean(left_expr);
-        /*
-                // UNSTRICT
-                => {
-                        if (expr#root.dialect.parsing_mode == "unstrict")
-                        {
-                                local slotid = typeHandling_getid(expr);
-                                localref block_node = expr#root.block_ref[slotid];
-                                if (existVariable(block_node.unknown))
-                                { traceLine("BUILTIN EXPR:" + block_node.unknown);}
-                        }
-                }
-                */
         ',' postfix_expression(right_expr)
 	')'
 ]
