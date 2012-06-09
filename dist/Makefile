@@ -6,7 +6,7 @@
 DISTRIB_STUDENT = $(wildcard ../src/*.cw{s,p})
 DISTRIB_ALL = ${DISTRIB_STUDENT} $(wildcard ../src/*.cwt)
 VERSION = 3.0
-ALPHA = ${VERSION}.3
+ALPHA = ${VERSION}.4
 
 all:
 	@echo "Usage:"
@@ -43,6 +43,7 @@ dist: clean
 clean : 
 	@rm -rf src
 	@find ../.. -name "*~" |xargs rm -f
+	@find ../.. -name "*.swp" |xargs rm -f
 	@find ../.. -name "*.c_*" |xargs rm -f
 	@find ../.. -name "*.c.pp" |xargs rm -f
 	@echo "All are cleaned"

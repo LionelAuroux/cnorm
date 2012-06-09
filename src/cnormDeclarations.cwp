@@ -261,7 +261,7 @@ init_declarator(theDecl : node) ::=
         [ ':'
 /**/    => cnormNode_unstrictClean(theDecl);
 // force type int only qualified/specified variable
-/**/    => if (theDecl.ctype.identifier == "auto") theDecl.ctype.identifier = "int";
+/**///    => if (theDecl.ctype.identifier == "auto") theDecl.ctype.identifier = "int";
 /**///    #continue(sErr, "Failed after : in declaration")
 /**/    #insert(theDecl.colon_expr) 
 /**/    => local colon;
@@ -297,6 +297,7 @@ init_declarator(theDecl : node) ::=
 /**/    #check(cnormNode_checkInComposed(theDecl))
 /**/    #check(cnormNode_DeclAsField(theDecl))
 /**/    ]?
+        #check(cnormNode_checkEmptyDeclGlobScope(theDecl))
 ;
 
 /*
