@@ -43,7 +43,6 @@ translation_unit ::=
 				else if (!cnormNode_checkBlock(this))
 				{	cnormNodeBlock(this, true);}
 				#applyBNFRule line_of_codes(this);
-                                traceLine("fin:" + toString(this.block, true));
 				break;
 			}
 			case "function_param":
