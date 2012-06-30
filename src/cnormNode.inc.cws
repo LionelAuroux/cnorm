@@ -40,6 +40,7 @@ declare function cnormNode_checkCtype(local_node : node);
 declare function cnormNode_checkInit(local_node : node);
 declare function cnormNode_checkIsFuncDeclaration(local_node : node);
 declare	function cnormNode_checkIsFuncDefinition(local_node : node);
+declare function cnormNode_checkInBlock(local_node : node);
 declare function cnormNode_checkAndRegisterTypedef(local_node : node);
 declare function cnormNode_checkEmptyDeclGlobScope(local_node : node);
 
@@ -293,6 +294,27 @@ function cnormNode_checkIsFuncDefinition(local_node : node)
 	return false;
 }
 
+// cnormNode_checkInBlock
+// check if a node is in an implementation block
+function cnormNode_checkInBlock(local_node : node)
+{
+        local max = 1000; // max depth
+        local i = 0;
+        localref curnode = local_node;
+        while (true)
+        {
+                if (existVariable(curnode.type) && curnode.type == "__block__")
+                {       return true;}
+                if (existVariable(curnode.type) && curnode.type == "__root_block__")
+                {       return false;}
+                ref curnode = curnode#parent;
+                i = $i + 1$;
+                if ($i > max$)
+                {       break;}
+        }
+        return false;
+}
+
 // cnormNode_checkAndRegisterTypedef
 // check if a node is a typedef declaration, if true add the type
 function cnormNode_checkAndRegisterTypedef(local_node : node)
@@ -312,13 +334,17 @@ function cnormNode_checkAndRegisterTypedef(local_node : node)
 // check if we are an empty node in the global scope
 function cnormNode_checkEmptyDeclGlobScope(local_node : node)
 {
-//traceLine(">>>>" + toString(local_node#parent#parent#parent, true));
         if (local_node.ctype.storage == "typedef")
         { return true;}
-        if (local_node#parent#parent#parent.type == "__stmt__" || existVariable(local_node#parent#parent#parent.ctype.param))
+        if (cnormNode_checkInBlock(local_node))
         {
-                if ((local_node.name == "" || local_node.ctype.identifier == "auto") && !existVariable(local_node.ctype.typeof))
-                { return false;}
+                if (local_node.type == "__field_decl__" || local_node.type == "__param_decl__")
+                {       return true;}
+                //traceLine("Empty? " + toString(local_node, true));
+                if ((local_node.name == "" || local_node.ctype.identifier == "auto") && !existVariable(local_node.ctype.typeof) 
+                        && !existVariable(local_node.ctype.unknown))
+                {       return false;}
+                //traceLine("OK");
         }
         return true;
 }
@@ -544,9 +570,9 @@ function cnormNodeDecl_SetSpecifier(local_ctype : node, specifier : value)
 	if (cnormNode_checkTypeOfId(local_ctype, specifier, "specifier_enum"))
 	{	local_ctype.cdecl_type = "__enum__";}
 	// set the specifier
-	local_ctype.specifier = specifier;
+	insert local_ctype.specifier = specifier;
 	// empty the identifier for specifier
-	local_ctype.identifier = "";
+	insert local_ctype.identifier = "";
 	return true;
 }
 
@@ -778,7 +804,7 @@ function cnormNodeDecl_SetIdentifier(local_ctype : node, identifier : value)
 {
 	if (!cnormNode_checkCtype(local_ctype))
 	{return false;}
-	local_ctype.identifier = identifier;
+	insert local_ctype.identifier = identifier;
 	return true;
 }
 
@@ -791,7 +817,7 @@ function cnormNodeDecl_SetTypedefName(local_ctype : node, identifier : value)
 	{bPrecond = true;}
 	if (bIsType && bPrecond)
 	{
-		local_ctype.identifier = identifier;
+		insert local_ctype.identifier = identifier;
 		return true;
 	}
 	return false;
