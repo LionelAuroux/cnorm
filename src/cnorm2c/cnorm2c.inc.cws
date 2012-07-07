@@ -500,9 +500,6 @@ function	cnorm2c_CtypeBegin(theCtype : node, thePrettyAst : reference)
 	// const, volatile, restrict
 	if (existVariable(theCtype.qualifier) && theCtype.qualifier != "auto")
 	{prettyPrint_AddItem(thePrettyAst, theCtype.qualifier);}
-	// unstrict mode...all unknown things are put here
-	if (existVariable(theCtype.unknown))
-	{foreach item in theCtype.unknown {prettyPrint_AddItem(thePrettyAst, item.key());}}
 	// unsigned
 	if (existVariable(theCtype.unsigned))
 	{prettyPrint_AddItem(thePrettyAst, "unsigned");}
@@ -539,6 +536,9 @@ function	cnorm2c_CtypeBegin(theCtype : node, thePrettyAst : reference)
 		{	ident = "";}
 		prettyPrint_AddItem(thePrettyAst, ident);
 	}
+	// unstrict mode...all unknown things are put here
+	if (existVariable(theCtype.unknown))
+	{foreach item in theCtype.unknown {prettyPrint_AddItem(thePrettyAst, item.key());}}
 	// recurs for struct, union
 	if (existVariable(theCtype.body))
 	{

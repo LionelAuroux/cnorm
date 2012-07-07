@@ -66,6 +66,8 @@ cdecl(theBlock : node) ::=
 // first part of a declaration
 cdecl_begin(theBlock : node) ::=
 // create a new node in the AST, reference it, and set it as Decl
+        => local nCount = getArraySize(theBlock.block);
+[
 /**/    #pushItem(theBlock.block)
 /**/    => local firstNode;
 /**/    #check(cnormNodeBlock_GetLastNode(theBlock, firstNode))
@@ -83,6 +85,13 @@ cdecl_begin(theBlock : node) ::=
 /**/            #check(cnormNodeDecl_CopyDecl(nextNode, firstNode))
                 init_declarator(nextNode)
         ]*
+        |
+        => if ($nCount != getArraySize(theBlock.block)$)
+        {
+                error("ARTEFACT 1");
+        }
+        #check(false)
+]
 ;
 
 // last part of a declaration
@@ -130,7 +139,7 @@ declaration_specifier(theDecl : node) ::=
         | typedef_name(ctype)
 // TRY UNSTRICT GRAMMAR MODE 
         |[ #check(theDecl#root.dialect.parsing_mode == "unstrict")
-                #readIdentifier:id
+                rootidentifier:id
                 // not a special word
 /**/            #check(!cnormNode_checkTypeGroupOfId(ctype, id, ""))
 /**/            [
@@ -189,11 +198,14 @@ composed_fields(theCtype : node) ::=
 /**/    => local composed_body;
 /**/    #check(cnormNodeDecl_GetBody(theCtype, composed_body))
 /**/    #check(cnormNodeBlock(composed_body, true))
+/**/    => local nCount;
         [       
-                declaration(composed_body) 
+/**/            => nCount = getArraySize(composed_body.block);
+                [ declaration(composed_body) | unstrict(composed_body) ]
                 |
-                // TODO: not fully supported
-                unstrict(composed_body)
+                // ARTEFACT 2
+/**/            => if ($nCount != getArraySize(composed_body.block)$) removeLastElement(composed_body.block);
+/**/            #check(false)
         ]*
         '}'
 // map the fields in the block
@@ -633,6 +645,7 @@ unstrict(theBlock : node) ::=
         #check(theBlock#root.dialect.parsing_mode == "unstrict")
         => local slotid = typeHandling_getid(theBlock);
         => localref block_node = theBlock#root.block_ref[slotid];
+/**/    #pushItem(theBlock.block)
         [
                         => removeLastElement(theBlock.block);
         		cdecl_begin(theBlock)
@@ -652,10 +665,10 @@ unstrict(theBlock : node) ::=
                         => block_node.unknown = "";
 	]+
         cdecl_end(theBlock)
-        |
+//        |
 // remove artefact                
-/**/    => removeLastElement(theBlock.block);
-        #check(false)
+/**///    => removeLastElement(theBlock.block);
+//        #check(false)
 ;
 
 // fucking unstrict forward declaration

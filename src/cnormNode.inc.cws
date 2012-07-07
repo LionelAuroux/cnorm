@@ -581,10 +581,11 @@ function cnormNodeDecl_GetBody(local_ctype : node, out_ref : reference)
 {
 	if (!cnormNode_checkCtype(local_ctype))
 	{return false;}
-	if (local_ctype.cdecl_type != "__composed__")
-	{error("local_node is not a composed type");}
 	if (!existVariable(local_ctype.body))
-	{ insert local_ctype.body;}
+	{ 
+                insert local_ctype.body;
+                local_ctype.cdecl_type = "__composed__";
+        }
 	ref	out_ref = local_ctype.body;
 	return true;
 }

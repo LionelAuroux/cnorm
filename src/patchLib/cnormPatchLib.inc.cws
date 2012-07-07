@@ -252,7 +252,7 @@ function cnormPatchInjectPointInPlace(local_node : node, name : value)
 {
 	local rootNode;
 	if (!cnormNode_checkBlock(local_node))
-	{	return false;}
+	{	cnormNodeBlock(local_node);}
 	if (!cnormNode_searchRoot(local_node, rootNode))//workaround
 	{	return false;}
 	if (!existVariable(rootNode.block.injects))

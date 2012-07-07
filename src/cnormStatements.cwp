@@ -53,16 +53,19 @@ block_item_list(theBlock : node) ::=
 */
 line_of_code(theBlock : node) ::=
 /**/    #check(cnormNode_checkBlock(theBlock)) 
+/**/    => local nCount = getArraySize(theBlock.block);
 [
 	// declaration of variable
 	[ declaration(theBlock) | unstrict(theBlock) ]
 	| // or code
 /**/    => cnormNode_unstrictClean(theBlock);
+// ARTEFACT 3
+/**/    => if ($nCount != getArraySize(theBlock.block)$) removeLastElement(theBlock.block);
 // drop artefact in block_ref hierarchy
 /**/    => {
 /**/            if ($getArraySize(theBlock#root.block_ref) > 0$ && existVariable(theBlock#root.block_ref#back) 
 /**/            && !existVariable(theBlock#root.block_ref#back.ref.type))
-/**/            {	removeLastElement(theBlock#root.block_ref);}
+/**/            {       removeLastElement(theBlock#root.block_ref); }
 /**/       }
         [
 /**/    #pushItem(theBlock.block)
