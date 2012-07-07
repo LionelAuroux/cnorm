@@ -86,6 +86,7 @@ cdecl_begin(theBlock : node) ::=
                 init_declarator(nextNode)
         ]*
         |
+        =>traceLine("nCount:" + nCount + "!=" + getArraySize(theBlock.block));
         => if ($nCount != getArraySize(theBlock.block)$)
         {
                 error("ARTEFACT 1");
@@ -642,12 +643,13 @@ forward_decl(theNode: node) ::=
 
 // fucking unstrict declaration
 unstrict(theBlock : node) ::=
+=> local nCount = getArraySize(theBlock.block);
+[
         #check(theBlock#root.dialect.parsing_mode == "unstrict")
         => local slotid = typeHandling_getid(theBlock);
         => localref block_node = theBlock#root.block_ref[slotid];
-/**/    #pushItem(theBlock.block)
+/**/    =>removeLastElement(theBlock.block);
         [
-                        => removeLastElement(theBlock.block);
         		cdecl_begin(theBlock)
                         !![';'|'{']
                         // if at minima one line of code was parsed
@@ -657,18 +659,19 @@ unstrict(theBlock : node) ::=
                |        
                         // handle end of recursion
                         #check(block_node.unknown == "") 
-                        => removeLastElement(theBlock.block);
                         #break
                |
                         // handle recursion
                         => insert theBlock#root.unknown[block_node.unknown] = block_node.unknown;
                         => block_node.unknown = "";
+                        =>removeLastElement(theBlock.block);
 	]+
         cdecl_end(theBlock)
-//        |
-// remove artefact                
-/**///    => removeLastElement(theBlock.block);
-//        #check(false)
+        |
+// ARTEFACT 4         
+/**/    => if ($nCount < getArraySize(theBlock.block)$) removeLastElement(theBlock.block);
+        #check(false)
+]
 ;
 
 // fucking unstrict forward declaration
