@@ -340,11 +340,9 @@ function cnormNode_checkEmptyDeclGlobScope(local_node : node)
         {
                 if (local_node.type == "__field_decl__" || local_node.type == "__param_decl__")
                 {       return true;}
-                //traceLine("Empty? " + toString(local_node, true));
                 if ((local_node.name == "" || local_node.ctype.identifier == "auto") && !existVariable(local_node.ctype.typeof) 
                         && !existVariable(local_node.ctype.unknown))
                 {       return false;}
-                //traceLine("OK");
         }
         return true;
 }
@@ -360,12 +358,8 @@ function cnormNode_unstrictClean(local_node : node)
         // RESET
         if (existVariable(block_node.unknown))
         {
-                //traceLine("in ctx:" + block_node.unknown);
                 if (existVariable(local_node#root.unknown) && findElement(block_node.unknown, local_node#root.unknown))
-                {
-                  //      traceLine("CLEAN:" + block_node.unknown);
-                        removeElement(local_node#root.unknown, block_node.unknown);
-                }
+                {       removeElement(local_node#root.unknown, block_node.unknown); }
 		if (existVariable(local_node#root.unknown) && $getArraySize(local_node#root.unknown) == 0$)
 		{	removeVariable(local_node#root.unknown);}
                 removeVariable(block_node.unknown);
@@ -382,9 +376,7 @@ function cnormNode_unstrictSet(local_node : node, id : value)
                 //
                 local slotid = typeHandling_getid(local_node);
                 localref block_node = local_node#root.block_ref[slotid];
-                //traceLine("FVI SLOT:" + id);
                 insert block_node.unknown = id;
-                //traceLine(">>:" + id);
                 insert local_node#root.unknown[id] = id;
         }
 }
@@ -995,13 +987,13 @@ function cnormNodeStmt_For(local_node : node, init_ref : reference, cond_ref : r
 {
 	cnormNodeStmt_Conditional(local_node, "for", cond_ref);
 	local_node.stmt_type = "__for__";
-	insert local_node.init;
-	cnormNodeBlock(local_node.init);
+	insert local_node.initialize;
+	cnormNodeBlock(local_node.initialize);
 	insert local_node.increment;
 	cnormNode_TerminalId(local_node.increment, "");
 	insert local_node.body;
 	cnormNodeBlock(local_node.body);
-	ref		init_ref = local_node.init;
+	ref		init_ref = local_node.initialize;
 	ref		inc_ref = local_node.increment;
 	ref		loop_ref = local_node.body;
 	return true;

@@ -198,7 +198,6 @@ statement<"for">(theStmt : node) ::=
 /**/    #continue(sErr, "bad token after 'for'")
         '(' 
         [ line_of_code(f_init) ]?
-/**/    => if (!existVariable(f_init.block[0].name)) clearVariable(f_init.block);//empty init,no artefact
         [ expression(f_cond) ]? ';'
         [ expression(f_incr) ]? 
 /**/    #continue(sErr, "bad token before ')'")

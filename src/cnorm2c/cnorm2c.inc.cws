@@ -377,19 +377,24 @@ function	cnorm2c_Stmt<"__for__">(theNode : node, thePrettyAst : reference)
 	prettyPrint_NewListSeparatedBy(cond_expr, subcond, "; ");
 	local assign;
 	prettyPrint_NewListSeparatedBy(subcond, assign, "");
-	if (existVariable(theNode.init.block[0].name))
+	if (existVariable(theNode.initialize.block[0].name))
 	{
 		// TODO: cas du multi-init dans le for !!
-		cnorm2c_Ctype(theNode.init.block[0], assign);
+		cnorm2c_Ctype(theNode.initialize.block[0], assign);
 		// for initializer
-		if (existVariable(theNode.init.block[0].assign_expr))
+		if (existVariable(theNode.initialize.block[0].assign_expr))
 		{
 			prettyPrint_AddItem(assign, " = ");
-			cnorm2c_Node<theNode.init.block[0].assign_expr.type>(theNode.init.block[0].assign_expr, assign);
+			cnorm2c_Node<theNode.initialize.block[0].assign_expr.type>(theNode.initialize.block[0].assign_expr, assign);
 		}
 	}
 	else
-	{	prettyPrint_AddItem(assign, "");}
+	{	
+                if (existVariable(theNode.initialize.block[0].expr))
+                { cnorm2c_Node<theNode.initialize.block[0].expr.type>(theNode.initialize.block[0].expr, assign); }
+                else
+                { prettyPrint_AddItem(assign, "");}
+        }
 	if (existVariable(theNode.condition.type) && theNode.condition.type != "")
 	{	cnorm2c_Node<theNode.condition.type>(theNode.condition, subcond);}
 	else
@@ -611,13 +616,11 @@ function	cnorm2c_CtypeEnd(theCtype : node, thePrettyAst : reference)
 	// for param
 	if (existVariable(theCtype.param))
 	{
-       // traceLine("YES PPPP" + toString(theCtype.param, true));
 		local paranth;
 		local subnode;
 		prettyPrint_NewBlock(thePrettyAst, paranth, "(", ")");
 		if ($getArraySize(theCtype.param.block) > 0$)
 		{
-         //       traceLine("gogo");
 			// forward decl
 			foreach idx in theCtype.param.map
 			{

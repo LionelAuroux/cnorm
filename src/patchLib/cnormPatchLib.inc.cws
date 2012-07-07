@@ -388,7 +388,7 @@ function cnormPatchGetStmtForInit(local_node : node, out_ref : reference)
 {
 	if (!cnormNode_checkStmt(local_node) && local_node.stmt_type != "__for__")
 	{return false;}
-	ref out_ref = local_node.init;
+	ref out_ref = local_node.initialize;
 	return true;
 }
 
