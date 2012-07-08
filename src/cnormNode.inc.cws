@@ -127,6 +127,7 @@ function cnormNode(local_node : node)
 	clearVariable(local_node);
 	// is an empty node
 	insert local_node.type = "__node__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	return true;
 }
 
@@ -139,21 +140,6 @@ function cnormNode_searchRoot(local_node : reference, out_ref : reference)
                 return true;
         }
         return false;
-        /*
-	while (true)
-	{
-		if (existVariable(refnode.type))
-		{
-			if (cnormNode_checkRootBlock(refnode))
-			{	
-				ref out_ref = refnode;
-				return true;
-			}
-		}
-		if (!existVariable(refnode#parent))
-		{return false;}
-		ref refnode = refnode#parent;
-	}*/
 }
 
 // root of AST CNORM, are also a BLOCK
@@ -161,6 +147,8 @@ function cnormNode_searchRoot(local_node : reference, out_ref : reference)
 function cnormNodeRoot(local_node : node)
 {
 	insert local_node.type = "__root_block__";
+        insert local_node.line = 0;
+        insert local_node.col = 0;
 	insert local_node.block;
 	typeHandling_create(local_node);
 	return true;
@@ -521,6 +509,7 @@ function cnormNodeDecl_SetName(local_node : node, name : value)
 	if (!cnormNode_checkDecl(local_node))
 	{return false;}
 	insert local_node.name = name;
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	return true;
 }
 
@@ -565,6 +554,7 @@ function cnormNodeDecl_SetSpecifier(local_ctype : node, specifier : value)
 	insert local_ctype.specifier = specifier;
 	// empty the identifier for specifier
 	insert local_ctype.identifier = "";
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
 	return true;
 }
 
@@ -681,6 +671,7 @@ function cnormNodeDecl_SetQualifier(local_ctype : node, qualifier : value)
 	if (!cnormNode_checkTypeOfId(local_ctype, qualifier, "qualifier"))
 	{error(qualifier + " is not a qualifier");}
 	local_ctype.qualifier = qualifier;
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
 	return true;
 }
 
@@ -697,6 +688,7 @@ function cnormNodeDecl_SetStorage(local_ctype : node, storage : value)
 	if (local_ctype.storage != "auto")
 	{error("already defined a storage:" + local_ctype.storage);}
 	local_ctype.storage = storage;
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
 	return true;
 }
 
@@ -709,6 +701,7 @@ function cnormNodeDecl_SetFunspecifier(local_ctype : node, funspecifier : value)
 	if (local_ctype.funspecifier != "auto")
 	{error("already defined a function specifier:" + local_ctype.funspecifier);}
 	local_ctype.funspecifier = funspecifier;
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
 	return true;
 }
 
@@ -739,6 +732,7 @@ function cnormNodeDecl_AddRef(local_node : node)
 	if (!cnormNode_checkDecl(local_node))
 	{return false;}
 	slideNodeContent(local_node, ctype.pointer);
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.ctype.type = "__ctype__";
 	insert local_node.ctype.cdecl_type = "__pointer__";
 	insert local_node.ctype.qualifier = "auto";
@@ -752,6 +746,7 @@ function cnormNodeDecl_AddFuncRef(local_node : node)
 	if (!cnormNode_checkDecl(local_node))
 	{return false;}
 	slideNodeContent(local_node, ctype.fpointer);
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.ctype.type = "__ctype__";
 	insert local_node.ctype.cdecl_type = "__fpointer__";
 	insert local_node.ctype.qualifier = "auto";
@@ -797,6 +792,7 @@ function cnormNodeDecl_SetIdentifier(local_ctype : node, identifier : value)
 {
 	if (!cnormNode_checkCtype(local_ctype))
 	{return false;}
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
 	insert local_ctype.identifier = identifier;
 	return true;
 }
@@ -810,6 +806,7 @@ function cnormNodeDecl_SetTypedefName(local_ctype : node, identifier : value)
 	{bPrecond = true;}
 	if (bIsType && bPrecond)
 	{
+                insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
 		insert local_ctype.identifier = identifier;
 		return true;
 	}
@@ -841,6 +838,7 @@ function cnormNodeDecl_SetDeclSpecifierAttribute(local_node : node, subtree : no
 {
 	if (!cnormNode_checkCtype(local_node))
 	{return false;}
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	if (!existVariable(local_node.attributes))
 	{insert local_node.attributes;}
 	// special case of __extension__
@@ -864,6 +862,7 @@ function cnormNodeDecl_SetDeclComposedAttribute(local_node : node, subtree : nod
 {
 	if (!cnormNode_checkCtype(local_node))
 	{return false;}
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	if (!existVariable(local_node.attributes))
 	{insert local_node.attributes;}
 	if (!existVariable(local_node.attributes.composed))
@@ -877,6 +876,7 @@ function cnormNodeDecl_SetDeclarationAttribute(local_node : node, subtree : node
 {
 	if (!cnormNode_checkDecl(local_node))
 	{return false;}
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	if (!existVariable(local_node.attributes))
 	{insert local_node.attributes;}
 	pushItem local_node.attributes;
@@ -888,6 +888,7 @@ function cnormNodeDecl_Set(local_node : node, ident : value)
 {
         if (!findElement(ident, local_node#root.dialect.map_identifier))
         {       return false;}
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
         local sType = local_node#root.dialect.map_identifier[ident];
         switch (sType)
         {
@@ -1072,6 +1073,7 @@ function cnormNode_ToBinary(local_node : node, op : value, right_ref : reference
 	slideNodeContent(local_node, left);
 	insert local_node.operator = op;
 	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.expr_type = "__binary__";
 	insert local_node.right;
 	ref right_ref = local_node.right;
@@ -1083,6 +1085,7 @@ function cnormNode_ToPost(local_node : node, op : value)
 	slideNodeContent(local_node, left);
 	insert local_node.operator = op;
 	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.expr_type = "__post__";
 	return true;
 }
@@ -1091,6 +1094,7 @@ function cnormNode_ToTernary(local_node : node, then_ref : reference, else_ref :
 {
 	slideNodeContent(local_node, condition);
 	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.expr_type = "__ternary__";
 	insert local_node.then;
 	insert local_node.else;
@@ -1103,6 +1107,7 @@ function cnormNode_UnaryExpr(local_node : node, op : value, right_ref : referenc
 {
 	insert local_node.operator = op;
 	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.expr_type = "__unary__";
 	insert local_node.right;
 	ref right_ref = local_node.right;
@@ -1112,6 +1117,7 @@ function cnormNode_UnaryExpr(local_node : node, op : value, right_ref : referenc
 function cnormNode_ParanthesisExpr(local_node : node, body_ref : reference)
 {
 	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.expr_type = "__paranth__";
 	insert local_node.body;
 	ref body_ref = local_node.body; 
@@ -1121,6 +1127,7 @@ function cnormNode_ParanthesisExpr(local_node : node, body_ref : reference)
 function cnormNode_CompoundExpr(local_node : node, body_ref : reference)
 {
 	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.expr_type = "__compound__";
 	insert local_node.body;
 	cnormNodeBlock(local_node.body);
@@ -1132,6 +1139,7 @@ function cnormNode_SizeOf(local_node : node, op : value, right_ref : reference)
 {
 	insert local_node.operator = op;
 	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.expr_type = "__sizeof__";
 	insert local_node.right;
 	ref right_ref = local_node.right;
@@ -1147,6 +1155,7 @@ function cnormNode_ToPostExpr(local_node : node, type : value, right_ref : refer
 	{
 		slideNodeContent(local_node, left);
 		insert local_node.type = "__expr__";
+                insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 		insert local_node.expr_type = "__postexpr__";
 		insert local_node.list;
 	}
@@ -1180,6 +1189,7 @@ function cnormNode_CallParam(local_node : node, param_ref : reference)
 function cnormNode_CastExpr(local_node : node, left_ref : reference, right_ref : reference)
 {
 	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.expr_type = "__cast__";
 	insert local_node.left;
 	insert local_node.right;
@@ -1192,6 +1202,7 @@ function cnormNode_CastExpr(local_node : node, left_ref : reference, right_ref :
 function cnormNode_OffsetExpr(local_node : node, left_ref : reference, right_ref : reference)
 {
 	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
 	insert local_node.expr_type = "__builtinoffsetof__";
 	insert local_node.left;
 	insert local_node.right;

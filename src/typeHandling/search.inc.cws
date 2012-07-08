@@ -89,7 +89,10 @@ function typeHandling_getid(local_node : reference)
         
                 this.count = $this.count + 1$;
                 if ($this.count > 1000$)
-                {error("ABORT: no found block_id");}
+                {
+                        traceLine("COUNT:" + this.count);
+                        error("ABORT: no found block_id");
+                }
         }
 	return node_ref.block_id;
 }

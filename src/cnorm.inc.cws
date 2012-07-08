@@ -167,7 +167,6 @@ function _cnormFile<T>(out_ref : reference, file : value)
 {
 	out_ref = file;
 	cnormDialect<T>(out_ref);
- //       traceLine("ROOT:" + toString(out_ref, true));
 	parseAsBNF("cnorm.cwp", out_ref, file);
 	if (existVariable(out_ref.dialect)) {removeVariable(out_ref.dialect);}
 	// parsing error
@@ -178,7 +177,7 @@ function _cnormFile<T>(out_ref : reference, file : value)
 // generic template to parse a string of the correct dialect
 function cnormString<T>(out_ref :reference, data : value)
 {
-	out_ref = "string";
+	out_ref = "<string>";
 	cnormDialect<T>(out_ref);
 	parseStringAsBNF("cnorm.cwp", out_ref, data);
 	if (existVariable(out_ref.dialect)) {removeVariable(out_ref.dialect);}
