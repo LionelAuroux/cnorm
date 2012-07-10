@@ -20,6 +20,9 @@
 function cnormNode_version()
 {return "3.0";}
 
+// put location information into node
+declare function cnormNode_InfoLocation(local_node : node);
+
 // basic node
 declare function cnormNode(local_node : node);
 declare function cnormNode_searchRoot(local_node : reference, out_ref : reference);
@@ -118,6 +121,18 @@ declare function cnormNode_TypeofExpr(local_node : node, out_ref : reference);
 declare function cnormLogError(local_node : node, log : value);
 declare function cnormTraceError(local_node : node, all : value = false);
 
+// cnormNode_InfoLocation
+// set location information into node
+// local_node : INOUT the node to set
+function cnormNode_InfoLocation(local_node : node)
+{
+    localref locInf = local_node#root;
+    if (!existVariable(locInf.line))
+    { ref locInf = this;}
+    insert local_node.location = locInf + ":" + locInf.line + ":" + locInf.col;
+    return true;
+}
+
 // cnormNode
 // set a node as a Cnorm AST node, avoid artefact...so resetting a actual node clean it
 // local_node : INOUT the node to set
@@ -127,7 +142,7 @@ function cnormNode(local_node : node)
 	clearVariable(local_node);
 	// is an empty node
 	insert local_node.type = "__node__";
-        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+        cnormNode_InfoLocation(local_node);
 	return true;
 }
 
