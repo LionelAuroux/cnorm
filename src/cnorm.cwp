@@ -65,8 +65,8 @@
         	| '\f' // form feed, sometimes Windows kernel headers have this character.
         ]+:skip
         =>{
-                this.line = countInputLines();
-                this.col = countInputCols();
+                insert this.line = countInputLines();
+                insert this.col = countInputCols();
         }
 ;
 
