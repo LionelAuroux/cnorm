@@ -61,6 +61,17 @@ asm_expr(theBlock : node) ::=
 cdecl(theBlock : node) ::=
         cdecl_begin(theBlock)
         cdecl_end(theBlock)
+	// TODO: workaround for artefact
+	=> {
+		if (existVariable(theBlock.block#back))
+		{
+			localref larte = theBlock.block#back;
+			//traceLine("test Last:" + toString(theBlock.block#back));
+			if (larte.type == "__decl__" && !existVariable(larte.name) && larte.ctype.cdecl_type == "__primary__"
+				&& larte.ctype.identifier == "auto")
+				{removeLastElement(theBlock.block);}
+		}
+	}
 ;
 
 // first part of a declaration
@@ -670,6 +681,17 @@ unstrict(theBlock : node) ::=
         |
 // ARTEFACT 4         
 /**/    => if ($nCount < getArraySize(theBlock.block)$) removeLastElement(theBlock.block);
+	// TODO: workaround for artefact
+	=> {
+		if (existVariable(theBlock.block#back))
+		{
+			localref larte = theBlock.block#back;
+			//traceLine("test Last:" + toString(theBlock.block#back));
+			if (larte.type == "__decl__" && !existVariable(larte.name) && larte.ctype.cdecl_type == "__primary__"
+				&& larte.ctype.identifier == "auto")
+				{removeLastElement(theBlock.block);}
+		}
+	}
         #check(false)
 ]
 ;

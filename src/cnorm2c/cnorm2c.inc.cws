@@ -165,7 +165,8 @@ function	cnorm2c_Node<"__expr__">(theNode : node, thePrettyAst : reference)
 ///////////////////////////////// Expr dispatch functions
 function	cnorm2c_Expr<"__raw__">(theNode : node, thePrettyAst : reference)
 {
-	prettyPrint_AddItem(thePrettyAst, theNode.data);
+	// TODO: workaround
+	prettyPrint_AddItem(thePrettyAst, "\n" + theNode.data);
 }
 
 function	cnorm2c_Expr<"__compound__">(theNode : node, thePrettyAst : reference)

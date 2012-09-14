@@ -53,17 +53,16 @@ local listTest = {
 	"\nint func3(a, b, c)\n\tint a;\n\tdouble b;\n\tchar *c;\n{\n\tint z;\n}"{"\nint func3(int a, double b, char * c)\n{\n\tint z;\n}"},
 // empty type
 // 28
-	"\n ;",
 	"\na;"{"\nint a;"},
 	"\nmain();"{"\nint main();"},
 // ellispis
-// 31
+// 30
 	"\nint func3(int a, double b, ...);",
 // forward declaration
-// 32
+// 31
 	"\nint flan(int size; double a; char tab[size], int size, double a);",
 // initialization
-// 33
+// 32
 	"\nint tab[] = {32, {12, 0x3F}};",
 	"\nint tab2[] = {.b.z.d = 12, .e.c = 14};",
 	"\nint tab2[] = {[12][22] = 12, .e.c = 14};",

@@ -26,9 +26,9 @@ declare function nodeMergeHashKey(dst : node, src : node);
 declare function cwLoadProject(filename : value, load_tree : node);
 
 // argument/option command line handling
-declare function	printOption(local_node : node, prog_name : value);
+declare function	printOption(local_node : reference, prog_name : value);
 declare function	addOption(local_node : node, option_name : value, soption : value, loption : value, desc : value,
-				mode : value = "optional", param : value = "null");
+				mode : value = "optional", param : value = "null", repeat : value = "unique");
 declare function        parseOption(progname : value, desc : reference, out_res : reference);
 
 
@@ -282,27 +282,45 @@ function	_getSpace(nbs : value)
 	return res;
 }
 
-function	printOption(local_node : node, prog_name : value)
+
+// printOption
+// local_node : IN reference where the parse option are configured
+// prog_name : IN value the name of the program to show
+// automatically create an USAGE message when an error occur during parsing option, called by parseOption
+function	printOption(local_node : reference, prog_name : value)
 {
 	traceLine("USAGE: " + prog_name + " [ARG]");
-	local	item;
-	createIterator(item, local_node);
-	if (item)
+	traceLine("OPTIONS:");
+        local lstFinal;
+        local sepBase = 20;
+        foreach item in local_node
 	{
-		traceLine("OPTIONS:");
-		while (next(item))
-		{
-			local sepBase = 20;
-			local title = item.short_option;
-			if (item.param == "list")
-			{	title += " ARGS";}
-			if (item.param == "param")
-			{	title += " ARG";}
-			title += " [" + item.long_option + "]";
-			local sep = $sepBase - lengthString(title)$;
-			traceLine(" " + title + _getSpace(sep) + "- " + item.desc);	
-		}
+                local lstShow;
+		pushItem lstShow = item.short_option;
+		if (item.param == "list")
+		{	pushItem lstShow = "ARG1 ARG2 ...";
+                        pushItem lstShow = "or";
+                        pushItem lstShow = item.long_option + "=ARG1,ARG2,...";
+                }
+		if (item.param == "param")
+		{	pushItem lstShow = "ARG";
+                        pushItem lstShow = "or";
+                        pushItem lstShow = item.long_option + "=ARG";
+                }
+		pushItem lstFinal;
+                insert lstFinal#back.first = joinStrings(lstShow, " ") + "    ";
+                insert lstFinal#back.second = item.desc;
+                // compute the best space alignement
+		local sep = $sepBase - lengthString(lstFinal#back.first)$;
+                if ($sep < 0$)
+                { sepBase = $sepBase - sep$;}
 	}
+        // aligned option and description
+        foreach line in lstFinal
+        {	
+		local sep = $sepBase - lengthString(line.first)$;
+                traceLine(" " + line.first + _getSpace(sep) + "- " + line.second);
+        }
 }
 
 /*
@@ -312,36 +330,29 @@ function	printOption(local_node : node, prog_name : value)
 		optional
 
 	param:
-		param	:	one data
 		null	:	don't take a param
+		param	:	one data
 		list 	:	list of data
 			in short option just like:  -l A B C
 			in long option just like: --list=A,B,C
+        repeat:
+                unique  :       only once
+                multi   :       many in the param list (multi-param/list concatene dans la liste)
 */
-function	addOption(local_node : node, option_name : value, soption : value, loption : value, desc : value, mode : value, param : value)
+function	addOption(local_node : node, option_name : value, soption : value, loption : value, desc : value, mode : value, param : value, repeat : value)
 {
 	local		idx = getArraySize(local_node);
-	if ($idx == 0$)
-	{
-		// avoid the 0 index
-		pushItem local_node;
-		idx = 1;
-	}
 	pushItem	local_node;
 	insert local_node#back.option_name = option_name;
 	insert local_node#back.short_option = soption;
 	insert local_node#back.long_option = loption;
 	insert local_node#back.mode = mode;
-	if (mode == "default")
-	{	insert local_node[0] = idx;
-	
-	}
-	if (mode == "required")
-	{	insert local_node.required[option_name];}
 	switch (mode)
 	{
 		case "default":
-			insert local_node[0] = idx;
+                        if (local_node != "")
+                        {error("only one default:" + option_name + " can't be default");}
+			insert local_node = idx;
 		case "required":
 			insert local_node.required[option_name];
 		case "optional":
@@ -357,6 +368,10 @@ function	addOption(local_node : node, option_name : value, soption : value, lopt
 	local_node.hash_map[loption] = idx;
 }
 
+// parseOption
+// progname : IN value nom du programme a utiliser pour l'affichage de l'USAGE
+// desc : IN reference arbre decrivant les options a parser, creer avec addOption
+// out_res : OUT reference arbre resultat ou sont collecte les parametres
 function        parseOption(progname : value, desc : reference, out_res : reference)
 {
 	insert desc.options;
@@ -368,24 +383,31 @@ function        parseOption(progname : value, desc : reference, out_res : refere
 				[option]*
 				[
 					=> local theDefaultOption;
+                                        => local theExtraOption;
+                                        => local bExtra = false;
 					=> local bList = false;
 					=>{
-						if (this[0] != "")
+                                                // have a default option
+						if (this != "")
 						{	
-							local idxOpt = this[0];
+							local idxOpt = this;
 							local defval = this[idxOpt].option_name;
 							insert this.options[defval];
 							ref theDefaultOption = this.options[defval];
 							if (this[idxOpt].param == "list")
 							{	bList = true;}
+                                                        else
+                                                        {       bExtra = true;}
 						}
+                                                // extra parameter non-default
+                                                ref theExtraOption = this.options;
 					}
-					[#check(!bList) data:theDefaultOption
-					|[
-						#pushItem(theDefaultOption)
-						data:theDefaultOption#back
-					]+
-					]?
+                                        // parse default param or list (required)
+                                        [#check(bList) [#pushItem(theDefaultOption) data:theDefaultOption#back]+
+                                        | data:theDefaultOption
+                                        ]
+                                        [#check(bExtra) [#pushItem(theExtraOption) data:theExtraOption#back]+
+                                        ]?
 				]
 				#continue #empty
 			;
@@ -395,7 +417,7 @@ function        parseOption(progname : value, desc : reference, out_res : refere
 	
 			short_opt ::= [#!ignore '-' id]:sopt 
 				=> {
-					if (!this.hash_map[sopt])
+					if (!findElement(sopt, this.hash_map))
 					{	error("unknown parameter:" + sopt);}
 				}
 				=> local idxOpt = this.hash_map[sopt];
@@ -413,7 +435,7 @@ function        parseOption(progname : value, desc : reference, out_res : refere
 	
 			long_opt ::= [#!ignore "--" id]:lopt 
 				=> {
-					if (!this.hash_map[lopt])
+					if (!findElement(lopt, this.hash_map))
 					{	
 						traceLine(toString(this, true));
 						error("unknown parameter:<" + lopt + ">");
@@ -463,16 +485,21 @@ function        parseOption(progname : value, desc : reference, out_res : refere
 	setall out_res = desc.options;
 	removeVariable(desc.options);
 	// check required option
+        local lstError;
+        //traceLine("!!:" + toString(desc, true));
+        //traceLine(">>:" + toString(out_res, true));
 	foreach item in desc.required
 	{	
 		local ropt = key(item);
-		if (getArraySize(out_res[ropt]) == 0)
-		{	
-			traceLine("required option " + ropt);
-			printOption(desc, progname);
-			exit(42);
-		}
+		if ($getArraySize(out_res[ropt]) == 0$)
+		{	pushItem lstError = "required option " + ropt;}
 	}
+        if ($getArraySize(lstError) > 0$)
+        {
+                traceLine(joinStrings(lstError, "\n"));
+		printOption(desc, progname);
+		exit(42);
+        }
 }
 
 #end
