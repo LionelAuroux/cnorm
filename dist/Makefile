@@ -6,7 +6,7 @@
 DISTRIB_STUDENT = $(wildcard ../src/*.cw{s,p})
 DISTRIB_ALL = ${DISTRIB_STUDENT} $(wildcard ../src/*.cwt)
 VERSION = 3.0
-ALPHA = ${VERSION}.4
+ALPHA = ${VERSION}.5
 
 all:
 	@echo "Usage:"
