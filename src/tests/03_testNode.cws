@@ -11,7 +11,6 @@ local lastCmd;
 
 /* cree une base */
 cnormDialect<"__std__">(myAst);
-traceLine(toString(myAst, true));
 cnormNodeRoot(myAst);
 
 /* ajoute un node dans le scope global */
@@ -151,6 +150,23 @@ cnormNode_TerminalLiteral(iteminit, "77");
 cnormNodeDecl_AddInit(init, iteminit);
 cnormNode_TerminalLiteral(iteminit, "99");
 
+/* craft un enum */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeDecl(lastCmd);
+cnormNodeDecl_SetName(lastCmd, "myEnum");
+local ctype;
+cnormNodeDecl_GetCtype(lastCmd, ctype);
+cnormNodeDecl_Set(ctype, "enum");
+cnormNodeDecl_SetIdentifier(ctype, "blabla");
+local enumitem;
+cnormNodeDecl_MapEnum(ctype, "A", enumitem);
+cnormNode_TerminalLiteral(enumitem, "20");
+cnormNodeDecl_MapEnum(ctype, "B", enumitem);
+cnormNode_TerminalLiteral(enumitem, "42");
+cnormNodeDecl_MapEnum(ctype, "C", enumitem);
+cnormNode_TerminalLiteral(enumitem, "666");
+
 /* on rajoute un label toto */
 cnormNodeBlock_AddNode(myAst);
 cnormNodeBlock_GetLastNode(myAst, lastCmd);
@@ -261,7 +277,5 @@ cnormNode_CallParam(right_expr, prm);
 cnormNode_TerminalId(prm, "z");
 cnormNode_ToPost(cond, "--");
 
-saveProject("testCnormNode.xml", myAst);
-traceLine(loadFile("testCnormNode.xml"));
-
+traceLine(toString(myAst, true));
 traceLine(cnorm2c(myAst));

@@ -80,7 +80,7 @@ line_of_code(theBlock : node) ::=
   classical statement of the language (if,for,while,do) and labels
 */
 labeled_statement(theStmt : node) ::=
-        #readIdentifier:sKeyword statement<sKeyword>(theStmt)
+        rootidentifier:sKeyword statement<sKeyword>(theStmt)
 ;
 
 /*

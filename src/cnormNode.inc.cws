@@ -595,13 +595,21 @@ function cnormNodeDecl_MapEnum(local_ctype : node, key : value, out_ref : refere
 	if (local_ctype.cdecl_type != "__enum__")
 	{error("local_ctype is not a enum type");}
         local i = getArraySize(local_ctype.enum.block);
-	if (!findElement(key, local_ctype.enum.map))
-	{
-                insert local_ctype.enum.map[key] = i;
+        local idxmap = -1;
+        select item in local_ctype.enum.map[]
+        {
+                if (item.key == key)
+                {idxmap = index(item);}
+        }
+        if ($idxmap == -1$)
+        {
+                pushItem local_ctype.enum.map;
+                insert local_ctype.enum.map#back.key = key;
+                insert local_ctype.enum.map#back.idx = i;
                 pushItem local_ctype.enum.block;
         }
         else
-                i = local_ctype.enum.map[key];
+                i = local_ctype.enum.map[idxmap].idx;
 	ref out_ref = local_ctype.enum.block#[$i$];
 	return true;
 }

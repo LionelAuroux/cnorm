@@ -567,15 +567,15 @@ function	cnorm2c_CtypeBegin(theCtype : node, thePrettyAst : reference)
 			local oneEnum;
 			prettyPrint_NewListEndBy(listEnum, oneEnum, ",", true);
 			// if contain an expression
-			if (existVariable(theCtype.enum.block[item].type))
+			if (existVariable(theCtype.enum.block[item.idx].type))
 			{
 				local exprEnum;
 				prettyPrint_NewListSeparatedBy(oneEnum, exprEnum, " = ");
-				prettyPrint_AddItem(exprEnum, item.key());
-				cnorm2c_Node<theCtype.enum.block[item].type>(theCtype.enum.block[item], exprEnum);
+				prettyPrint_AddItem(exprEnum, item.key);
+				cnorm2c_Node<theCtype.enum.block[item.idx].type>(theCtype.enum.block[item.idx], exprEnum);
 			}
 			else
-				prettyPrint_AddItem(oneEnum, item.key());
+				prettyPrint_AddItem(oneEnum, item.key);
 		}
 	}
 	// for specifier attributes
