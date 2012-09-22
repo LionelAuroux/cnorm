@@ -56,6 +56,7 @@ declare function cnormNodeRoot(local_node : node);
 declare function cnormNodeBlock(local_node : node, autoregister : value = false);
 declare function cnormNodeBlock_AddNode(local_node : node);
 declare function cnormNodeBlock_GetLastNode(local_node : node, out_ref : reference);
+declare function cnormNodeBlock_CopyBlock(local_node : node, src_block : node);
 
 // declaration
 declare function cnormNodeDecl(local_node : node);
@@ -457,6 +458,22 @@ function cnormNodeBlock_GetLastNode(local_node : node, out_ref : reference)
         {       pushItem local_node.block;}
 	ref	out_ref = local_node.block#back;
 	return true;
+}
+
+// cnormNodeBlock_CopyBlock
+// copy all item of src_block at the end of the local_node block
+// local_node: INOUT the node of the target block
+// src_block : IN the src_block
+function cnormNodeBlock_CopyBlock(local_node : node, src_block : node)
+{
+        foreach codeChunk in src_block.block
+        {
+                cnormNodeBlock_AddNode(local_node);
+                local lastCodeInsert;
+                cnormNodeBlock_GetLastNode(local_node, lastCodeInsert);
+                setall lastCodeInsert = codeChunk;
+        }
+        return true;
 }
 
 // ****
