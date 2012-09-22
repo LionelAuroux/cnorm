@@ -14,6 +14,7 @@ function cwTool_version()
 // usefull function
 declare function toString(theNode : node, noret : value = false);
 declare function getStringRef(theNode : node);
+declare function catPath(path : value, file : value);
 
 // node modification
 declare function nodeDiff(__target__ : node, __src__ : node, diff : node, str_src : value = "__src__", str_tgt : value = "__target__");
@@ -57,6 +58,14 @@ function getStringRef(theNode : node)
 	local output;
 	parseStringAsBNF({all ::= #readCString:this;}, output, data);
 	return output;
+}
+
+// Cat a path with a filename with the / or empty path management
+function catPath(path : value, file : value)
+{
+        if (path != "")
+        { return path + '/' + file;}
+        return file;
 }
 
 // nodeDiff
@@ -268,6 +277,7 @@ function cwLoadProject(filename : value, load_tree : node)
 			}
 		;
 	}, load_tree, filename);
+        return true;
 }
 
 function	_getSpace(nbs : value)
