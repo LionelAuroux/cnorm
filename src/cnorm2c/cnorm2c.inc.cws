@@ -544,7 +544,9 @@ function	cnorm2c_CtypeBegin(theCtype : node, thePrettyAst : reference)
 	}
 	// unstrict mode...all unknown things are put here
 	if (existVariable(theCtype.unknown))
-	{foreach item in theCtype.unknown {prettyPrint_AddItem(thePrettyAst, item.key());}}
+	{
+                foreach item in sorted by_value theCtype.unknown {prettyPrint_AddItem(thePrettyAst, item.key());}
+        }
 	// recurs for struct, union
 	if (existVariable(theCtype.body))
 	{

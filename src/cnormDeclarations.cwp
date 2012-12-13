@@ -155,9 +155,10 @@ declaration_specifier(theDecl : node) ::=
                 // not a special word
 /**/            #check(!cnormNode_checkTypeGroupOfId(ctype, id, ""))
 /**/            [
-/**/                    #check(theDecl#root.unknown[id])
+/**/                    #check($theDecl#root.unknown[id] >= 1$)
 /**/                    // we store in local
-/**/                    => insert ctype.unknown[id] = id;
+/**/                    => local size = $getArraySize(theDecl#root.unknown) + 1$;
+/**/                    => insert ctype.unknown[id] = size;
 /**/            |       // store in unknown and retry
 /**/                    => cnormNode_unstrictSet(theDecl, id);
 /**/                    #check(false)
@@ -673,7 +674,8 @@ unstrict(theBlock : node) ::=
                         #break
                |
                         // handle recursion
-                        => insert theBlock#root.unknown[block_node.unknown] = block_node.unknown;
+                        => local size = $getArraySize(theBlock#root.unknown) + 1$; 
+                        => insert theBlock#root.unknown[block_node.unknown] = size;
                         => block_node.unknown = "";
                         =>removeLastElement(theBlock.block);
 	]+
@@ -715,7 +717,8 @@ unstrict_forward(theNode : node) ::=
                         #break
                |
                         // handle recursion
-                        => insert theNode#root.unknown[block_node.unknown] = block_node.unknown;
+                        => local size = $getArraySize(theNode#root.unknown) + 1$;
+                        => insert theNode#root.unknown[block_node.unknown] = size;
                         => block_node.unknown = "";
 	]+
 ;
@@ -735,7 +738,8 @@ unstrict_typename(theNode : node) ::=
                         #break
                | 
                         // handling recursion
-                        => insert theNode#root.unknown[block_node.unknown] = block_node.unknown;
+                        => local size = $getArraySize(theNode#root.unknown) + 1$;
+                        => insert theNode#root.unknown[block_node.unknown] = size;
                         => block_node.unknown = "";
 	       ]+
 ;

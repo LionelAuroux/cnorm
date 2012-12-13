@@ -381,7 +381,8 @@ function cnormNode_unstrictSet(local_node : node, id : value)
                 local slotid = typeHandling_getid(local_node);
                 localref block_node = local_node#root.block_ref[slotid];
                 insert block_node.unknown = id;
-                insert local_node#root.unknown[id] = id;
+                local size = $getArraySize(local_node#root.unknown) + 1$;
+                insert local_node#root.unknown[id] = size;
         }
 }
 
