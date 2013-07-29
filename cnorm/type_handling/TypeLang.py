@@ -1,19 +1,17 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 
 """
         Test Basic parsing for a little language
 """
 import sys
-from pyrser.parsing import Parsing
-from pyrser.grammar import Grammar
+from pyrser import grammar, meta
 
-class   TypeLang(Grammar):
-        """
-        main ::= [#identifier:id ]+
+class   TypeLang(grammar.Grammar):
+        grammar = """
+        main ::= [id:id ]+
         ;
         """
-        def     __init__(self):
-                Grammar.__init__(self, TypeLang, TypeLang.__doc__)
+        entry = "main"
 
 if __name__ == "__main__":
         print("DEBUT:%s" % sys.path)
@@ -24,8 +22,8 @@ if __name__ == "__main__":
         except IOError as e:
                 print("Detail:%s" % repr(e))
         print("DEBUT3")
-        oLang.parse("""
+        oAst = oLang.parse("""
                 cool ca marche
-                """, oAst, 'main')
+                """)
         print("DEBUT4")
         print(repr(oAst))
