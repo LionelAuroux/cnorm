@@ -70,3 +70,30 @@ class InternalCnorm_Test(unittest.TestCase):
         self.assertEqual(str(s.to_c()), "if (a < 12)\n%sb = 1;\nelse\n%sc = 2;\n" % (" " * 4, " " * 4), "Failed to convert to C")
         s = nodes.RootBlockStmt([thencond, nodes.BlockStmt([thencond, elsecond]), elsecond])
         self.assertEqual(str(s.to_c()), "b = 1;\n{\n%sb = 1;\n%sc = 2;\n}\nc = 2;\n" % (" " * 4, " " * 4), "Failed to convert to C")
+        s = nodes.While(c, thencond)
+        self.assertEqual(str(s.to_c()), "while (a < 12)\n%sb = 1;\n" % (" " * 4),
+                         "Failed to convert to C")
+        s = nodes.Do(c, thencond)
+        self.assertEqual(str(s.to_c()), "do\n%sb = 1;\nwhile (a < 12);\n" % (" " * 4),
+                         "Failed to convert to C")
+        s = nodes.Return(c)
+        self.assertEqual(str(s.to_c()), "return a < 12;\n",
+                         "Failed to convert to C")
+        s = nodes.Goto(c)
+        self.assertEqual(str(s.to_c()), "goto a < 12;\n",
+                         "Failed to convert to C")
+        s = nodes.Case(c)
+        self.assertEqual(str(s.to_c()), "case a < 12:\n",
+                         "Failed to convert to C")
+        s = nodes.Label("Cool")
+        self.assertEqual(str(s.to_c()), "Cool:\n",
+                         "Failed to convert to C")
+        s = nodes.Switch(c, thencond)
+        self.assertEqual(str(s.to_c()), "switch (a < 12)\n%sb = 1;\n" % (" " * 4),
+                         "Failed to convert to C")
+        init = nodes.Binary(nodes.Raw('='), [nodes.Id('b'), nodes.Literal('0')])
+        inc = nodes.Binary(nodes.Raw('+='), [nodes.Id('b'), nodes.Literal('1')])
+        s = nodes.For(init, c, inc, thencond)
+        self.assertEqual(str(s.to_c()), "for (b = 0; a < 12; b += 1)\n%sb = 1;\n" % (" " * 4),
+                         "Failed to convert to C")
+

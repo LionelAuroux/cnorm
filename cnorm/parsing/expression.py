@@ -13,6 +13,10 @@ class Expression(Grammar, Literal):
 
     grammar = """
 
+        /*
+            Comment works as in C/C++
+        */
+
         dummy_with_brace ::= @ignore('null')
             [
             '{' dummy_with_brace* '}'
@@ -31,154 +35,152 @@ class Expression(Grammar, Literal):
             ]
         ;
 
-
         expression ::=
-            assignement_expression : p1 #copy(_, p1)
+            assignement_expression:_
             [
-                ',' : op
-                assignement_expression : p2
-                #new_binary(_, op, p2)
+                ',':op #new_raw(op, op)
+                assignement_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         assign_op ::= @ignore('null') ['=' !'='| "+=" | "-=" | "*=" | "/=" | "%=" | "<<=" | ">>=" | "&=" | "^=" | "|="]:op #new_raw(_, op);
         assignement_expression ::=
-            conditional_expression : p1 #copy(_, p1)
+            conditional_expression:_
             [
-                assign_op : op
-                assignement_expression : p2
-                #new_binary(_, op, p2)
+                assign_op:op
+                assignement_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         constant_expression ::=
-            conditional_expression : p1 #copy(_, p1)
+            conditional_expression:_
         ;
 
         conditional_expression ::=
-            logical_or_op : p1 #copy(_, p1)
+            logical_or_expression:_
             [
                 '?'
-                expression : then
+                expression:then
                 ':'
-                assignement_expression : else
+                assignement_expression:else
                 #new_ternary(_, then, else)
             ]?
         ;
 
         logical_or_op ::= @ignore('null') ["||"]:op #new_raw(_, op);
         logical_or_expression ::=
-            logical_and_expression : p1 #copy(_, p1)
+            logical_and_expression:_
             [   
-                logical_or_op : op
-                logical_and_expression : p2
-                #new_binary(_, op, p2)
+                logical_or_op:op
+                logical_and_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         logical_and_op ::= @ignore('null') ["&&"]:op #new_raw(_, op);
         logical_and_expression ::=
-            or_expression : p1 #copy(_, p1)
-            #print("coucou ", p1)
+            or_expression:_
             [   
-                logical_and_op : op
-                or_expression : p2
-                #new_binary(_, op, p2)
+                logical_and_op:op
+                or_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         or_op ::= @ignore('null') ["|" !["|"|"="]]:op #new_raw(_, op);
         or_expression ::=
-            xor_expression : p1 #copy(_, p1)
+            xor_expression:_
             [   
-                or_op : op
-                xor_expression : p2
-                #new_binary(_, op, p2)
+                or_op:op
+                xor_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         xor_op ::= @ignore('null') ["^" !"="]:op #new_raw(_, op);
         xor_expression ::=
-            and_expression : p1 #copy(_, p1)
+            and_expression:_
             [   
-                xor_op : op
-                and_expression : p2
-                #new_binary(_, op, p2)
+                xor_op:op
+                and_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         and_op ::= @ignore('null') ["&" !["&"|"="]]:op #new_raw(_, op);
         and_expression ::=
-            equality_expression : p1 #copy(_, p1)
+            equality_expression:_
             [   
-                and_op : op
-                equality_expression : p2
-                #new_binary(_, op, p2)
+                and_op:op
+                equality_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         eqneq_op ::= @ignore('null') ["==" | "!="]:op #new_raw(_, op);
         equality_expression ::=
-            relational_expression : p1 #copy(_, p1)
+            relational_expression:_
             [   
-                eqneq_op : op
-                relational_expression : p2
-                #new_binary(_, op, p2)
+                eqneq_op:op
+                relational_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         cmp_op ::= @ignore('null') ["<=" | ">=" | '<' !'<' | '>' !'>' ]:op #new_raw(_, op);
         relational_expression ::=
-            shift_expression: p1 #copy(_, p1)
+            shift_expression:_
             [   
-                cmp_op : op
-                shift_expression : p2
-                #new_binary(_, op, p2)
+                cmp_op:op
+                shift_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         shift_op ::= @ignore('null') ["<<" !"=" | ">>" !"="]:op #new_raw(_, op);
         shift_expression ::=
-            additive_expression: p1 #copy(_, p1)
+            additive_expression:_
             [   
-                shift_op : op
-                additive_expression : p2
-                #new_binary(_, op, p2)
+                shift_op:op
+                additive_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         add_op ::= @ignore('null') ['+' !['+'|'='] | '-' !['-'|'='|'>']]:op #new_raw(_, op);
         additive_expression ::=
-            multiplicative_expression: p1 #copy(_, p1)
+            multiplicative_expression:_
             [   
-                add_op : op
-                multiplicative_expression : p2
-                #new_binary(_, op, p2)
+                add_op:op
+                multiplicative_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         mul_op ::= @ignore('null') [['*'|'/'|'%']:op !'='] #new_raw(_, op);
         multiplicative_expression ::=
-            primary_expression : p1 #copy(_, p1)
+            primary_expression:_
             [   
-                mul_op : op
-                primary_expression : p2
-                #new_binary(_, op, p2)
+                mul_op:op
+                primary_expression:param
+                #new_binary(_, op, param)
             ]*
         ;
 
         primary_expression ::=
-            Literal.literal : lit #copy(_, lit)
-            | identifier : id #copy(_, id)
+            Literal.literal:_
+            | identifier:_
         ;
 
         identifier ::= @ignore('null')
-            rootidentifier : id
+            rootidentifier:id
             #check_is_id(id)
             #new_id(_, id)
         ;
 
-        rootidentifier ::= ['_'|'a'..'z'|'A'..'Z']['_'|'a'..'z'|'A'..'Z'|'0'..'9']*
+        rootidentifier ::= Base.id:_
         ;
 
     """
@@ -190,8 +192,8 @@ class Expression(Grammar, Literal):
         return res
 
 @meta.hook(Expression)
-def new_ternary(self, cond_expr, then_expr, else_expr):
-    ast.node = nodes.Ternary([], [cond_expr.node, then_expr.node, else_expr.node])
+def new_ternary(self, ast, then_expr, else_expr):
+    ast.node = nodes.Ternary([], [ast.node, then_expr.node, else_expr.node])
     return True
 
 @meta.hook(Expression)

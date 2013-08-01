@@ -9,13 +9,13 @@ def to_c(self):
     lsdecl = []
     # storage
     if self._ctype._storage != nodes.Storages.AUTO:
-        lsdecl.append(nodes.Storages.reverse_mapping[self._ctype._storage].lower())
+        lsdecl.append(nodes.Storages.rmap[self._ctype._storage].lower())
     # iterator on declarator type
     itdt = reversed(self._ctype._decltypes)
     # add here FIRST?! QUAL if != pointer
     if type(self._ctype._decltypes[-1]) is nodes.QualType:
         item = next(itdt)
-        lsdecl.append(nodes.Qualifiers.reverse_mapping[item._qualifier].lower())
+        lsdecl.append(nodes.Qualifiers.rmap[item._qualifier].lower())
     # type identifier
     lsdecl.append(self._ctype._identifier)
     # iter thru quals
@@ -39,7 +39,7 @@ def type_to_c(self, lstypes, lsres, thedecl):
 @meta.add_method(nodes.QualType)
 def type_to_c(self, lstypes, lsres, thedecl):
     if self._qualifier != nodes.Qualifiers.AUTO:
-        lsres.append(nodes.Qualifiers.reverse_mapping[self._qualifier].lower())
+        lsres.append(nodes.Qualifiers.rmap[self._qualifier].lower())
     item = next(lstypes, None)
     if item != None:
         return item.type_to_c(lstypes, lsres, thedecl)
@@ -78,6 +78,21 @@ def type_to_c(self, lstypes, lsres, thedecl, idxhead=None):
 
 # STATEMENT
 
+@meta.add_method(nodes.For)
+def to_c(self):
+    lsfor = [
+                fmt.sep(" ", ["for", fmt.block('(', ')\n', 
+                    [fmt.sep("; ",
+                        [
+                            self.init.to_c(),
+                            self.condition.to_c(),
+                            self.increment.to_c()
+                        ])
+                    ])]),
+                fmt.tab([self.body.to_c()])
+            ]
+    return fmt.sep("", lsfor)
+
 @meta.add_method(nodes.If)
 def to_c(self):
     lsif = [
@@ -88,6 +103,42 @@ def to_c(self):
         lsif.append("else\n")
         lsif.append(fmt.tab([self.elsecond.to_c()]))
     return fmt.sep("", lsif)
+
+@meta.add_method(nodes.While)
+def to_c(self):
+    lswh = [
+                fmt.sep(" ", ["while", fmt.block('(', ')\n', [self.condition.to_c()])]),
+                fmt.tab([self.body.to_c()])
+            ]
+    return fmt.sep("", lswh)
+
+@meta.add_method(nodes.Do)
+def to_c(self):
+    lsdo = [
+                fmt.sep("\n", ["do", fmt.tab([self.body.to_c()])]),
+                fmt.sep(" ", ["while", fmt.block('(', ');\n', [self.condition.to_c()])]),
+           ]
+    return fmt.sep("", lsdo)
+
+@meta.add_method(nodes.Switch)
+def to_c(self):
+    lswh = [
+                fmt.sep(" ", ["switch", fmt.block('(', ')\n', [self.condition.to_c()])]),
+                fmt.tab([self.body.to_c()])
+            ]
+    return fmt.sep("", lswh)
+
+@meta.add_method(nodes.Label)
+def to_c(self):
+    return fmt.end(":\n", [self.value])
+
+@meta.add_method(nodes.Branch)
+def to_c(self):
+    return fmt.end(";\n", [fmt.sep(" ", [self.value, self.expr.to_c()])])
+
+@meta.add_method(nodes.Case)
+def to_c(self):
+    return fmt.end(":\n", [fmt.sep(" ", [self.value, self.expr.to_c()])])
 
 @meta.add_method(nodes.ExprStmt)
 def to_c(self):
@@ -119,9 +170,10 @@ def to_c(self):
 
 @meta.add_method(nodes.Ternary)
 def to_c(self):
-    content = self.params[0].to_c() + ' ? ' + self.params[1].to_c()
+    content = fmt.sep("", [self.params[0].to_c(), ' ? ', self.params[1].to_c()])
     if len(self.params) > 2:
-        content += ' : ' + self.params[2].to_c()
+        content.lsdata.append(' : ')
+        content.lsdata.append(self.params[2].to_c())
     return content
 
 @meta.add_method(nodes.Binary)
@@ -129,6 +181,8 @@ def to_c(self):
     lsparams = []
     for p in self.params:
         lsparams.append(p.to_c())
+    if type(self.call_expr) is nodes.Raw and self.call_expr.value == ",":
+        return fmt.sep(str(self.call_expr.to_c()) + ' ', lsparams)
     return fmt.sep(' ' + str(self.call_expr.to_c()) + ' ', lsparams)
 
 @meta.add_method(nodes.Unary)

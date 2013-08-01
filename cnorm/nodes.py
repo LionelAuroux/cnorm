@@ -8,12 +8,12 @@ Specifiers = meta.enum('AUTO', 'INLINE', 'STRUCT', 'UNION', 'ENUM', 'LONG',
 # EXPRESSION PART
 
 class Expr(parsing.Node):
-    """For expression"""
+    """All expression"""
 
 class Func(Expr):
     """For almost everything"""
 
-    def __init__(self, call_expr :Expr, params :list):
+    def __init__(self, call_expr: Expr, params: list):
         Expr.__init__(self)
         self.call_expr = call_expr
         self.params = params
@@ -30,7 +30,7 @@ class Ternary(Func):
 class Terminal(Expr):
     """For Terminal expression"""
 
-    def __init__(self, value :str):
+    def __init__(self, value: str):
         Expr.__init__(self)
         self.value = value
 
@@ -58,6 +58,7 @@ class ArrayType(DeclType):
     """For array in declaration"""
 
     def __init__(self, expr=None):
+        DeclType.__init__(self)
         self._expr = expr
 
 class ParenType(DeclType):
@@ -68,6 +69,7 @@ class QualType(DeclType):
     """For qualifier in declaration"""
 
     def __init__(self, qualifier: Qualifiers= Qualifiers.AUTO):
+        DeclType.__init__(self)
         # qualifier in (auto, const, volatile, restrict)
         self._qualifier = qualifier
 
@@ -80,6 +82,7 @@ class CType(parsing.Node):
     """
 
     def __init__(self):
+        parsing.Node.__init__(self)
         self._decltypes = []
         # only one storage by declaration (auto, register, typedef, static, extern)
         self._storage = Storages.AUTO
@@ -115,6 +118,7 @@ class Decl(Expr):
     """For basic declaration"""
 
     def __init__(self, name: str):
+        Expr.__init__(self)
         self._name = name
         self._ctype = PrimaryType('int')
 
@@ -130,52 +134,66 @@ class Stmt(parsing.Node):
 class ExprStmt(Stmt):
     """Expression statement"""
 
-    def __init__(self, expr :Expr):
+    def __init__(self, expr: Expr):
+        parsing.Node.__init__(self)
         self.expr = expr
 
 class BlockStmt(Stmt):
     """Block statement"""
 
-    def __init__(self, block :[ExprStmt]):
+    def __init__(self, block: [ExprStmt]):
+        parsing.Node.__init__(self)
         self.block = block
 
 class RootBlockStmt(BlockStmt):
     """Root Block statement"""
 
-    def __init__(self, block :[ExprStmt]):
+    def __init__(self, block: [ExprStmt]):
         BlockStmt.__init__(self, block)
 
 class Label(Stmt):
     """Label statement"""
 
-    def __init__(self, value :str):
+    def __init__(self, value: str):
+        Stmt.__init__(self)
         self.value = value
 
-class Branch(Stmt):
+class Branch(Label):
     """branch statement"""
 
-    def __init__(self, expr :Expr):
+    def __init__(self, value:str, expr: Expr):
+        Label.__init__(self, value)
         self.expr = expr
 
 class Case(Branch):
     """Case statement"""
 
+    def __init__(self, expr: Expr):
+        Branch.__init__(self, "case", expr)
+
 class Return(Branch):
     """Return statement"""
+
+    def __init__(self, expr: Expr):
+        Branch.__init__(self, "return", expr)
 
 class Goto(Branch):
     """Goto statement"""
 
+    def __init__(self, expr: Expr):
+        Branch.__init__(self, "goto", expr)
+
 class Conditional(Stmt):
     """Conditional statement"""
 
-    def __init__(self, condition :Expr):
+    def __init__(self, condition: Expr):
+        Stmt.__init__(self)
         self.condition = condition
 
 class If(Conditional):
     """If statement"""
 
-    def __init__(self, condition :Expr, thencond :Stmt, elsecond :Stmt=None):
+    def __init__(self, condition: Expr, thencond: Stmt, elsecond: Stmt=None):
         Conditional.__init__(self, condition)
         self.thencond = thencond
         self.elsecond = elsecond
@@ -183,28 +201,29 @@ class If(Conditional):
 class While(Conditional):
     """While statement"""
     
-    def __init__(self, condition :Expr, body :Stmt):
+    def __init__(self, condition: Expr, body: Stmt):
         Conditional.__init__(self, condition)
         self.body = body
 
 class Switch(Conditional):
     """Switch statement"""
     
-    def __init__(self, condition :Expr, body :Stmt):
+    def __init__(self, condition: Expr, body: Stmt):
         Conditional.__init__(self, condition)
         self.body = body
 
 class Do(Conditional):
     """Do statement"""
 
-    def __init__(self, condition :Expr, body :Stmt):
+    def __init__(self, condition: Expr, body: Stmt):
         Conditional.__init__(self, condition)
         self.body = body
 
 class For(Stmt):
     """For statement"""
 
-    def __init__(self, init :Expr, condition :Expr, increment :Expr, body :Stmt):
+    def __init__(self, init: Expr, condition: Expr, increment: Expr, body: Stmt):
+        Stmt.__init__(self)
         self.init= init
         self.condition = condition
         self.increment = increment

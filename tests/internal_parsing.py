@@ -3,7 +3,7 @@ from pyrser import meta
 from pyrser import error
 from pyrser import grammar
 from cnorm import nodes
-from cnorm.parsing import literal, expression
+from cnorm.parsing import literal, expression, statement
 
 class InternalParsing_Test(unittest.TestCase):
 
@@ -197,14 +197,90 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(res, "Failed to parse a logical_or_expression")
         self.assertTrue(type(res) is nodes.Binary, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "a == b || 4 != 7", "Failed to get the correct node value")
-        # ||
-        res = expr.parse("a || 4", "logical_or_expression")
-        self.assertTrue(res, "Failed to parse a logical_or_expression")
+        # ? :
+        res = expr.parse("a < 7 ? 4 : 8 + b", "conditional_expression")
+        self.assertTrue(res, "Failed to parse a conditional_expression")
+        self.assertTrue(type(res) is nodes.Ternary, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "a < 7 ? 4 : 8 + b", "Failed to get the correct node value")
+        # assignement
+        res = expr.parse("a = 5 + 4 += b - d <<= 3", "assignement_expression")
+        self.assertTrue(res, "Failed to parse a assignement_expression")
         self.assertTrue(type(res) is nodes.Binary, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "a || 4", "Failed to get the correct node value")
-        print(res.to_c())
+        self.assertTrue(str(res.to_c()) == "a = 5 + 4 += b - d <<= 3", "Failed to get the correct node value")
+        # expression
+        res = expr.parse("a = 5, b = c, f >>= 42", "expression")
+        self.assertTrue(res, "Failed to parse a assignement_expression")
+        self.assertTrue(type(res) is nodes.Binary, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "a = 5, b = c, f >>= 42", "Failed to get the correct node value")
+
+    def test_02_stmt(self):
+        stmt = statement.Statement()
+        # expression statement
+        res = stmt.parse("a = 4 * 5 + 12;", "expression_statement")
+        self.assertTrue(res, "Failed to parse a expression_statement")
+        self.assertTrue(type(res) is nodes.ExprStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "a = 4 * 5 + 12;\n", "Failed to get the correct node value")
+        # while statement
+        res = stmt.parse("while (a == 42)\n\tc = 52;\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.While, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "while (a == 42)\n    c = 52;\n", "Failed to get the correct node value")
+        # if statement
+        res = stmt.parse("if (a == 42)\n\tc = 52;\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.If, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "if (a == 42)\n    c = 52;\n", "Failed to get the correct node value")
+        res = stmt.parse("if (a == 51)\n\tg = \"toto\";\nelse\n\td = 666;\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.If, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "if (a == 51)\n    g = \"toto\";\nelse\n    d = 666;\n",
+                        "Failed to get the correct node value")
+        # do statement
+        res = stmt.parse("do\n{\n    x += 12;\n    g = x * 3;\n}\nwhile (z < 12);\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.Do, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "do\n%s{\n%sx += 12;\n%sg = x * 3;\n%s}\nwhile (z < 12);\n" % (" " * 4, " " * 8, " " * 8, " " * 4),
+                        "Failed to get the correct node value")
+        # return
+        res = stmt.parse("return a == 12;\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.Return, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "return a == 12;\n",
+                        "Failed to get the correct node value")
+        # goto
+        res = stmt.parse("goto toto;\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.Goto, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "goto toto;\n",
+                        "Failed to get the correct node value")
+        # label
+        res = stmt.parse("toto:\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.Label, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "toto:\n",
+                        "Failed to get the correct node value")
+        # case
+        res = stmt.parse("case 12:\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.Case, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "case 12:\n",
+                        "Failed to get the correct node value")
+        # switch statement
+        res = stmt.parse("switch (a == 42)\n{\n    case 12:\n}\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.Switch, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "switch (a == 42)\n    {\n        case 12:\n    }\n", "Failed to get the correct node value")
+        # for statement
+        res = stmt.parse("for (b = 0; a < 12; b += 1)\n    b = 1;\n", "labeled_statement")
+        self.assertTrue(res, "Failed to parse a labeled_statement")
+        self.assertTrue(type(res) is nodes.For, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "for (b = 0; a < 12; b += 1)\n    b = 1;\n", "Failed to get the correct node value")
+        
 
 
+
+
+    def test_10_dynparse(self):
         # dynamic class parsing
         def dyn_parse(self, source, entry):
             from pyrser.grammar import Grammar
