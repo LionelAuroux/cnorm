@@ -24,6 +24,15 @@ class Unary(Func):
 class Paren(Unary):
     """For () expression"""
 
+class Array(Unary):
+    """For [] expression"""
+
+class Dot(Unary):
+    """For . expression"""
+
+class Arrow(Unary):
+    """For -> expression"""
+
 class Post(Unary):
     """For post{inc,dec} expression"""
 

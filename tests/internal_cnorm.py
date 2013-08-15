@@ -67,6 +67,12 @@ class InternalCnorm_Test(unittest.TestCase):
         self.assertEqual(str(e.to_c()), "(a + 12)", "Failed to convert to C")
         e = nodes.Post(nodes.Raw('++'), [nodes.Id('a')])
         self.assertEqual(str(e.to_c()), "a++", "Failed to convert to C")
+        e = nodes.Array(nodes.Id('tab'), [p])
+        self.assertEqual(str(e.to_c()), "tab[a + 12]", "Failed to convert to C")
+        e = nodes.Dot(nodes.Id('s'), [nodes.Id('a')])
+        self.assertEqual(str(e.to_c()), "s.a", "Failed to convert to C")
+        e = nodes.Arrow(nodes.Id('s'), [nodes.Id('a')])
+        self.assertEqual(str(e.to_c()), "s->a", "Failed to convert to C")
 
     def test_03_basicstmt(self):
         """Test cnorm statement nodes"""
