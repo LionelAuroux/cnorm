@@ -1,0 +1,116 @@
+/*
+   UNIT TEST OF THE cnormDeclarations grammar
+ */
+#include "cnorm.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+// basic decl
+local listTest = {
+// classic declaration
+// 1
+	"\nint a;",
+	"\nunsigned int b = 42;",
+	"\nlong int c;",
+	"\nvolatile double d;",
+	"\nstatic char * e;",
+	"\nconst float f;",
+// enums
+// 7
+	"\nenum toto g;",
+	"\nenum toto \n{\n\tA,\n\tB = 2,\n\tC = 13 * sizeof (int ),\n} h;",
+	"\nenum toto \n{\n\tA,\n\tB = 2,\n\tC = 13 * sizeof (*z->t),\n} i;",
+// simple proto
+// 10
+	"\nint main(int a);",
+	"\nint test(int );",
+	"\nint test2();",
+	"\nchar * func();",
+// array
+// 14
+	"\nchar str[20];",
+	"\nchar str2[20][sizeof (int ) * 15];",
+// pfunc
+// 16
+	"\nchar ( * pfunc)();",
+	"\nchar ( * pfunc)(int , char * [2]);",
+	"\nchar ( * pfunc(char * const ))(int , char * [2]);",
+// definition
+// 19
+	"\nint test()\n{\n\tint a;\n\tif (done)\t\n\t\tbreak;\n\n}",
+// simple struct
+// 20
+	"\nstruct niania j;",
+	"\nstruct ploplop \n{\n\tint a;\n\tint d;\n\tchar * pip;\n} j;",
+	"\nstruct test \n{\n\ttypedef int nia;\n\tnia plop;\n} ;",
+	"\nstruct test2 \n{\n\tint a : 12 + 5;\n} ;",
+	"\nstruct  \n{\n} ;",
+// k&r declaration
+// 25
+	"\nint funct(a, b, c);",
+	"\nvoid funct2(c, d);",
+// k&r definition
+// 27
+	"\nint func3(a, b, c)\n\tint a;\n\tdouble b;\n\tchar *c;\n{\n\tint z;\n}"{"\nint func3(int a, double b, char * c)\n{\n\tint z;\n}"},
+// empty type
+// 28
+	"\na;"{"\nint a;"},
+	"\nmain();"{"\nint main();"},
+// ellispis
+// 30
+	"\nint func3(int a, double b, ...);",
+// forward declaration
+// 31
+	"\nint flan(int size; double a; char tab[size], int size, double a);",
+// initialization
+// 32
+	"\nint tab[] = {32, {12, 0x3F}};",
+	"\nint tab2[] = {.b.z.d = 12, .e.c = 14};",
+	"\nint tab2[] = {[12][22] = 12, .e.c = 14};",
+	""
+};
+local i = 0;
+local nGoodTest = $getArraySize(listTest) - 1$;
+local nTest = 0;
+foreach item in listTest
+{
+	local c_block;
+	local thevalue = item;
+	if ($getArraySize(item) > 0$)
+	{thevalue = item[0];}
+	if (thevalue != "")
+	{		
+		cnormDialect<"__std__">(c_block);
+		parseStringAsBNF({
+				#include "cnormNode.inc.cws"
+
+
+				test_unit ::= #ignore(C++)
+				/**/	=> cnormNodeRoot(this);
+				declaration(this)
+				#continue
+				#empty
+				;
+
+				#include "cnormDeclarations.cwp"
+				#include "cnormStatements.cwp"
+				#include "cnormExpressions.cwp"
+		}, c_block, item);
+		i = $i + 1$;
+		saveProject("testDecl_" + i + ".out", c_block);
+		c_block = "testDecl_" + i;
+		local sStr = cnorm2c(c_block);
+		local bOk = (sStr == thevalue) ? "OK" : "KO";
+		traceLine("---- TEST:" + i +" \nin <" + thevalue + "> ?? \nout <" + sStr + ">:" + "\n TEST: " + i + " -> " + bOk + "\n-----\n");
+                if (bOk == "KO")
+                {traceLine("----LOG\n" + toString(c_block, true) + "\n-----");}
+		if (sStr == thevalue)
+		{nTest = $nTest + 1$;}
+	}
+}
+
+traceLine(nTest + "/" + nGoodTest + " test OK");
+if (nTest != nGoodTest)
+{
+	traceLine("Test FAILED!");
+	exit(42);
+}

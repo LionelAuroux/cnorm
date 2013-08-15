@@ -1,0 +1,113 @@
+/*
+**	Main grammar for parsing codeworker script and identify comments
+*/
+
+function	isParsing()
+{}
+
+
+#ignore ::=
+[	blankline
+	| space
+	| CLRF
+	| comment_C
+	| comment_CXX
+]*
+;
+
+translation_unit ::= #ignore
+	[stmt]*
+	#continue(sError, "bad token ") #empty
+;
+
+space ::= #!ignore [' '|'\t']
+;
+
+CLRF ::= #!ignore ['\r']? '\n'
+;
+
+blankline ::= #!ignore [space]* CLRF
+;
+
+comment_CXX ::= [#!ignore "//" -> CLRF]:comment
+	=>traceLine("C++ comment:" + comment);
+;
+
+comment_C ::= [#!ignore "/*" -> "*/"]:comment
+	=>traceLine("C comment:" + comment);
+;
+
+stmt ::= [bnf_rule/*|functions|expr*/]:content
+	=> traceLine("Parsed:" + content);
+;
+
+directives ::= #!ignore '#' #readIdentifier
+;
+
+type_param ::= #readIdentifier ['=' [~[','|')']]*]?
+;
+
+param_item ::= #readIdentifier [':' type_param ]?
+;
+
+param_list ::= param_item [',' param_item]*
+;
+
+parameters ::= '(' param_list ')'
+;
+
+bnf_rule ::= 
+	[directives]*:d
+	#readIdentifier:r [parameters]?:p
+	=> traceLine("RULE " + r + " p:" + p + " f:" + d);
+	"::=" [bnf_body]* ';'
+;
+
+clauses ::= [#!ignore ['#']? #readIdentifier] ['(' dummy_paren ')']?
+	| #readCString
+	| #readCChar
+	| #readInteger
+	| ':'
+	| '^'
+	| '~'
+	| '!'
+	| ".."
+	| ','
+	| "->"
+	| '?' | '*' | '+'
+	| '{' [dummy_brace]* '}'
+	| '(' [dummy_paren]* ')'
+;
+
+dummy_paren ::= 
+[
+	'(' #!ignore [dummy_paren]* ')'
+	| #readCString
+	| #readChar:c #check(c != "(" && c != ")" && c != "\"")
+]
+;
+
+dummy_brace ::= 
+[
+	'{' #!ignore [dummy_brace]* '}'
+	| #readCString
+	| #readChar:c #check(c != "{" && c != "}" && c != "\"")
+]
+;
+
+dummy_chevron ::= 
+[
+	'<' #!ignore [dummy_chevron]* '>'
+	| #readCString
+	| #readChar:c #check(c != "<" && c != ">" && c != "\"")
+]
+;
+
+bnf_body ::= 
+	clauses:c => traceLine("clause:" + c);
+	| '[' bnf_body ']'
+	| '|' 
+	| "=>" '{' [dummy_brace]* '}'
+	| "=>" -> ';'
+;
+

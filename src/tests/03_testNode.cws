@@ -1,0 +1,281 @@
+/*
+	UNIT Test 
+	check node creation
+*/
+#include "cnorm.inc.cws"
+#include "cnormNode.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+local myAst;
+local lastCmd;
+
+/* cree une base */
+cnormDialect<"__std__">(myAst);
+cnormNodeRoot(myAst);
+
+/* ajoute un node dans le scope global */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+/* on fabrique une affectation */
+local expr;
+cnormNodeStmt_Expr(lastCmd, expr);
+cnormNode_TerminalId(expr, "a");
+local right_expr;
+cnormNode_ToBinary(expr, "=", right_expr);
+cnormNode_TerminalLiteral(right_expr, "42");
+local right_expr2;
+cnormNode_ToBinary(right_expr, "*", right_expr2);
+local r3;
+local r4;
+cnormNode_SizeOf(right_expr2, "sizeof", r3);
+cnormNode_TerminalId(r3, "z");
+cnormNode_ToBinary(r3, "->", r4);
+cnormNode_TerminalId(r4, "ploplop");
+
+{
+	/* on cree un addition*/
+	cnormNodeBlock_AddNode(myAst);
+	cnormNodeBlock_GetLastNode(myAst, lastCmd);
+	/* on fabrique une affectation */
+	local expr;
+	cnormNodeStmt_Expr(lastCmd, expr);
+	cnormNode_TerminalId(expr, "b");
+	local right_expr;
+	cnormNode_ToBinary(expr, "=", right_expr);
+	local subexpr;
+	cnormNode_ParanthesisExpr(right_expr, subexpr);
+	cnormNode_TerminalId(subexpr, "G");
+	local sum;
+	cnormNode_ToBinary(subexpr, "+", sum);
+	cnormNode_TerminalLiteral(sum, "12");
+	local mul;
+	cnormNode_ToBinary(right_expr, "*", mul);
+	cnormNode_TerminalId(mul, "J");
+	local compd;
+	local body;
+	cnormNode_ToBinary(mul, "+", compd);
+	cnormNode_CompoundExpr(compd, body);
+	local lastCmd;
+	/* on rajoute une decl */
+	cnormNodeBlock_AddNode(body);
+	cnormNodeBlock_GetLastNode(body, lastCmd);
+	cnormNodeDecl(lastCmd);
+	cnormNodeDecl_SetName(lastCmd, "a");
+	local ctype;
+	cnormNodeDecl_GetCtype(lastCmd, ctype);
+	cnormNodeDecl_SetIdentifier(ctype, "int");
+	cnormNodeBlock_AddNode(body);
+	cnormNodeBlock_GetLastNode(body, lastCmd);
+	cnormNodeStmt_Expr(lastCmd, expr);
+	cnormNode_TerminalId(expr, "puf");
+	cnormNode_ToBinary(compd, ">>", expr);
+	cnormNode_TerminalId(expr, "puf");
+}
+
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNode_Raw(lastCmd, "// commentaire");
+
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNode_Raw(lastCmd, "#define ABS(X) (X < 0) -X : X");
+/* on cree un sousblock*/
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeBlock(lastCmd, true);
+
+
+/* on rajoute une decl simple */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeDecl(lastCmd);
+cnormNodeDecl_SetName(lastCmd, "a");
+local ctype;
+cnormNodeDecl_GetCtype(lastCmd, ctype);
+cnormNodeDecl_SetIdentifier(ctype, "int");
+local init;
+cnormNodeDecl_SetAssignExpr(lastCmd, init);
+cnormNode_TerminalLiteral(init, "20");
+
+/* on rajoute une decl struct */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeDecl(lastCmd);
+cnormNodeDecl_SetName(lastCmd, "plaplap");
+local ctype;
+cnormNodeDecl_GetCtype(lastCmd, ctype);
+cnormNodeDecl_SetSpecifier(ctype, "struct");
+cnormNodeDecl_SetIdentifier(ctype, "list");
+local composed_body;
+cnormNodeDecl_GetBody(ctype, composed_body);
+cnormNodeBlock(composed_body, true);
+local subfields;
+{ // subfields
+local sctype;
+cnormNodeBlock_AddNode(composed_body);
+cnormNodeBlock_GetLastNode(composed_body, subfields);
+cnormNodeDecl(subfields);
+cnormNodeDecl_SetName(subfields, "data");
+cnormNodeDecl_GetCtype(subfields, sctype);
+cnormNodeDecl_SetIdentifier(sctype, "void");
+cnormNodeDecl_AddRef(subfields);
+cnormNodeBlock_AddNode(composed_body);
+cnormNodeBlock_GetLastNode(composed_body, subfields);
+cnormNodeDecl(subfields);
+cnormNodeDecl_SetName(subfields, "next");
+cnormNodeDecl_GetCtype(subfields, sctype);
+cnormNodeDecl_SetSpecifier(sctype, "struct");
+cnormNodeDecl_SetIdentifier(sctype, "list");
+cnormNodeDecl_AddRef(subfields);
+}
+cnormNode_MapFieldOrParam(composed_body);
+cnormNodeDecl_AddRef(lastCmd);
+
+/* on rajoute une decl custom */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeDecl(lastCmd);
+cnormNodeDecl_SetName(lastCmd, "tabul");
+local ctype;
+cnormNodeDecl_GetCtype(lastCmd, ctype);
+cnormNodeDecl_SetIdentifier(ctype, "grumf");
+local init;
+cnormNodeDecl_SetAssignExpr(lastCmd, init);
+cnormNodeDecl_Init(init);
+local iteminit;
+cnormNodeDecl_AddInit(init, iteminit);
+cnormNode_TerminalLiteral(iteminit, "20");
+cnormNodeDecl_AddInit(init, iteminit);
+cnormNode_TerminalLiteral(iteminit, "77");
+cnormNodeDecl_AddInit(init, iteminit);
+cnormNode_TerminalLiteral(iteminit, "99");
+
+/* craft un enum */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeDecl(lastCmd);
+cnormNodeDecl_SetName(lastCmd, "myEnum");
+local ctype;
+cnormNodeDecl_GetCtype(lastCmd, ctype);
+cnormNodeDecl_Set(ctype, "enum");
+cnormNodeDecl_SetIdentifier(ctype, "blabla");
+local enumitem;
+cnormNodeDecl_MapEnum(ctype, "A", enumitem);
+cnormNode_TerminalLiteral(enumitem, "20");
+cnormNodeDecl_MapEnum(ctype, "B", enumitem);
+cnormNode_TerminalLiteral(enumitem, "42");
+cnormNodeDecl_MapEnum(ctype, "C", enumitem);
+cnormNode_TerminalLiteral(enumitem, "666");
+
+/* on rajoute un label toto */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeStmt_Label(lastCmd, "toto");
+
+/* on rajoute un case */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+local expr0;
+cnormNodeStmt_Case(lastCmd, expr0);
+cnormNode_TerminalLiteral(expr0, "12");
+
+/* on rajoute un case avec range */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeStmt_Case(lastCmd, expr0);
+cnormNode_TerminalLiteral(expr0, "20");
+local expr0right;
+cnormNode_ToBinary(expr0, "...", expr0right);
+cnormNode_TerminalLiteral(expr0right, "42");
+
+/* on rajoute un default */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeStmt_Label(lastCmd, "default");
+
+/* on rajoute un break */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeStmt_Ctrl(lastCmd, "break");
+
+/* on rajoute un continue */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+cnormNodeStmt_Ctrl(lastCmd, "continue");
+
+/* on rajoute un return 42 */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+local expr1;
+cnormNodeStmt_Branch(lastCmd, "return", expr1);
+cnormNode_TerminalLiteral(expr1, "42");
+
+/* on rajoute un goto toto */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+local expr2;
+cnormNodeStmt_Branch(lastCmd, "goto", expr2);
+cnormNode_TerminalId(expr2, "toto");
+
+/* on rajoute un if */
+cnormNodeBlock_AddNode(myAst);
+cnormNodeBlock_GetLastNode(myAst, lastCmd);
+local cond_expr;
+local then_expr;
+local else_expr;
+cnormNodeStmt_If(lastCmd, cond_expr, then_expr, else_expr);
+// on met une condition
+cnormNode_TerminalId(cond_expr, "toto");
+local rhs1;
+cnormNode_ToBinary(cond_expr, "==", rhs1);
+cnormNode_TerminalLiteral(rhs1, "\"plop\"");
+
+/* on rajoute un while */
+local w_cond;
+local w_body;
+cnormNodeStmt_While(else_expr, w_cond, w_body);
+cnormNode_TerminalId(w_cond, "gaspard");
+local rhs2;
+cnormNode_ToBinary(w_cond, "<", rhs2);
+cnormNode_TerminalLiteral(rhs2, "32");
+cnormNodeBlock_AddNode(w_body);
+local bodyLast;
+cnormNodeBlock_GetLastNode(w_body, bodyLast);
+cnormNodeStmt_Label(bodyLast, "default");
+cnormNodeBlock_GetLastNode(w_body, bodyLast);
+local returnValue;
+cnormNodeStmt_Branch(bodyLast, "return", returnValue);
+local thenReturn;
+local elseReturn;
+cnormNode_TerminalId(returnValue, "a");
+cnormNode_ToTernary(returnValue, thenReturn, elseReturn);
+cnormNode_TerminalLiteral(thenReturn, "32");
+cnormNode_TerminalLiteral(elseReturn, "666");
+
+/* on rajoute un for */
+local init;
+local cond;
+local incr;
+local loop;
+cnormNodeStmt_For(then_expr, init, cond, incr, loop);
+cnormNodeStmt_Ctrl(loop, "break");
+local incr_right;
+cnormNode_UnaryExpr(incr, "++", incr_right);
+cnormNode_TerminalId(incr_right, "i");
+cnormNode_TerminalId(cond, "tab");
+cnormNode_ToIndex(cond, right_expr);
+cnormNode_TerminalLiteral(right_expr, "32");
+cnormNode_ToIndex(cond, right_expr);
+cnormNode_TerminalLiteral(right_expr, "777");
+cnormNode_ToCall(cond, right_expr);
+local prm;
+cnormNode_CallParam(right_expr, prm);
+cnormNode_TerminalLiteral(prm, "\"tutu %s\"");
+cnormNode_CallParam(right_expr, prm);
+cnormNode_TerminalLiteral(prm, 42);
+cnormNode_CallParam(right_expr, prm);
+cnormNode_TerminalId(prm, "z");
+cnormNode_ToPost(cond, "--");
+
+traceLine(toString(myAst, true));
+traceLine(cnorm2c(myAst));

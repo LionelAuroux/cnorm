@@ -1,0 +1,189 @@
+/*
+**	Cnorm FrontEnd
+**	made by Lionel Auroux for cnorm >= 3.0
+**
+*/
+
+#include "cwTool.inc.cws"
+#include "cnormNode.inc.cws"
+
+#if !existFunction(cnorm_version)
+
+function cnorm_version()
+{return "3.0";}
+
+declare	function	cnormFile(out_ref : reference, file : value, dialect : value = "__std__");
+declare function	cnormString(out_ref : reference, data : value);
+
+declare function	cnormDialect<T>(out_ref : reference);
+declare function	_cnormFile<T>(out_ref : reference, file : value);
+declare function	cnormString<T>(out_ref : reference, data : value);
+
+// basic function to parse a C file of the default dialect
+function	cnormFile(out_ref : reference, file : value, dialect : value)
+{
+	return _cnormFile<dialect>(out_ref, file);
+}
+
+// basic function to parse a C string of the default dialect
+function	cnormString(out_ref : reference, data : value)
+{
+	return cnormString<"__std__">(out_ref, data);
+}
+
+function cnormDialect<T>(out_ref : reference)
+{error("you must specify a C dialect. unknown " + T);}
+
+// crat the out_ref node as an empty dialect
+function cnormNewDialect(out_ref : reference, name : value)
+{
+	insert out_ref.dialect = name;
+	insert out_ref.dialect.parsing_mode = "strict";
+        // new dialect
+        insert out_ref.dialect.map_identifier;
+}
+
+///////// CLASSIC CNORM DIALECT
+function cnormDialect<"__unstrict__">(out_ref : reference)
+{
+	cnormDialect<"__std__">(out_ref);
+	out_ref.dialect = "__unstrict__";
+	out_ref.dialect.parsing_mode = "unstrict";
+}
+
+function cnormDialect<"__std__">(out_ref : reference)
+{
+	cnormNewDialect(out_ref, "__std__");
+        // build all literal lists for this dialect.
+        insert out_ref.dialect.map_identifier = {[
+                // ASM
+                "asm"                   : "asm"{},
+                "__asm"                 : "asm"{}, 
+                "__asm__"               : "asm"{},
+                // ATTRIBUTE
+                "attribute"             : "attribute"{}, 
+                "__attribute"           : "attribute"{},
+                "__attribute__"         : "attribute"{},
+                //      windows attribute 
+                "__declspec"            : "attribute"{},
+                ////////////////////////
+                "auto"                  : "qualifier"{},
+                // SPECIFIER
+                //      sign
+                "unsigned"              : "sign_unsigned"{}, 
+                "__unsigned"            : "sign_unsigned"{},
+                "__unsigned__"          : "sign_unsigned"{},
+                "signed"                : "sign_signed"{},
+                "__signed"              : "sign_signed"{},
+                "__signed__"            : "sign_signed"{},
+                //      size
+                "short"                 : "specifier_size"{},
+                "long"                  : "specifier_size_size"{},
+                //      composed
+                "struct"                : "specifier_block"{},
+                "union"                 : "specifier_block"{},
+                "enum"                  : "specifier_enum"{},
+                //      function
+                "inline"                : "funspecifier"{},
+                "__inline"              : "funspecifier"{},
+                "__inline__"            : "funspecifier"{},
+                "__forceinline"         : "funspecifier"{},
+                // STORAGE
+                "register"              : "storage"{},
+                "typedef"               : "storage"{},
+                "static"                : "storage"{},
+                "extern"                : "storage"{},
+                "__thread"              : "storage"{},
+                // QUALIFIER
+                "const"                 : "qualifier"{},
+                "volatile"              : "qualifier"{},
+                "restrict"              : "qualifier"{},
+                "__volatile"            : "qualifier"{},
+                "__volatile__"          : "qualifier"{},
+                "__const"               : "qualifier"{},
+                "__restrict"            : "qualifier"{},
+		//      windows qualifier 
+                "__cdecl"               : "qualifier"{},
+                "__stdcall"             : "qualifier"{},
+                "__fastcall"            : "qualifier"{},
+                "__w64"                 : "qualifier"{},
+                "__ptr32"               : "qualifier"{},
+                "__ptr64"               : "qualifier"{},
+                // TYPE
+                "void"                  : "type"{},
+                "char"                  : "type"{},
+                "int"                   : "type"{},
+                "float"                 : "type"{},
+                "double"                : "type"{},
+                "_Complex"              : "type"{},
+                "__complex"             : "type"{},
+                "__complex__"           : "type"{},
+                "_Imaginary"            : "type"{},
+                "__imag"                : "type"{},
+                "__imag__"              : "type"{},
+                "__real"                : "type"{},
+                "__real__"              : "type"{},
+                "_Bool"                 : "type"{},
+                "__label__"             : "type"{},
+                "__builtin_va_list"     : "type"{},
+                "__int8"                : "type"{},
+                "__int16"               : "type"{},
+                "__int32"               : "type"{},
+                "__int64"               : "type"{},
+                // SIZEOF/TYPEOF
+                //      sizeof
+                "sizeof"                : "sizeof"{},
+                "__alignof"             : "sizeof"{},
+                "__alignof__"           : "sizeof"{},
+                //      typeof
+                "typeof"                : "typeof"{},
+                "__typeof"              : "typeof"{},
+                "__typeof__"            : "typeof"{},
+                // UNARY OP
+                "__real"                : "unary"{},
+                "__real__"              : "unary"{},
+                "__imag"                : "unary"{},
+                "__imag__"              : "unary"{},
+                "__extension__"         : "unary"{},
+                // RESERVED KEYWORDS
+                "switch"                : "reserved"{},
+                "case"                  : "reserved"{},
+                "default"               : "reserved"{},
+                "if"                    : "reserved"{},
+                "else"                  : "reserved"{},
+                "while"                 : "reserved"{},
+                "do"                    : "reserved"{},
+                "for"                   : "reserved"{},
+                "goto"                  : "reserved"{},
+                "continue"              : "reserved"{},
+                "break"                 : "reserved"{},
+                "return"                : "reserved"{},
+                "__builtin_offsetof"    : "reserved"{}
+        ]};
+}
+
+// generic template to parse a file of the correct dialect
+function _cnormFile<T>(out_ref : reference, file : value)
+{
+	out_ref = file;
+	cnormDialect<T>(out_ref);
+	parseAsBNF("cnorm.cwp", out_ref, file);
+	if (existVariable(out_ref.dialect)) {removeVariable(out_ref.dialect);}
+	// parsing error
+	if (existVariable(out_ref.error))
+	{error("Syntax error in " + out_ref + ":" + out_ref.error[0].msg);}
+}
+
+// generic template to parse a string of the correct dialect
+function cnormString<T>(out_ref :reference, data : value)
+{
+	out_ref = "<string>";
+	cnormDialect<T>(out_ref);
+	parseStringAsBNF("cnorm.cwp", out_ref, data);
+	if (existVariable(out_ref.dialect)) {removeVariable(out_ref.dialect);}
+	// parsing error
+	if (existVariable(out_ref.error))
+	{error("Syntax error in " + out_ref + ":" + out_ref.error.msg);}
+}
+
+#end

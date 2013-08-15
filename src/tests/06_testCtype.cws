@@ -1,0 +1,143 @@
+/*
+	Unit test for checking ctype node creation
+*/
+
+#include "cwTool.inc.cws"
+#include "cnorm.inc.cws"
+#include "cnormNode.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+local myAst;
+
+cnormDialect<"__std__">(myAst);
+cnormNodeRoot(myAst);
+
+{// cree un noeud simple
+	local lastCmd;
+	cnormNodeBlock_AddNode(myAst);
+	cnormNodeBlock_GetLastNode(myAst, lastCmd);
+	cnormNodeDecl(lastCmd);
+	cnormNodeDecl_SetName(lastCmd, "a");
+	local ctype;
+	cnormNodeDecl_GetCtype(lastCmd, ctype);
+	cnormNodeDecl_SetIdentifier(ctype, "int");
+	cnormNodeDecl_SetSpecifier(ctype, "long");
+	cnormNodeDecl_SetSpecifier(ctype, "long");
+	cnormNodeDecl_SetSigned(ctype, "unsigned");
+	cnormNodeDecl_AddRef(lastCmd);
+	cnormNodeDecl_GetCtype(lastCmd, ctype);
+	cnormNodeDecl_SetQualifier(ctype, "const");
+	cnormNodeDecl_AddRef(lastCmd);
+
+	// copie du noeud precedent
+	local last2;
+	cnormNodeBlock_AddNode(myAst);
+	cnormNodeBlock_GetLastNode(myAst, last2);
+	cnormNodeDecl(last2);
+	cnormNodeDecl_CopyDecl(last2, lastCmd);
+	cnormNodeDecl_GetCtype(last2, ctype);
+	cnormNodeDecl_SetStorage(ctype, "register");
+	cnormNodeDecl_SetName(last2, "b");
+}
+
+{// cree un enum
+	local lastCmd;
+	cnormNodeBlock_AddNode(myAst);
+	cnormNodeBlock_GetLastNode(myAst, lastCmd);
+	cnormNodeDecl(lastCmd);
+	cnormNodeDecl_SetName(lastCmd, "patouf");
+	local ctype;
+	cnormNodeDecl_GetCtype(lastCmd, ctype);
+	cnormNodeDecl_SetSpecifier(ctype, "enum");
+	cnormNodeDecl_SetIdentifier(ctype, "lala");
+	local enumV;
+	local expr;
+	cnormNodeDecl_MapEnum(ctype, "A", enumV);
+	cnormNodeDecl_MapEnum(ctype, "B", enumV);
+	cnormNode_TerminalLiteral(enumV, "12");
+	cnormNodeDecl_MapEnum(ctype, "C", enumV);
+	cnormNode_TerminalLiteral(enumV, "666");
+	cnormNodeDecl_MapEnum(ctype, "D", enumV);
+}
+
+{// cree un noeu complexe
+	local lastCmd;
+	cnormNodeBlock_AddNode(myAst);
+	cnormNodeBlock_GetLastNode(myAst, lastCmd);
+	cnormNodeDecl(lastCmd);
+	cnormNodeDecl_SetName(lastCmd, "tutu");
+	local ctype;
+	cnormNodeDecl_GetCtype(lastCmd, ctype);
+	cnormNodeDecl_SetSpecifier(ctype, "struct");
+	cnormNodeDecl_SetIdentifier(ctype, "toto");
+	local subnode;
+	cnormNodeDecl_GetBody(ctype, subnode);
+	cnormNodeBlock(subnode, true);
+	// first field
+	local field;
+	cnormNodeBlock_AddNode(subnode);
+	cnormNodeBlock_GetLastNode(subnode, field);
+	cnormNodeDecl(field);
+	cnormNodeDecl_SetName(field, "field");
+	cnormNodeDecl_GetCtype(field, ctype);
+	cnormNodeDecl_SetIdentifier(ctype, "char");
+	cnormNodeDecl_AddRef(field);
+	// other field
+	cnormNodeBlock_AddNode(subnode);
+	cnormNodeBlock_GetLastNode(subnode, field);
+	cnormNodeDecl(field);
+	cnormNodeDecl_SetName(field, "tab");
+	cnormNodeDecl_GetCtype(field, ctype);
+	cnormNodeDecl_SetIdentifier(ctype, "float");
+	local arydim;
+	cnormNodeDecl_AddDim(ctype, arydim);
+	cnormNode_TerminalLiteral(arydim, "13");
+	cnormNodeDecl_AddDim(ctype, arydim);
+	cnormNode_TerminalLiteral(arydim, "42");
+	// other field
+	cnormNodeBlock_AddNode(subnode);
+	cnormNodeBlock_GetLastNode(subnode, field);
+	cnormNodeDecl(field);
+	cnormNodeDecl_SetName(field, "pfunc");
+	cnormNodeDecl_GetCtype(field, ctype);
+	cnormNodeDecl_SetIdentifier(ctype, "int");
+	local paramlist;
+	cnormNodeDecl_GetParam(field, paramlist);
+	cnormNodeBlock(paramlist, true);
+	local param;
+	cnormNodeBlock_AddNode(paramlist);
+	cnormNodeBlock_GetLastNode(paramlist, param);
+	{
+		local paramctype;
+		cnormNodeDecl(param);
+		cnormNodeDecl_GetCtype(param, paramctype);
+		cnormNodeDecl_SetIdentifier(paramctype, "int");
+	}
+	cnormNodeBlock_AddNode(paramlist);
+	cnormNodeBlock_GetLastNode(paramlist, param);
+	{
+		local paramctype;
+		cnormNodeDecl(param);
+		cnormNodeDecl_GetCtype(param, paramctype);
+		cnormNodeDecl_SetIdentifier(paramctype, "char");
+	}
+	cnormNodeDecl_AddRef(param);
+	
+	// return a funcpointer
+	cnormNodeDecl_AddRef(field);
+	// param of the function
+	cnormNodeDecl_GetParam(field, paramlist);
+	cnormNodeBlock(paramlist, true);
+	local param;
+	cnormNodeBlock_AddNode(paramlist);
+	cnormNodeBlock_GetLastNode(paramlist, param);
+	{
+		local paramctype;
+		cnormNodeDecl(param);
+		cnormNodeDecl_GetCtype(param, paramctype);
+		cnormNodeDecl_SetIdentifier(paramctype, "int");
+	}
+}
+
+traceLine(toString(myAst, true));
+traceLine(cnorm2c(myAst));

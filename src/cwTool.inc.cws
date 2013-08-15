@@ -1,0 +1,515 @@
+/*
+**	cwTool.inc.cws
+**	for cnorm
+**	made by auroux_l
+**
+**	the aim of this lib is to provide usefull functions to work on Trees
+**/
+
+#if !existFunction(cwTool_version)
+
+function cwTool_version()
+{return "3.0";}
+
+// usefull function
+declare function toString(theNode : node, noret : value = false);
+declare function getStringRef(theNode : node);
+declare function catPath(path : value, file : value);
+
+// node modification
+declare function nodeDiff(__target__ : node, __src__ : node, diff : node, str_src : value = "__src__", str_tgt : value = "__target__");
+declare function nodePatch(target : reference, diff : node);
+declare function nodeFlat(out_ref : reference, __src__ : node, __str_node : value = "__src__");
+declare function nodeCmp(first : node, second : node);
+declare function nodeMergeHashKey(dst : node, src : node);
+
+// tree unserialization
+declare function cwLoadProject(filename : value, load_tree : node);
+
+// argument/option command line handling
+declare function	printOption(local_node : reference, prog_name : value);
+declare function	addOption(local_node : node, option_name : value, soption : value, loption : value, desc : value,
+				mode : value = "optional", param : value = "null", repeat : value = "unique");
+declare function        parseOption(progname : value, desc : reference, out_res : reference);
+
+
+// Get a string representation of Tree
+// theNode : IN the tree to show
+// noret : optionnal boolean (0 - flat mode, 1 - expanded mode)
+function toString(theNode : node, noret : value)
+{
+	local tempFile = "__traceProject." + randomInteger() + ".log";
+	saveProject(tempFile, theNode);
+	local str = loadFile(tempFile);
+	if (!noret) 
+	{
+		str = replaceString('\n', '', str); 
+		str = replaceString('\t', '', str);
+	}
+	deleteFile(tempFile);
+	return str;
+}
+
+// Get a string representation of a reference
+// theNode : IN the variable that store the reference
+function getStringRef(theNode : node)
+{
+	local data = toString(theNode);
+	local output;
+	parseStringAsBNF({all ::= #readCString:this;}, output, data);
+	return output;
+}
+
+// Cat a path with a filename with the / or empty path management
+function catPath(path : value, file : value)
+{
+        if (path != "")
+        { return path + '/' + file;}
+        return file;
+}
+
+// nodeDiff
+// make diff tree between 2 node. diff is a flat representation of the difference
+// target : IN the node to compare
+// src : IN the source node to use as reference
+// diff : OUT the diff tree
+function nodeDiff(__target__ : node, __src__ : node, diff : node, str_src : value, str_tgt : value)
+{
+	local sroot = str_src;
+	local troot = str_tgt;
+	// cmp the value
+	if (#evaluateVariable(sroot) != #evaluateVariable(troot))
+	{
+		// add the diff
+		insert diff[sroot].src = #evaluateVariable(troot);
+		insert diff[sroot].dst = #evaluateVariable(sroot);
+	}
+	// is an Array
+	if ($getArraySize(#evaluateVariable(sroot)) > 0$)
+		foreach oItem in sorted #evaluateVariable(sroot)
+		{
+			local sKey = "[\"" + key(oItem) + "\"]";
+			// cmp the array entry
+			if (!existVariable(#evaluateVariable(troot + sKey)))
+			{
+				// add the diff
+				insert diff[sroot + sKey];
+			}
+			// recurs on subnodes
+			nodeDiff(__target__, __src__, diff, sroot + sKey, troot + sKey);
+		}
+	// has subnodes
+	local subAttr;
+	getVariableAttributes(#evaluateVariable(sroot), subAttr);
+	if ($getArraySize(subAttr) > 0$)
+		foreach oItem in sorted subAttr
+		{
+			local sKey = "." + key(oItem);
+			// cmp the subnode
+			if (!existVariable(#evaluateVariable(troot + sKey)))
+			{
+				// add the diff
+				insert diff[sroot + sKey];
+			}
+			// recurs on subnodes
+			nodeDiff(__target__, __src__, diff, sroot + sKey, troot + sKey);
+		}
+}
+
+// nodeFlat
+// transform a tree into a key/value representation, usefull with #existVariable
+function nodeFlat(out_ref : reference, __src__ : node, __str_node : value = "__src__")
+{
+	insert out_ref[__str_node] = #evaluateVariable(__str_node);
+	// is an Array
+	if ($getArraySize(#evaluateVariable(__str_node)) > 0$)
+		foreach oItem in sorted #evaluateVariable(__str_node)
+		{	nodeFlat(out_ref, __src__, __str_node + "[\"" + key(oItem) + "\"]");}
+	// has subnodes
+	local subAttr;
+	getVariableAttributes(#evaluateVariable(__str_node), subAttr);
+	if ($getArraySize(subAttr) > 0$)
+		foreach oItem in sorted subAttr
+		{	nodeFlat(out_ref, __src__, __str_node + "." + key(oItem));}
+}
+
+
+// nodePatch
+// do patch on a tree. Apply difference store in diff on target
+// target : INOUT the node to patch
+// diff : IN the diff tree
+function nodePatch(target : reference, diff : node)
+{
+	// on each diff nodes
+	foreach item in sorted diff
+	{ 
+		// this is my magic in the diff nodes
+		local magic = "__src__";
+		// his len
+		local mlen = $lengthString(magic)$;
+		// the prefix of the node
+		local prefix = leftString(key(item), mlen);
+		// the indirection of the node
+		local indir = subString(key(item), mlen);
+		// if the prefix is good
+		if (prefix == magic)
+		{	
+			local	metamagic = "target" + indir;
+			// we create the node
+			insert #evaluateVariable(metamagic);
+			if (existVariable(item.dst))
+			{	set #evaluateVariable(metamagic) = item.dst;}
+			else
+			{	set #evaluateVariable(metamagic) = item;}
+		}
+	} 
+}
+
+// nodeEqual
+// compare to trees
+// first : IN the first node to compare
+// second : IN the second node to compare
+function nodeCmp(first : node, second : node)
+{
+	local diff_12;
+	local diff_21;
+	nodeDiff(first, second, diff_12);
+	nodeDiff(first, second, diff_21);
+	if ($getArraySize(diff_12) == 0$ && $getArraySize(diff_21) == 0$)
+		return true;
+	return false;
+}
+
+
+//   To avoid the buggy merge statement (segfault in freeing context), use this function for hash Key
+// dst : INOUT the hash to update
+// src : IN the source hash
+function nodeMergeHashKey(dst : node, src : node)
+{
+	foreach item in src
+	{	insert dst[item] = item;}
+}
+
+// load project (new format), into load_tree
+// filename : IN , the file to load
+// load_tree : INOUT, the node to populate
+function cwLoadProject(filename : value, load_tree : node)
+{
+	parseAsBNF({
+		// root grammar
+		tree_grammar ::= #ignore(blanks)
+			=> insert this.__backReference;
+			#readCString:ref_root
+			'=' tree_value("this")
+			#continue #empty
+			=>
+			{
+				foreach itref in this.__backReference
+				{
+					if (startString(itref.to, ref_root))
+					{
+						local good_ref = replaceString(ref_root + ".", "this.", itref.to);
+						ref #evaluateVariable(itref.from) = #evaluateVariable(good_ref);
+					}
+				}
+				removeVariable(this.__backReference);
+			}
+		;
+
+		tree_attr(the_node : value) ::=
+			tree_value(the_node) [',' tree_value(the_node)]*
+		;
+
+		tree_ary_item(the_node : value, index : node) ::=
+			=> local local_node = the_node;
+			[
+				#readCString:sKey ':'
+				=> local_node = the_node + "[\"" + sKey + "\"]";
+				=> insert #evaluateVariable(local_node);
+				|
+				=>
+				{
+					local_node = the_node + "[" + index + "]";
+					insert #evaluateVariable(local_node);
+					index = $index + 1$;
+				}
+			]
+			tree_value(local_node)
+		;
+
+		tree_value(the_node : value) ::=
+			[
+				[['.' #readIdentifier]:sAttr
+				=> the_node += sAttr;
+				=> insert #evaluateVariable(the_node);
+				'='
+				]?
+				[
+					tree_ref(the_node)
+					|#readCString:sVal
+					// on affect la value
+					=> if (the_node) set #evaluateVariable(the_node) = sVal; 
+				]?
+				[
+					'{'
+					[tree_attr(the_node)]? 
+					'}'
+					|
+					=>local nIdx = 0;
+					'['
+						tree_ary_item(the_node, nIdx) [',' tree_ary_item(the_node, nIdx) ]* 
+					']'
+				]?
+			]
+			
+		;
+
+		tree_ref(the_node : value) ::=
+			"&ref" #readCString:ref_val ['=' tree_value("")]?
+			=>
+			{
+				if (the_node)
+				{
+					pushItem this.__backReference;
+					insert this.__backReference#back.from = the_node;
+					insert this.__backReference#back.to = ref_val;
+				}
+			}
+		;
+	}, load_tree, filename);
+        return true;
+}
+
+function	_getSpace(nbs : value)
+{
+	local	res = "";
+	local	i = 0;
+	while ($i < nbs$)
+	{
+		res += " ";
+		i = $i + 1$;
+	}
+	return res;
+}
+
+
+// printOption
+// local_node : IN reference where the parse option are configured
+// prog_name : IN value the name of the program to show
+// automatically create an USAGE message when an error occur during parsing option, called by parseOption
+function	printOption(local_node : reference, prog_name : value)
+{
+	traceLine("USAGE: " + prog_name + " [ARG]");
+	traceLine("OPTIONS:");
+        local lstFinal;
+        local sepBase = 20;
+        foreach item in local_node
+	{
+                local lstShow;
+		pushItem lstShow = item.short_option;
+		if (item.param == "list")
+		{	pushItem lstShow = "ARG1 ARG2 ...";
+                        pushItem lstShow = "or";
+                        pushItem lstShow = item.long_option + "=ARG1,ARG2,...";
+                }
+		if (item.param == "param")
+		{	pushItem lstShow = "ARG";
+                        pushItem lstShow = "or";
+                        pushItem lstShow = item.long_option + "=ARG";
+                }
+		pushItem lstFinal;
+                insert lstFinal#back.first = joinStrings(lstShow, " ") + "    ";
+                insert lstFinal#back.second = item.desc;
+                // compute the best space alignement
+		local sep = $sepBase - lengthString(lstFinal#back.first)$;
+                if ($sep < 0$)
+                { sepBase = $sepBase - sep$;}
+	}
+        // aligned option and description
+        foreach line in lstFinal
+        {	
+		local sep = $sepBase - lengthString(line.first)$;
+                traceLine(" " + line.first + _getSpace(sep) + "- " + line.second);
+        }
+}
+
+/*
+	mode:
+		default
+		required
+		optional
+
+	param:
+		null	:	don't take a param
+		param	:	one data
+		list 	:	list of data
+			in short option just like:  -l A B C
+			in long option just like: --list=A,B,C
+        repeat:
+                unique  :       only once
+                multi   :       many in the param list (multi-param/list concatene dans la liste)
+*/
+function	addOption(local_node : node, option_name : value, soption : value, loption : value, desc : value, mode : value, param : value, repeat : value)
+{
+	local		idx = getArraySize(local_node);
+	pushItem	local_node;
+	insert local_node#back.option_name = option_name;
+	insert local_node#back.short_option = soption;
+	insert local_node#back.long_option = loption;
+	insert local_node#back.mode = mode;
+	switch (mode)
+	{
+		case "default":
+                        if (local_node != "")
+                        {error("only one default:" + option_name + " can't be default");}
+			insert local_node = idx;
+		case "required":
+			insert local_node.required[option_name];
+		case "optional":
+			break;
+		default:
+			error("unknown mode:" + mode);
+	}
+	insert local_node#back.param = param;
+	insert local_node#back.desc = desc;
+	insert local_node.hash_map[soption];
+	local_node.hash_map[soption] = idx;
+	insert local_node.hash_map[loption];
+	local_node.hash_map[loption] = idx;
+}
+
+// parseOption
+// progname : IN value nom du programme a utiliser pour l'affichage de l'USAGE
+// desc : IN reference arbre decrivant les options a parser, creer avec addOption
+// out_res : OUT reference arbre resultat ou sont collecte les parametres
+function        parseOption(progname : value, desc : reference, out_res : reference)
+{
+	insert desc.options;
+	try
+	{
+		parseStringAsBNF({
+			options ::= #ignore(blanks)
+				'\\' // dummy add in script shell to protect the first - inside "
+				[option]*
+				[
+					=> local theDefaultOption;
+                                        => local theExtraOption;
+                                        => local bExtra = false;
+					=> local bList = false;
+					=>{
+                                                // have a default option
+						if (this != "")
+						{	
+							local idxOpt = this;
+							local defval = this[idxOpt].option_name;
+							insert this.options[defval];
+							ref theDefaultOption = this.options[defval];
+							if (this[idxOpt].param == "list")
+							{	bList = true;}
+                                                        else
+                                                        {       bExtra = true;}
+						}
+                                                // extra parameter non-default
+                                                ref theExtraOption = this.options;
+					}
+                                        // parse default param or list (required)
+                                        [#check(bList) [#pushItem(theDefaultOption) data:theDefaultOption#back]+
+                                        | data:theDefaultOption
+                                        ]
+                                        [#check(bExtra) [#pushItem(theExtraOption) data:theExtraOption#back]+
+                                        ]?
+				]
+				#continue #empty
+			;
+	
+			option ::= short_opt | long_opt
+			;
+	
+			short_opt ::= [#!ignore '-' id]:sopt 
+				=> {
+					if (!findElement(sopt, this.hash_map))
+					{	error("unknown parameter:" + sopt);}
+				}
+				=> local idxOpt = this.hash_map[sopt];
+				=> local oname = this[idxOpt].option_name;
+				=> insert this.options[oname];
+				=> insert this.options[oname];
+				=> localref theOption = this.options[oname];
+				[#check(this[idxOpt].param == "param") data:theOption
+				|#check(this[idxOpt].param == "list") 
+					[#pushItem(theOption) data:theOption#back]+
+				|#check(this[idxOpt].param != "null") => error("unknown param type:" + this[idxOpt].param);
+				|	=> theOption = true;
+				]?
+			;
+	
+			long_opt ::= [#!ignore "--" id]:lopt 
+				=> {
+					if (!findElement(lopt, this.hash_map))
+					{	
+						traceLine(toString(this, true));
+						error("unknown parameter:<" + lopt + ">");
+					}
+				}
+				=> local idxOpt = this.hash_map[lopt];
+				=> local oname = this[idxOpt].option_name;
+				=> insert this.options[oname];
+				=> localref theOption = this.options[oname];
+			[ #!ignore
+				[
+					#check(this[idxOpt].param == "param") '=' data:theOption
+				|	#check(this[idxOpt].param == "list")
+						'=' #pushItem(theOption) data:theOption#back
+						[',' #pushItem(theOption) data:theOption#back ]*
+				|	#check(this[idxOpt].param != "null")
+					=> error("unknown param type:" + this[idxOpt].param);
+				|	=> theOption = true;
+			 	]
+			]?
+			;
+	
+			id ::= #!ignore ['_'|'/'|'.'|'0'..'9'|'a'..'z'|'A'..'Z']['_'|'/'|'.'|'-'|'0'..'9'|'a'..'z'|'A'..'Z']*
+			;
+	
+			data ::= #!ignore 
+					~['-'|' '|','|#empty]
+					["\\" #readChar
+					| ~[' '|','|#empty]
+					]*
+			;
+	
+		}, desc, _ARGS[0]);
+	}
+	catch(sError)
+	{
+		local msg;
+		parseStringAsBNF({
+			root ::= #ignore(blanks)
+				=> local col;
+				->(:this.content)["line" #readInteger ',' "col" #readInteger:this.col ':']
+				[#!ignore -> '\n']:this.text
+			;
+		}, msg, sError);
+		traceLine(msg.content + "\nat " + msg.col + " " + msg.text);
+	}
+	setall out_res = desc.options;
+	removeVariable(desc.options);
+	// check required option
+        local lstError;
+        //traceLine("!!:" + toString(desc, true));
+        //traceLine(">>:" + toString(out_res, true));
+	foreach item in desc.required
+	{	
+		local ropt = key(item);
+		if ($getArraySize(out_res[ropt]) == 0$)
+		{	pushItem lstError = "required option " + ropt;}
+	}
+        if ($getArraySize(lstError) > 0$)
+        {
+                traceLine(joinStrings(lstError, "\n"));
+		printOption(desc, progname);
+		exit(42);
+        }
+}
+
+#end

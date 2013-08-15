@@ -1,0 +1,113 @@
+/*
+** cnormRulesDispatcher.cwp for
+** "C normalise"
+** 
+** Authors:
+**	Lionel Auroux
+**
+** Features:
+**	- this grammar allow cnorm users to call a specific parsing rules within a function to obtain a subtree
+**	representing a chunk of C code.
+**	- only used by the cnormPatchLib.
+**
+**
+** see cnorm.cwp for details
+*/
+
+#include "cnorm.cwp"
+#include "cnorm.inc.cws"
+
+// root of the overloaded grammar
+#overload
+translation_unit ::= 
+	#try
+	#ignore("CNORM")
+	=> {     
+                if (!existVariable(this.dialect.map_identifier))
+                {       cnormDialect<this.dialect>(this);}
+		// dispatch rule depending of the value of this, set from _dispatchRule
+                switch (this)
+		{
+			case "declaration":
+			{
+				if (!existVariable(this.type)) 
+				{	cnormNodeRoot(this);}
+				#applyBNFRule declarations(this);
+				break;
+			}
+
+			case "line_of_code":
+			{
+				if (!existVariable(this.type))
+				{	cnormNodeRoot(this);}
+				else if (!cnormNode_checkBlock(this))
+				{	cnormNodeBlock(this, true);}
+				#applyBNFRule line_of_codes(this);
+				break;
+			}
+			case "function_param":
+			{
+				#applyBNFRule params(this);
+				break;
+			}
+			case "field":
+			{
+				#applyBNFRule su_fields(this);
+				break;
+			}
+			case "enum_field":
+			{
+				#applyBNFRule e_fields(this);
+				break;
+			}
+			case "expression":
+			{
+				#applyBNFRule expression(this);
+				break;
+			}
+		}
+                // final remove for no root
+                if (this.type != "__root_block__" && existVariable(this.dialect))
+                {       removeVariable(this.dialect);}
+	}// end of dispatch
+/**/	#continue(sError, "bad token at end of " + this + ", unexpected <" + peekChar() + ">") #empty
+	#catch(sError)
+	| #check(cnormLogError(this, sError))
+;
+
+// global declarations
+declarations(theBlock : node) ::= 
+	[ 
+		declaration(theBlock) | unstrict(this)
+	]+
+        #continue #empty
+;
+
+// chunk of code somewhere
+line_of_codes(theBlock : node) ::= 
+	[ 
+		line_of_code(theBlock) 
+	]+
+        #continue #empty
+;
+
+// a param in the parameter list
+params(theBlock : node) ::= 
+	parameter_type_list(theBlock)
+/**/	#check(cnormNode_MapFieldOrParam(theBlock))
+;
+
+// struct/union fields
+su_fields(theBlock : node) ::= 
+	[ 
+		line_of_code(theBlock) 
+	]+
+/**/	#check(cnormNode_MapFieldOrParam(theBlock))
+        #continue #empty
+;
+
+// enum fields 
+e_fields(theCtype : node) ::= enumerator_list(theCtype)
+        #continue #empty
+;
+

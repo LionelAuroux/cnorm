@@ -1,0 +1,224 @@
+/*
+**	cnorm advanced pretty print functions
+**	made by Lionel Auroux for cnorm >= 3.0
+**
+** 
+**  need function to create:
+** - NewLine*
+** - AddItem
+** - ListSeparatedBy*:  as, asa, qwq, qwq
+** - ListEndBy*:  asdasd; asdasd; adasd;
+** - Block: () {}
+**
+*/
+
+#if !existFunction(prettyPrint)
+
+// creation node functions
+declare function	prettyPrint_Root(thePrettyAst : node);
+// add simple item or list
+declare function	prettyPrint_AddItem(theItem : node, val : value);
+declare function	prettyPrint_AddItemList(theItem : node, val : node);
+// add newline
+declare function	prettyPrint_NewLine(theItem : node);
+// add list
+declare function	prettyPrint_NewListSeparatedBy(thePrettyAst : node, out_ref : reference, 
+						       sep : value = "", isfirst : value = false);
+declare function	prettyPrint_NewListEndBy(thePrettyAst : node, out_ref : reference, 
+						 end : value = "", isfirst : value = false);
+declare function	prettyPrint_NewTabList(thePrettyAst : node, out_ref : reference, moretab : value = false);
+// add block
+declare function	prettyPrint_NewBlock(thePrettyAst : node, out_ref : reference, 
+					     begin : value = "", end : value = "", indent : value = false, isfirst : value = false);
+// printing functions
+declare function	prettyPrint_do<T>(thePrettyAst : node);
+declare function	prettyPrint(thePrettyAst : node);
+
+/////////////////////////////////////////////////////////////////
+
+function	prettyPrint_Root(thePrettyAst : node)
+{
+	insert thePrettyAst.indent = 0;  
+}
+
+function	prettyPrint_NewLine(theItem : node)
+{
+	if (theItem#back.type != "NewLine")
+	{
+		pushItem theItem;
+		insert theItem#back.type = "NewLine";
+	}
+}
+
+function	prettyPrint_AddItem(theItem : node, val : value)
+{
+	pushItem theItem;
+	insert theItem#back.type = "Item";
+	insert theItem#back.value = val;
+}
+
+// to test
+function	prettyPrint_AddItemList(theItem : node, val : node)
+{
+	pushItem theItem;
+	setall theItem#back = val[0];
+}
+
+function	prettyPrint_NewListSeparatedBy(thePrettyAst : node, out_ref : reference, sep : value, isfirst : value)
+{
+	pushItem thePrettyAst;
+	insert thePrettyAst#back.type = "ListSeparatedBy";
+	insert thePrettyAst#back.sep = sep;
+	insert thePrettyAst#back.list;
+	if (isfirst == true)
+		insert thePrettyAst#back.isfirst = isfirst;
+	if (existVariable(thePrettyAst#parent.indent_intern) && thePrettyAst#parent.indent_intern == true)
+		insert thePrettyAst#back.indent = $thePrettyAst#parent.indent + 1$;
+	else
+		insert thePrettyAst#back.indent = thePrettyAst#parent.indent;
+	ref out_ref = thePrettyAst#back.list;
+}
+
+function	prettyPrint_NewListEndBy(thePrettyAst : node, out_ref : reference, end : value, isfirst : value)
+{
+	pushItem thePrettyAst;
+	insert thePrettyAst#back.type = "ListEndBy";
+	insert thePrettyAst#back.end = end;
+	insert thePrettyAst#back.list;
+	if (isfirst == true)
+		insert thePrettyAst#back.isfirst = isfirst;
+	if (existVariable(thePrettyAst#parent.indent_intern) && thePrettyAst#parent.indent_intern == true)
+		insert thePrettyAst#back.indent = $thePrettyAst#parent.indent + 1$;
+	else
+		insert thePrettyAst#back.indent = thePrettyAst#parent.indent;
+	ref out_ref = thePrettyAst#back.list;
+}
+
+function	prettyPrint_NewTabList(thePrettyAst : node, out_ref : reference, moretab : value = false)
+{
+	pushItem thePrettyAst;
+	insert thePrettyAst#back.type = "ListTab";
+	insert thePrettyAst#back.list;
+	insert thePrettyAst#back.indent_intern = true;
+	if (existVariable(thePrettyAst#parent) && existVariable(thePrettyAst#parent.indent))
+	{
+		if (moretab)
+			insert thePrettyAst#back.indent = $thePrettyAst#parent.indent + 1$;
+		else
+			insert thePrettyAst#back.indent = $thePrettyAst#parent.indent$;
+	}
+	else
+		insert thePrettyAst#back.indent = 0;
+	ref out_ref = thePrettyAst#back.list;
+}
+
+function	prettyPrint_NewBlock(thePrettyAst : node, out_ref : reference, 
+		begin : value, end : value, indent : value, isfirst : value)
+{
+	pushItem thePrettyAst;
+	insert thePrettyAst#back.type = "Block";
+	insert thePrettyAst#back.begin = begin;
+	insert thePrettyAst#back.end = end;
+	insert thePrettyAst#back.list;
+	insert thePrettyAst#back.indent_intern = indent;
+	if (isfirst == true)
+		insert thePrettyAst#back.isfirst = isfirst;
+	if (existVariable(thePrettyAst#parent.indent_intern) && thePrettyAst#parent.indent_intern == true)
+		insert thePrettyAst#back.indent = $thePrettyAst#parent.indent + 1$;
+	else
+		insert thePrettyAst#back.indent = thePrettyAst#parent.indent;
+	ref out_ref = thePrettyAst#back.list;
+}
+///////////////////// OUTPUT FUNCTIONS
+
+function	indent(nb : value)
+{
+	local sContent;
+	local i = 0;
+	while ($i < nb$)
+	{
+		sContent += '\t';
+		i = $i + 1$;
+	}
+	return sContent;
+}
+
+function	prettyPrint_do<T>(thePrettyAst : node)
+{
+	error("unkown " + T);
+}
+
+////////////////////////
+
+function	prettyPrint_do<"NewLine">(theNode : node)
+{
+	return "\n";
+}
+
+function	prettyPrint_do<"Item">(theNode : node)
+{
+	return theNode.value;
+}
+
+function	prettyPrint_do<"ListSeparatedBy">(theNode : node)
+{
+	local sContent;
+	if (existVariable(theNode.isfirst) && theNode.isfirst == true)
+		sContent = "\n" + indent(theNode.indent);
+	foreach theItem in theNode.list
+	{
+		sContent +=  prettyPrint_do<theItem.type>(theItem);
+		if (last(theItem) == false)
+			sContent += theNode.sep;
+	}
+	return sContent;
+}
+
+function	prettyPrint_do<"ListEndBy">(theNode : node)
+{
+	local sContent;
+	if (existVariable(theNode.isfirst) && theNode.isfirst == true)
+		sContent = "\n" + indent(theNode.indent);
+	foreach theItem in theNode.list
+	{
+		sContent += prettyPrint_do<theItem.type>(theItem);
+	}
+	sContent += theNode.end;
+	return sContent;
+}
+
+function	prettyPrint_do<"ListTab">(theNode : node)
+{
+	local sContent = indent(theNode.indent);
+	foreach theItem in theNode.list
+	{
+		sContent += prettyPrint_do<theItem.type>(theItem);
+	}
+	return sContent;
+}
+
+function	prettyPrint_do<"Block">(theNode : node)
+{
+	local sContent;
+	if (existVariable(theNode.isfirst) && theNode.isfirst == true)
+		sContent = "\n" + indent(theNode.indent);
+	sContent += theNode.begin;
+	foreach theItem in theNode.list
+	{
+		sContent += prettyPrint_do<theItem.type>(theItem);
+	}
+	if (existVariable(theNode.isfirst) && theNode.isfirst == true)
+		sContent += "\n" + indent(theNode.indent);
+	sContent += theNode.end;
+	return sContent;
+}
+
+function	prettyPrint(thePrettyAst : node)
+{
+	local sContent = "";
+	foreach theItem in thePrettyAst
+	{    sContent = prettyPrint_do<theItem.type>(theItem);}
+	return sContent;
+}
+
+#end

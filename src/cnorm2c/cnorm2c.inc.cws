@@ -1,0 +1,695 @@
+/*
+**    cnorm advanced generation templates
+**    made by Lionel Auroux for cnorm >= 3.0
+**
+*/
+
+#if !existFunction(cnorm2c)
+
+#include "../cwTool.inc.cws"
+#include "prettyPrint.inc.cws"
+#include "../cnormNode.inc.cws"
+
+// fonction d'affichage d'un block de C
+declare function    cnorm2c_Node<T>(theNode : node, thePrettyAst : reference);
+declare function    cnorm2c_Expr<T>(theNode : node, thePrettyAst : reference);
+declare function    cnorm2c_Stmt<T>(theNode : node, thePrettyAst : reference);
+declare function    cnorm2c_Ctype(theNode : node, thePrettyAst : reference);
+declare function    cnorm2c_CtypeBegin(theCtype : node, thePrettyAst : reference);
+declare function    cnorm2c_CtypeEnd(theCtype : node, thePrettyAst : reference);
+declare function    cnorm2c(theNode : node);
+
+/////////////////////////// general dispatch template functions
+function    cnorm2c_Node<T>(theNode : node, thePrettyAst : reference)
+{
+    error("unknown node type " + T);
+}
+
+function    cnorm2c_Stmt<T>(theNode : node, thePrettyAst : reference)
+{
+    error("unknown node stmt type " + T);
+}
+
+function    cnorm2c_Expr<T>(theNode : node, thePrettyAst : reference)
+{
+    error("unknown node expr type " + T);
+}
+
+function    cnorm2c_Ctype<T>(theNode : node, thePrettyAst : reference)
+{
+    error("unknown decl ctype type " + T);
+}
+/////////////////////////// top level dispatch function, any node could be call from here
+
+function    cnorm2c_Node<"__root_block__">(theNode : node, thePrettyAst : reference)
+{
+    local subBlock;
+        if ($getArraySize(theNode.block) > 0$ && existVariable(theNode.block#front.type))
+        {
+            prettyPrint_NewListEndBy(thePrettyAst, subBlock);
+            foreach entry in theNode.block
+            {cnorm2c_Node<entry.type>(entry, subBlock);}
+        }
+}
+
+function    cnorm2c_Node<"__block__">(theNode : node, thePrettyAst : reference)
+{
+    local subBlock;
+        prettyPrint_NewBlock(thePrettyAst, subBlock, "{", "}", true, true);
+        foreach entry in theNode.block
+        {if (existVariable(entry.type) && entry.type != "") cnorm2c_Node<entry.type>(entry, subBlock);}
+}
+
+function    cnorm2c_Node<"__block_init__">(theNode : node, thePrettyAst : reference)
+{
+    local subBlock;
+    local inBlock;
+    prettyPrint_NewBlock(thePrettyAst, subBlock, "{", "}");
+    prettyPrint_NewListSeparatedBy(subBlock, inBlock, ", ");
+    foreach entry in theNode.block
+    {if (existVariable(entry.type)) cnorm2c_Node<entry.type>(entry, inBlock);}
+}
+
+function    cnorm2c_Node<"__node__">(theNode : node, thePrettyAst : reference)
+{
+    error("dummy node");
+}
+
+function    cnorm2c_Node<"__decl__">(theNode : node, thePrettyAst : reference)
+{//
+    local lastItem;
+
+    if (cnormNode_checkIsFuncDefinition(theNode))
+    {prettyPrint_NewListEndBy(thePrettyAst, lastItem, "", true);}
+    else
+    {prettyPrint_NewListEndBy(thePrettyAst, lastItem, ";", true);}
+    cnorm2c_Ctype(theNode, lastItem);
+    // for bitfield, constructor
+    if (existVariable(theNode.colon_expr))
+    {
+        prettyPrint_AddItem(lastItem, " : ");
+        cnorm2c_Node<theNode.colon_expr.type>(theNode.colon_expr, lastItem);
+    }
+    // for declaration attributes
+    if (existVariable(theNode.attributes))
+    {
+        foreach item in theNode.attributes
+        {
+            prettyPrint_AddItem(lastItem, " ");
+            cnorm2c_Node<item.type>(item, lastItem);
+        }
+    }
+    // for initializer
+    if (existVariable(theNode.assign_expr))
+    {
+        prettyPrint_AddItem(lastItem, " = ");
+        cnorm2c_Node<theNode.assign_expr.type>(theNode.assign_expr, lastItem);
+    }
+    // for param and body-- function implem
+    if (cnormNode_checkIsFuncDefinition(theNode))
+    {cnorm2c_Node<theNode.body.type>(theNode.body, lastItem);}
+}
+
+function    cnorm2c_Node<"__field_decl__">(theNode : node, thePrettyAst : reference)
+{
+    cnorm2c_Node<"__decl__">(theNode, thePrettyAst);
+}
+
+function    cnorm2c_Node<"__param_decl__">(theNode : node, thePrettyAst : reference)
+{
+    cnorm2c_Ctype(theNode, thePrettyAst);
+}
+
+function    cnorm2c_Node<"__fwd_decl__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    prettyPrint_NewListEndBy(thePrettyAst, lastItem, "; ");
+    cnorm2c_Ctype(theNode, lastItem);
+}
+
+function    cnorm2c_Node<"__index_designation__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, lastItem);
+    local inAry;
+    prettyPrint_NewBlock(lastItem, inAry, "[", "]");
+    cnorm2c_Node<theNode.index.type>(theNode.index, inAry);
+    if (theNode.expr.type == "__expr__")
+    {prettyPrint_AddItem(lastItem, " = ");}
+    cnorm2c_Node<theNode.expr.type>(theNode.expr, lastItem);
+}
+
+function    cnorm2c_Node<"__field_designation__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, lastItem);
+    prettyPrint_AddItem(lastItem, ".");
+    prettyPrint_AddItem(lastItem, theNode.name);
+    if (theNode.expr.type == "__expr__")
+    {prettyPrint_AddItem(lastItem, " = ");}
+    cnorm2c_Node<theNode.expr.type>(theNode.expr, lastItem);
+}
+
+function    cnorm2c_Node<"__stmt__">(theNode : node, thePrettyAst : reference)
+{
+    cnorm2c_Stmt<theNode.stmt_type>(theNode, thePrettyAst);
+}
+
+function    cnorm2c_Node<"__expr__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, lastItem, " ");
+    cnorm2c_Expr<theNode.expr_type>(theNode, lastItem);
+}
+
+///////////////////////////////// Expr dispatch functions
+function    cnorm2c_Expr<"__raw__">(theNode : node, thePrettyAst : reference)
+{
+    // TODO: workaround
+    prettyPrint_AddItem(thePrettyAst, "\n" + theNode.data);
+}
+
+function    cnorm2c_Expr<"__compound__">(theNode : node, thePrettyAst : reference)
+{
+    local subexp;
+    prettyPrint_NewBlock(thePrettyAst, subexp, "({", "})", true, true);
+    foreach entry in theNode.body.block
+    {cnorm2c_Node<entry.type>(entry, subexp);}
+}
+
+function    cnorm2c_Expr<"__paranth__">(theNode : node, thePrettyAst : reference)
+{
+    local subexp;
+    prettyPrint_NewBlock(thePrettyAst, subexp, "(", ")");
+    cnorm2c_Node<theNode.body.type>(theNode.body, subexp);
+}
+
+function    cnorm2c_Expr<"__post__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, lastItem);
+    cnorm2c_Expr<theNode.left.expr_type>(theNode.left, lastItem);
+    prettyPrint_AddItem(lastItem, theNode.operator);
+}
+
+function    cnorm2c_Expr<"__postexpr__">(theNode : node, thePrettyAst : reference)
+{
+    local postExpr;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, postExpr);
+    cnorm2c_Expr<theNode.left.expr_type>(theNode.left, postExpr);
+    foreach item in theNode.list
+    {    
+        local subExpr;
+        if (item.postexpr_type == "__index__")
+        {    prettyPrint_NewBlock(postExpr, subExpr, "[", "]");}
+        if (item.postexpr_type == "__call__")
+        {    prettyPrint_NewBlock(postExpr, subExpr, "(", ")");}
+        if (existVariable(item.expr.list))
+        {
+            local plist;
+            prettyPrint_NewListSeparatedBy(subExpr, plist, ", ");
+            foreach param in item.expr.list
+            {if (existVariable(param.expr_type)) cnorm2c_Node<param.type>(param, plist);}
+        }
+        else
+        {cnorm2c_Expr<item.expr.expr_type>(item.expr, subExpr);}
+    }
+}
+
+function    cnorm2c_Expr<"__sizeof__">(theNode : node, thePrettyAst : reference)
+{
+    prettyPrint_AddItem(thePrettyAst, theNode.operator);
+    if (theNode.right.type == "__decl__")
+    {
+        local subexp;
+        prettyPrint_NewBlock(thePrettyAst, subexp, "(", ")");
+        cnorm2c_Ctype(theNode.right, subexp);
+    }
+    else
+    {cnorm2c_Node<theNode.right.type>(theNode.right, thePrettyAst);}
+}
+
+function    cnorm2c_Expr<"__ternary__">(theNode : node, thePrettyAst : reference)
+{
+    cnorm2c_Expr<theNode.condition.expr_type>(theNode.condition, thePrettyAst);
+    prettyPrint_AddItem(thePrettyAst, "?");
+    if (existVariable(theNode.then.expr_type))
+    {cnorm2c_Expr<theNode.then.expr_type>(theNode.then, thePrettyAst);}
+    prettyPrint_AddItem(thePrettyAst, ":");
+    if (existVariable(theNode.else.expr_type))
+    {cnorm2c_Expr<theNode.else.expr_type>(theNode.else, thePrettyAst);}
+}
+
+function    cnorm2c_Expr<"__binary__">(theNode : node, thePrettyAst : reference)
+{
+    localref subAst = thePrettyAst;
+    if (theNode.operator == "." || theNode.operator == "->")
+    {prettyPrint_NewListSeparatedBy(thePrettyAst, subAst);}
+    cnorm2c_Expr<theNode.left.expr_type>(theNode.left, subAst);
+    prettyPrint_AddItem(subAst, theNode.operator);
+    cnorm2c_Expr<theNode.right.expr_type>(theNode.right, subAst);
+}
+
+function    cnorm2c_Expr<"__cast__">(theNode : node, thePrettyAst : reference)
+{
+    local subAst;
+    local lastItem;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, subAst, " ");
+    prettyPrint_NewBlock(subAst, lastItem, "(", ")");
+    cnorm2c_Ctype(theNode.left, lastItem);
+    if (cnormNode_checkIsFuncDefinition(theNode.left))
+    {cnorm2c_Node<theNode.left.body.type>(theNode.left.body, lastItem);}
+    cnorm2c_Node<theNode.right.type>(theNode.right, subAst);
+}
+
+function    cnorm2c_Expr<"__builtinoffsetof__">(theNode : node, thePrettyAst : reference)
+{
+    local subAst;
+    local lastItem;
+    local pseudoparam;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, subAst, "");
+    prettyPrint_AddItem(subAst, "__builtin_offsetof");
+    prettyPrint_NewBlock(subAst, lastItem, "(", ")");
+    prettyPrint_NewListSeparatedBy(lastItem, pseudoparam, ", ");
+    cnorm2c_Ctype(theNode.left, pseudoparam);
+    if (cnormNode_checkIsFuncDefinition(theNode.left))
+    {cnorm2c_Node<theNode.left.body.type>(theNode.left.body, pseudoparam);}
+    cnorm2c_Expr<theNode.right.expr_type>(theNode.right, pseudoparam);
+}
+
+function    cnorm2c_Expr<"__unary__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, lastItem);
+    prettyPrint_AddItem(lastItem, theNode.operator);
+    cnorm2c_Expr<theNode.right.expr_type>(theNode.right, lastItem);
+}
+
+function    cnorm2c_Expr<"__terminal__">(theNode : node, thePrettyAst : reference)
+{
+    if (theNode.operator == "__id__")
+    {    prettyPrint_AddItem(thePrettyAst, theNode.id);}
+    if (theNode.operator == "__literal__")
+    {    
+        local sStr = theNode.literal;
+        // translate special char
+        sStr = sStr.replaceString("\n", "\\n");
+        sStr = sStr.replaceString("\r", "\\r");
+        sStr = sStr.replaceString("\t", "\\t");
+        prettyPrint_AddItem(thePrettyAst, sStr);
+    }
+}
+
+////////////////////////////////// Statement dispatch functions
+function    cnorm2c_Stmt<"__expr__">(theNode : node, thePrettyAst : reference)
+{
+    local    lastItem;
+    prettyPrint_NewListEndBy(thePrettyAst, lastItem, ";", true);
+    if (existVariable(theNode.expr.type)) cnorm2c_Node<theNode.expr.type>(theNode.expr, lastItem);
+}
+
+function    cnorm2c_Stmt<"__cond__">(theNode : node, thePrettyAst : reference)
+{
+    local    stmtAndCond;
+    local    lastItem;
+    local     cond_expr;
+    prettyPrint_NewListEndBy(thePrettyAst, lastItem, "");
+    prettyPrint_NewListSeparatedBy(lastItem, stmtAndCond, " ", true);
+    prettyPrint_AddItem(stmtAndCond, theNode.name);
+    prettyPrint_NewBlock(stmtAndCond, cond_expr, "(", ")");
+    cnorm2c_Node<theNode.condition.type>(theNode.condition, cond_expr);
+    if (existVariable(theNode.then))
+    {
+        // check if only one expr to indent
+        localref subexpr = lastItem;
+        if (theNode.then.type == "__stmt__")
+        {prettyPrint_NewTabList(lastItem, subexpr);}
+        cnorm2c_Node<theNode.then.type>(theNode.then, subexpr);
+    }
+    if (existVariable(theNode.else))
+    {
+        local else_expr;
+        prettyPrint_NewListSeparatedBy(lastItem, else_expr, "", true);
+        prettyPrint_AddItem(else_expr, "else");
+        localref subexpr = else_expr;
+        // check if only one expr to indent
+        if (theNode.else.type == "__stmt__")
+        {prettyPrint_NewTabList(else_expr, subexpr);}
+        cnorm2c_Node<theNode.else.type>(theNode.else, subexpr);
+    }
+    if (existVariable(theNode.body))
+    {
+        localref subexpr = lastItem;
+        // check if only one expr to indent
+        if (theNode.body.type == "__stmt__")
+        {prettyPrint_NewTabList(lastItem, subexpr);}
+        cnorm2c_Node<theNode.body.type>(theNode.body, subexpr);          
+    }
+}
+
+function    cnorm2c_Stmt<"__do__">(theNode : node, thePrettyAst : reference)
+{
+    local    lastItem;
+    local     cond_expr;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, lastItem, "", true);
+    prettyPrint_AddItem(lastItem, "do");
+    if (existVariable(theNode.body))
+    {
+        localref subexpr = lastItem;
+        // check if only one expr to indent
+        if (theNode.body.type == "__stmt__")
+        {prettyPrint_NewTabList(lastItem, subexpr);}
+        cnorm2c_Node<theNode.body.type>(theNode.body, subexpr);          
+    }
+    prettyPrint_NewListSeparatedBy(thePrettyAst, lastItem, " ", true);
+    prettyPrint_AddItem(lastItem, "while");
+    prettyPrint_NewBlock(lastItem, cond_expr, "(", ");");
+    cnorm2c_Node<theNode.condition.type>(theNode.condition, cond_expr);
+}
+
+function    cnorm2c_Stmt<"__for__">(theNode : node, thePrettyAst : reference)
+{
+    local    lastItem;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, lastItem, " ", true);
+    prettyPrint_AddItem(lastItem, theNode.name);
+    local cond_expr;
+    prettyPrint_NewBlock(lastItem, cond_expr, "(", ")");
+    local subcond;
+    prettyPrint_NewListSeparatedBy(cond_expr, subcond, "; ");
+    local assign;
+    prettyPrint_NewListSeparatedBy(subcond, assign, "");
+    if (existVariable(theNode.initialize.block[0].name))
+    {
+        // TODO: cas du multi-init dans le for !!
+        cnorm2c_Ctype(theNode.initialize.block[0], assign);
+        // for initializer
+        if (existVariable(theNode.initialize.block[0].assign_expr))
+        {
+            prettyPrint_AddItem(assign, " = ");
+            cnorm2c_Node<theNode.initialize.block[0].assign_expr.type>(theNode.initialize.block[0].assign_expr, assign);
+        }
+    }
+    else
+    {    
+                if (existVariable(theNode.initialize.block[0].expr))
+                { cnorm2c_Node<theNode.initialize.block[0].expr.type>(theNode.initialize.block[0].expr, assign); }
+                else
+                { prettyPrint_AddItem(assign, "");}
+        }
+    if (existVariable(theNode.condition.type) && theNode.condition.type != "")
+    {    cnorm2c_Node<theNode.condition.type>(theNode.condition, subcond);}
+    else
+    {    prettyPrint_AddItem(subcond, "");}
+    if (existVariable(theNode.increment.type) && theNode.increment.type != "")
+    {    cnorm2c_Node<theNode.increment.type>(theNode.increment, subcond);}
+    else
+    {    prettyPrint_AddItem(subcond, "");}
+    if (existVariable(theNode.body))
+    {
+        localref subexpr = lastItem;
+        // check if only one expr to indent
+        if (theNode.body.type == "__stmt__")
+        {prettyPrint_NewBlock(lastItem, subexpr, "", "", true);}
+        cnorm2c_Node<theNode.body.type>(theNode.body, subexpr);          
+    }
+}
+
+function    cnorm2c_Stmt<"__label__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    prettyPrint_NewListEndBy(thePrettyAst, lastItem, ":", true);
+    prettyPrint_AddItem(lastItem, theNode.label);
+    prettyPrint_NewLine(thePrettyAst);
+}
+
+function    cnorm2c_Stmt<"__ctrl__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    prettyPrint_NewListEndBy(thePrettyAst, lastItem, ";", true);
+    prettyPrint_AddItem(lastItem, theNode.ctrl);
+    prettyPrint_NewLine(thePrettyAst);
+}
+
+function    cnorm2c_Stmt<"__branch__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    local subItem;
+    prettyPrint_NewListEndBy(thePrettyAst, lastItem, ";", true);
+    prettyPrint_NewListSeparatedBy(lastItem, subItem, " ");
+    prettyPrint_AddItem(subItem, theNode.branch);
+    if (existVariable(theNode.expr.type))
+    {cnorm2c_Node<theNode.expr.type>(theNode.expr, subItem);}
+    prettyPrint_NewLine(thePrettyAst);
+}
+
+function    cnorm2c_Stmt<"__case__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    local subItem;
+    prettyPrint_NewListEndBy(thePrettyAst, lastItem, ":", true);
+    prettyPrint_NewListSeparatedBy(lastItem, subItem, " ");
+    prettyPrint_AddItem(subItem, theNode.label);
+    cnorm2c_Node<theNode.expr.type>(theNode.expr, subItem);
+    prettyPrint_NewLine(thePrettyAst);
+}
+
+function    cnorm2c_Stmt<"__default__">(theNode : node, thePrettyAst : reference)
+{
+    local lastItem;
+    prettyPrint_NewListEndBy(thePrettyAst, lastItem, ":", true);
+    prettyPrint_AddItem(lastItem, "default");
+    prettyPrint_NewLine(thePrettyAst);
+}
+
+/////////////////////////// declaration dispatch functions
+
+// first part of a C type
+function    cnorm2c_CtypeBegin(theCtype : node, thePrettyAst : reference)
+{
+    // __extension__ special case
+    if (existVariable(theCtype.attributes.extension))
+    {    cnorm2c_Node<theCtype.attributes.extension.type>(theCtype.attributes.extension, thePrettyAst);}
+    // extern, static, register, typedef 
+    if (existVariable(theCtype.storage) && theCtype.storage != "auto")
+    {prettyPrint_AddItem(thePrettyAst, theCtype.storage);}
+    // typeof
+    if (existVariable(theCtype.typeof))
+    {
+        prettyPrint_AddItem(thePrettyAst, "typeof");
+        local subexp;
+        prettyPrint_NewBlock(thePrettyAst, subexp, "(", ")");
+        if (theCtype.typeof.type == "__decl__")
+        {
+            cnorm2c_Ctype(theCtype.typeof, subexp);
+            if (cnormNode_checkIsFuncDefinition(theCtype.typeof))
+            {cnorm2c_Node<theCtype.typeof.body.type>(theCtype.typeof.body, subexp);}
+        }
+        else
+        {    cnorm2c_Node<theCtype.typeof.type>(theCtype.typeof, subexp);}
+    }
+    // inline and virtual,explicit in C++
+    if (existVariable(theCtype.funspecifier) && theCtype.funspecifier != "auto")
+    {prettyPrint_AddItem(thePrettyAst, theCtype.funspecifier);}
+    // recurs for pointer
+    if (existVariable(theCtype.pointer))
+    {
+        cnorm2c_CtypeBegin(theCtype.pointer.ctype, thePrettyAst);
+        prettyPrint_AddItem(thePrettyAst, "*");
+    }
+
+    // recurs for function pointer
+    if (existVariable(theCtype.fpointer))
+    {
+        cnorm2c_CtypeBegin(theCtype.fpointer.ctype, thePrettyAst);
+        prettyPrint_AddItem(thePrettyAst, "(");
+    }
+    // const, volatile, restrict
+    if (existVariable(theCtype.qualifier) && theCtype.qualifier != "auto")
+    {prettyPrint_AddItem(thePrettyAst, theCtype.qualifier);}
+    // unsigned
+    if (existVariable(theCtype.unsigned))
+    {prettyPrint_AddItem(thePrettyAst, "unsigned");}
+    // struct, union, enum, long, short, inline
+    if (existVariable(theCtype.specifier) && theCtype.specifier != "auto")
+    {prettyPrint_AddItem(thePrettyAst, theCtype.specifier);}
+    // attributes composed
+    if (existVariable(theCtype.attributes.composed))
+    {
+        foreach item in theCtype.attributes.composed
+        {
+            prettyPrint_AddItem(thePrettyAst, " ");
+            cnorm2c_Node<item.type>(item, thePrettyAst);
+        }
+    }
+    // basic type + typedefname
+    if (existVariable(theCtype.identifier))
+    {
+        local ident = theCtype.identifier;
+        // si type par defaut et non-deref/composed/enum, on force le int
+        if (ident == "auto" 
+            && !existVariable(theCtype.pointer)
+            && theCtype.cdecl_type != "__composed__"
+            && theCtype.cdecl_type != "__enum__"
+            )
+        {
+            if (theCtype#parent.name == "") // TODO: quel cas?
+            {    ident = "";}
+            else
+            {    ident = "int";}
+        }
+        // dans le cas d'un typeof, typeof remplace l'identifier
+        if (existVariable(theCtype.typeof))
+        {    ident = "";}
+        prettyPrint_AddItem(thePrettyAst, ident);
+    }
+    // unstrict mode...all unknown things are put here
+    if (existVariable(theCtype.unknown) && theCtype.storage != "typedef")
+    {
+                foreach item in sorted by_value theCtype.unknown {prettyPrint_AddItem(thePrettyAst, item.key());}
+    }
+    // recurs for struct, union
+    if (existVariable(theCtype.body))
+    {
+        local subBlock;
+        prettyPrint_NewBlock(thePrettyAst, subBlock, "{", "}", true, true);
+        foreach idx in theCtype.body.map
+        {
+            localref entry = theCtype.body.block#[$idx$];
+            if (existVariable(entry.type) && entry.type != "")
+                cnorm2c_Node<entry.type>(entry, subBlock);
+        }
+    }
+    // recurs for enum
+    if (existVariable(theCtype.enum))
+    {
+        local listEnum;
+        prettyPrint_NewBlock(thePrettyAst, listEnum, "{", "}", true, true);
+        foreach item in theCtype.enum.map
+        {
+            local oneEnum;
+            prettyPrint_NewListEndBy(listEnum, oneEnum, ",", true);
+            // if contain an expression
+            if (existVariable(theCtype.enum.block[item.idx].type))
+            {
+                local exprEnum;
+                prettyPrint_NewListSeparatedBy(oneEnum, exprEnum, " = ");
+                prettyPrint_AddItem(exprEnum, item.key);
+                cnorm2c_Node<theCtype.enum.block[item.idx].type>(theCtype.enum.block[item.idx], exprEnum);
+            }
+            else
+                prettyPrint_AddItem(oneEnum, item.key);
+        }
+    }
+    // unstrict mode...all unknown things are put here
+    if (existVariable(theCtype.unknown) && theCtype.storage == "typedef")
+    {
+                foreach item in sorted by_value theCtype.unknown {prettyPrint_AddItem(thePrettyAst, item.key());}
+    }
+    // for specifier attributes
+    if (existVariable(theCtype.attributes) && existVariable(theCtype.attributes.specifier))
+    {
+        foreach item in theCtype.attributes.specifier
+        {
+            prettyPrint_AddItem(thePrettyAst, " ");
+            cnorm2c_Node<item.type>(item, thePrettyAst);
+        }
+    }
+}
+
+// second part of a C type
+function    cnorm2c_CtypeEnd(theCtype : node, thePrettyAst : reference)
+{
+    // for ary
+    if (existVariable(theCtype.list))
+    {
+        foreach entry in theCtype.list
+        {
+            local subnode;
+            prettyPrint_NewBlock(thePrettyAst, subnode, "[", "]");
+            // special case (static,const,*)
+            if (existVariable(entry.ctype))
+            {
+                if (entry.ctype.storage != "auto")
+                {prettyPrint_AddItem(subnode, entry.ctype.storage+" ");}
+                if (entry.ctype.qualifier != "auto")
+                {prettyPrint_AddItem(subnode, entry.ctype.qualifier+" ");}
+                if (existVariable(entry.ctype.star))
+                {prettyPrint_AddItem(subnode, "*");}
+            }
+            // expression that get size of array
+            if (existVariable(entry.type))
+            {cnorm2c_Node<entry.type>(entry, subnode);}
+        }
+    }
+    // for param
+    if (existVariable(theCtype.param))
+    {
+        local paranth;
+        local subnode;
+        prettyPrint_NewBlock(thePrettyAst, paranth, "(", ")");
+        if ($getArraySize(theCtype.param.block) > 0$)
+        {
+            // forward decl
+            foreach idx in theCtype.param.map
+            {
+                localref entry = theCtype.param.block#[$idx$];
+                if (existVariable(entry.type) && entry.type == "__fwd_decl__")
+                    cnorm2c_Node<"__fwd_decl__">(entry, paranth);
+            }
+            prettyPrint_NewListSeparatedBy(paranth, subnode, ", ");
+            // ANSI parameter
+            foreach idx in theCtype.param.map
+            {
+                localref entry = theCtype.param.block#[$idx$];
+                if (existVariable(entry.type) && entry.type == "__param_decl__")
+                    cnorm2c_Node<"__param_decl__">(entry, subnode);
+            }
+        }
+        else
+        {// declaration K&R
+            prettyPrint_NewListSeparatedBy(paranth, subnode, ", ");
+            foreach entry in theCtype.param.map
+            {prettyPrint_AddItem(subnode, key(entry));}
+        }
+        // ellipsis
+        if (existVariable(theCtype.param.ellipsis))
+        {prettyPrint_AddItem(subnode, "...");}
+    }
+    // recurs for pointer in reverse order...means only for pfunc
+    if (existVariable(theCtype.pointer))
+    {    cnorm2c_CtypeEnd(theCtype.pointer.ctype, thePrettyAst);}
+    // recurs for fpointer
+    if (existVariable(theCtype.fpointer))
+    {
+            prettyPrint_AddItem(thePrettyAst, ")");
+            cnorm2c_CtypeEnd(theCtype.fpointer.ctype, thePrettyAst);
+    }
+}
+
+// beware also used for pure ctype node (means no variable name)
+function    cnorm2c_Ctype(theNode : node, thePrettyAst : reference)
+{
+    local insideItem;
+    prettyPrint_NewListSeparatedBy(thePrettyAst, insideItem, " ");
+    cnorm2c_CtypeBegin(theNode.ctype, insideItem);
+    local endexpr;
+    prettyPrint_NewListSeparatedBy(insideItem, endexpr);
+    if (existVariable(theNode.name) && theNode.name != "")
+    {prettyPrint_AddItem(endexpr, theNode.name);}
+    cnorm2c_CtypeEnd(theNode.ctype, endexpr);
+}
+
+////////////////////////////// main entry
+function    cnorm2c(theNode : node)
+{  
+    if (!existVariable(theNode.type))
+    {error("bad node, must be a NODE:" + toString(theNode));}
+    local        prettyAst;
+    prettyPrint_Root(prettyAst);
+    cnorm2c_Node<theNode.type>(theNode, prettyAst);
+    saveProject(theNode + ".pp", prettyAst);
+    local sContent = prettyPrint(prettyAst);
+    return sContent;
+}
+
+#end

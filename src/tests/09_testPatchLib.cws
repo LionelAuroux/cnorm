@@ -1,0 +1,220 @@
+/*
+  UNIT TEST OF THE PATCH LIB
+*/
+
+#include "patchLib/cnormPatchLib.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+local newCode;
+local bRes;
+
+// add just a global declaration
+bRes = cnormPatchGlobalDeclaration(newCode, "int a = 42;");
+if (!bRes) error("bad craft");
+
+// create a new global type
+bRes = cnormPatchGlobalDeclaration(newCode, "typedef double BLA;");
+if (!bRes) error("bad craft");
+
+// define a function
+bRes = cnormPatchGlobalDeclaration(newCode, "int f(int grum){}");
+if (!bRes) error("bad craft");
+
+// create an injection point here
+bRes = cnormPatchInjectPointInPlace(newCode, "AFTER GRUM");
+if (!bRes) error("bad craft");
+
+// use the new type
+bRes = cnormPatchGlobalDeclaration(newCode, "BLA gloum;");
+if (!bRes) error("bad craft");
+
+// get the block inside the function
+local func;
+local insideBlock;
+// so lookup something named "f"
+bRes = cnormPatchFetchLookup(newCode, "f", func);
+if (!bRes) error("bad craft");
+// get the block
+bRes = cnormPatchGetFunctionBlockNode(func[0], insideBlock);
+if (!bRes) error("bad craft");
+// add inside the block some code
+bRes = cnormPatchCode(insideBlock, "BLA pum = 4.3;");
+traceLine("GRUU:" + toString(insideBlock, true));
+if (!bRes) error("bad craft");
+bRes = cnormPatchCode(insideBlock, "if (pum == 4.3) printf(\"GRAA\\n\");");
+if (!bRes) error("bad craft");
+local ifexpr;
+bRes = cnormPatchGetStmtConditionalExpr(insideBlock.block#back, ifexpr);
+if (!bRes) error("bad craft");
+bRes = cnormPatchExpression(ifexpr, "predicat(a, (int) b,c)");
+if (!bRes) error("bad craft");
+
+// try to add some param to the previously search function
+local param;
+// so get the param list
+bRes = cnormPatchGetFunctionParamNode(func[0], param);
+if (!bRes) error("bad craft");
+// add some parameter
+bRes = cnormPatchParam(param, "char **ac, char **ev");
+if (!bRes) error("bad craft");
+// put "ev" at the begin
+bRes = cnormPatchReorderFieldParamOne(param, "ev", 0);
+if (!bRes) error("bad craft");
+
+// create a struct
+bRes = cnormPatchGlobalDeclaration(newCode, "struct glup {};");
+if (!bRes) error("bad craft");
+
+// try to add field in the previously created struct
+local struct;
+// so search for it
+bRes = cnormPatchFetchLookup(newCode, "glup", struct);
+if (!bRes) error("bad craft");
+// get the block of the struct
+local fields;
+bRes = cnormPatchGetComposedFiedlNode(struct[0], fields);
+if (!bRes) error("bad craft");
+// try to find the __root_block__ from this fields list
+local rootNode;
+bRes = cnormNode_searchRoot(fields, rootNode);
+if (!bRes) error("bad craft");
+
+// create an inject point into a new struct
+bRes = cnormPatchGlobalDeclaration(newCode, "struct glup2 {int kkk;};");
+if (!bRes) error("bad craft");
+// get the last thing in the block
+local lastNode;
+bRes = cnormNodeBlock_GetLastNode(newCode, lastNode);
+if (!bRes) error("bad craft");
+// so it is the good struct so get block inside
+local f2;
+bRes = cnormPatchGetComposedFiedlNode(lastNode, f2);
+if (!bRes) error("bad craft");
+// create an inject point in the fields
+bRes = cnormPatchInjectPointInPlace(f2, "INTO GLUP");
+if (!bRes) error("bad craft");
+
+// add some field in the old glup struct
+bRes = cnormPatchField(fields, "int fla;double cha;");
+if (!bRes) error("bad craft");
+// change the order of the previously added fields
+local order = {"cha", "fla"};
+bRes = cnormPatchReorderFieldParamAll(fields, order);
+if (!bRes) error("bad craft");
+
+// create an enum
+bRes = cnormPatchGlobalDeclaration(newCode, "enum nia {A,B};");
+if (!bRes) error("bad craft");
+// get it
+local enum;
+bRes = cnormPatchFetchLookup(newCode, "nia", enum);
+if (!bRes) error("bad craft");
+// get the block inside
+local enum_field;
+bRes = cnormPatchGetEnumBlockNode(enum[0], enum_field);
+if (!bRes) error("bad craft");
+// add some new values
+bRes = cnormPatchEnum(enum_field, "Z = 32, Y = 3");
+if (!bRes) error("bad craft");
+
+// create a type on a struct
+bRes = cnormPatchGlobalDeclaration(newCode, "typedef struct golo {} gram;");
+if (!bRes) error("bad craft");
+// get it
+local typedef;
+bRes = cnormPatchFetchLookup(newCode, "gram", typedef);
+if (!bRes) error("bad craft");
+// rename the type
+bRes = cnormPatchRenameType(typedef[0], "gram", "POP");
+if (!bRes) error("bad craft");
+// create a var of this new type
+bRes = cnormPatchGlobalDeclaration(newCode, "POP new_type;");
+if (!bRes) error("bad craft");
+// get the fields inside the typedef/struct
+bRes = cnormPatchGetComposedFiedlNode(typedef[0], fields);
+if (!bRes) error("bad craft");
+// add some fields
+bRes = cnormPatchField(fields, "int (*func)(); int size;");
+if (!bRes) error("bad craft");
+
+// use inject point to copy into "AFTER GRUM"
+{
+	local chunk;
+	bRes = cnormPatchGlobalDeclaration(chunk, "int injected(int grum){}");
+	if (!bRes) error("bad craft");
+	bRes = cnormPatchGlobalDeclaration(chunk, "int blabla(double);");
+	if (!bRes) error("bad craft");
+	
+	bRes = cnormPatchCopyToInjectPoint(newCode, "AFTER GRUM", chunk);
+	if (!bRes) error("bad craft");
+}
+
+// use inject point to copy "INTO GLUP"
+{
+	local chunk;
+	bRes = cnormPatchGlobalDeclaration(chunk, "void *self;");
+	if (!bRes) error("bad craft");
+	
+	bRes = cnormPatchCopyToInjectPoint(newCode, "INTO GLUP", chunk);
+	if (!bRes) error("bad craft");
+
+	// we craft a struct via inject point, so we need to remap
+	local inj;
+	bRes = cnormPatchGetInjectPoint(newCode, "INTO GLUP", inj);
+	if (!bRes) error("bad craft");
+	bRes = cnormNode_MapFieldOrParam(inj.base);
+	if (!bRes) error("bad craft");
+}
+
+// now we going to add some code in the previously added function named "injected"
+local injFunction;
+// get it
+bRes = cnormPatchFetchLookup(newCode, "injected", injFunction);
+if (!bRes) error("bad craft");
+// get the block inside
+local blockInj;
+bRes = cnormPatchGetFunctionBlockNode(injFunction[0], blockInj);
+if (!bRes) error("bad craft");
+// add a piece of code
+bRes = cnormPatchCode(blockInj, "test:if (grum % 42) return 127;");
+if (!bRes) error("bad craft");
+
+// create an injection point on the label "test"
+bRes = cnormPatchSetInjectPointLabel(blockInj, "test");
+if (!bRes) error("bad craft");
+// crafted a piece of code and inject before (by default)
+{
+
+	local piece;
+	// craft a piece of code
+	bRes = cnormPatchCode(piece, "int count = 0; for (int i = 0; i < 12; ++i) {count += grumf % i;}printf(\"BEFORE\\n\");");
+	if (!bRes) error("bad craft");
+	// put in before
+	bRes = cnormPatchCopyToInjectPoint(newCode, "test", piece);
+	if (!bRes) error("bad craft");
+
+}
+// reset the injection point on the label "test"
+bRes = cnormPatchSetInjectPointLabel(blockInj, "test");
+// get the injection point
+local inj;
+bRes = cnormPatchGetInjectPoint(newCode, "test", inj);
+if (!bRes) error("bad craft");
+// so after
+inj.idx = $inj.idx + 1$;
+// crafted a piece of code and inject after
+{
+	local piece;
+	// craft a piece of code
+	bRes = cnormPatchCode(piece, "printf(\"AFTER\\n\");");
+	if (!bRes) error("bad craft");
+	// put in before
+	bRes = cnormPatchCopyToInjectPoint(newCode, "test", piece);
+	if (!bRes) error("bad craft");
+}
+
+//////////////////////
+traceLine("GENERE LE C:");
+saveProject("testPatchLib.tree", newCode);
+traceLine(cnorm2c(newCode));
+

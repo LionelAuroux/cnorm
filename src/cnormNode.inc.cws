@@ -1,0 +1,1307 @@
+/*
+**	cnormNode.inc.cws
+**	for cnorm
+**	made by auroux_l
+**
+**	the aim of this lib is to provide usefull functions to build C norm's AST node.
+**/
+
+/*
+** function (bool) cnormNode() dummy function for module multi-def handling
+** function (bool) cnormNodeBlock_AddNode(local_node : node)
+** 
+*/
+
+#include "cwTool.inc.cws"
+#include "typeHandling/search.inc.cws"
+
+#if !existFunction(cnormNode_version)
+
+function cnormNode_version()
+{return "3.0";}
+
+// put location information into node
+declare function cnormNode_InfoLocation(local_node : node);
+
+// basic node
+declare function cnormNode(local_node : node);
+declare function cnormNode_searchRoot(local_node : reference, out_ref : reference);
+
+// check with dialect
+declare function cnormNode_checkTypeOfId(local_node : node, id : value, type_id : value = "");
+declare function cnormNode_checkTypeGroupOfId(local_node : node, id : value, group_id : value);
+
+
+// check
+declare function cnormNode_checkRootBlock(local_node : node);
+declare function cnormNode_checkBlock(local_node : node);
+declare function cnormNode_checkIsComposed(local_node : node);
+declare function cnormNode_checkInComposed(local_node : node);
+declare function cnormNode_checkDecl(local_node : node);
+declare function cnormNode_checkStmt(local_node : node);
+declare function cnormNode_checkCtype(local_node : node);
+declare function cnormNode_checkInit(local_node : node);
+declare function cnormNode_checkIsFuncDeclaration(local_node : node);
+declare	function cnormNode_checkIsFuncDefinition(local_node : node);
+declare function cnormNode_checkInBlock(local_node : node);
+declare function cnormNode_checkAndRegisterTypedef(local_node : node);
+declare function cnormNode_checkEmptyDeclGlobScope(local_node : node);
+
+// setting/cleaning function for unstrict state
+declare function cnormNode_unstrictClean(local_node : node);
+declare function cnormNode_unstrictSet(local_node : node, id : value);
+
+// block functions
+declare function cnormNodeRoot(local_node : node);
+declare function cnormNodeBlock(local_node : node, autoregister : value = false);
+declare function cnormNodeBlock_AddNode(local_node : node);
+declare function cnormNodeBlock_GetLastNode(local_node : node, out_ref : reference);
+declare function cnormNodeBlock_CopyBlock(local_node : node, src_block : node);
+
+// declaration
+declare function cnormNodeDecl(local_node : node);
+declare function cnormNodeDecl_GetCtype(local_node : node, out_ref : reference);
+declare function cnormNodeDecl_SetSigned(local_ctype : node, data : value);
+declare function cnormNodeDecl_SetName(local_node : node, name : value);
+declare function cnormNodeDecl_AddDim(local_ctype : node, out_ref : reference);
+declare function cnormNodeDecl_SetSpecifier(local_ctype : node, specifier : value);
+declare function cnormNodeDecl_GetBody(local_ctype : node, out_ref : reference);
+declare function cnormNodeDecl_MapEnum(local_ctype : node, key : value, out_ref : reference);
+declare function cnormNodeDecl_GetParam(local_node : node, out_ref : reference);
+declare function cnormNodeDecl_SetQualifier(local_ctype : node, qualifier : value);
+declare function cnormNodeDecl_SetStorage(local_ctype : node, storage : value);
+declare function cnormNodeDecl_ShiftPointer(dst : reference, src : reference);
+declare function cnormNodeDecl_AddRef(local_node : node);
+declare function cnormNodeDecl_AddFuncRef(local_node : node);
+declare function cnormNodeDecl_GetRef(local_ctype : node, out_ref : reference);
+declare function cnormNodeDecl_SetIdentifier(local_ctype : node, identifier : value);
+declare function cnormNodeDecl_SetTypedefName(local_ctype : node, identifier : value);
+declare function cnormNodeDecl_CopyDecl(dst_node : node, src_node : node);
+declare function cnormNodeDecl_SetDeclSpecifierAttribute(local_node : node, subtree : node);
+declare function cnormNodeDecl_SetDeclComposedAttribute(local_node : node, subtree : node);
+declare function cnormNodeDecl_SetDeclarationAttribute(local_node : node, subtree : node);
+declare function cnormNodeDecl_Init(local_node : node);
+
+// declaration set with dialect
+declare function cnormNodeDecl_Set(local_node : node, ident : value);
+
+// statement
+declare function cnormNodeStmt(local_node : node, type : value);
+declare function cnormNodeStmt_Ctrl(local_node : node, ctrl_name : value);
+declare function cnormNodeStmt_Branch(local_node : node, branch_name : value, expr_ref : reference);
+declare function cnormNodeStmt_Label(local_node : node, label_name : value);
+declare function cnormNodeStmt_Case(local_node : node, expr_ref : reference);
+declare function cnormNodeStmt_Conditional(local_node : node, type, out_ref : reference);
+declare function cnormNodeStmt_Do(local_node : node, cond_ref : reference, loop_ref : reference);
+declare function cnormNodeStmt_For(local_node : node, init_ref : reference, cond_ref : reference, inc_ref : reference, loop_ref : reference);
+declare function cnormNodeStmt_If(local_node : node, cond_ref : reference, then_ref : reference, else_ref : reference);
+declare function cnormNodeStmt_Switch(local_node : node, cond_ref : reference, case_ref : reference);
+declare function cnormNodeStmt_While(local_node : node, cond_ref : reference, loop_ref : reference);
+declare function cnormNodeStmt_Expr(local_node : node, out_ref : reference);
+
+// expressions
+declare function cnormNode_Raw(local_node : node, data : value);
+declare function cnormNode_TerminalId(local_node : node, id : value);
+declare function cnormNode_TerminalLiteral(local_node : node, literal : value);
+declare function cnormNode_ToBinary(local_node : node, op : value, right_ref : reference);
+declare function cnormNode_ToPost(local_node : node, op : value);
+declare function cnormNode_ToTernary(local_node : node, then_ref : reference, else_ref : reference);
+declare function cnormNode_UnaryExpr(local_node : node, op : value, right_ref : reference);
+declare function cnormNode_ParanthesisExpr(local_node : node, body_ref : reference);
+declare function cnormNode_CompoundExpr(local_node : node, body_ref : reference);
+declare function cnormNode_SizeOf(local_node : node, op : value, right_ref : reference);
+declare function cnormNode_ToPostExpr(local_node : node, type : value, right_ref : reference);
+declare function cnormNode_ToIndex(local_node : node, right_ref : reference);
+declare function cnormNode_ToCall(local_node : node, right_ref : reference);
+declare function cnormNode_CallParam(local_node : node, param_ref : reference);
+declare function cnormNode_CastExpr(local_node : node, left_ref : reference, right_ref : reference);
+declare function cnormNode_OffsetExpr(local_node : node, left_ref : reference, right_ref : reference);
+declare function cnormNode_TypeofExpr(local_node : node, out_ref : reference);
+
+// manage error
+declare function cnormLogError(local_node : node, log : value);
+declare function cnormTraceError(local_node : node, all : value = false);
+
+// cnormNode_InfoLocation
+// set location information into node
+// local_node : INOUT the node to set
+function cnormNode_InfoLocation(local_node : node)
+{
+    localref locInf = local_node#root;
+    if (!existVariable(locInf.line))
+    { ref locInf = this;}
+    insert local_node.location = locInf + ":" + locInf.line + ":" + locInf.col;
+    return true;
+}
+
+// cnormNode
+// set a node as a Cnorm AST node, avoid artefact...so resetting a actual node clean it
+// local_node : INOUT the node to set
+function cnormNode(local_node : node)
+{
+	// clean all elements
+	clearVariable(local_node);
+	// is an empty node
+	insert local_node.type = "__node__";
+        cnormNode_InfoLocation(local_node);
+	return true;
+}
+
+function cnormNode_searchRoot(local_node : reference, out_ref : reference)
+{
+	localref	refnode = local_node;
+        if (existVariable(local_node#root))
+        {
+                ref out_ref = local_node#root;
+                return true;
+        }
+        return false;
+}
+
+// root of AST CNORM, are also a BLOCK
+// only once in a AST
+function cnormNodeRoot(local_node : node)
+{
+	insert local_node.type = "__root_block__";
+        insert local_node.line = 0;
+        insert local_node.col = 0;
+	insert local_node.block;
+	typeHandling_create(local_node);
+	return true;
+}
+
+// cnormNodeBlock
+// set a node as a Cnorm AST tree Block
+// local_node : INOUT the node to set
+/*
+   Prepare a local variable to store a AST subtree.
+   So the smallest AST node block was :
+   node.type
+   node.block
+ */
+function cnormNodeBlock(local_node : node, autoregister : value)
+{
+	if (!existVariable(local_node.type))
+	{insert local_node.type;}
+	local_node.type = "__block__";
+	if (!existVariable(local_node.block))
+	{insert local_node.block;}
+	if (autoregister) typeHandling_register(local_node);
+	return true;
+}
+
+// cnormNode_checkTypeOfId
+// check the type of the identifier from dialect
+function cnormNode_checkTypeOfId(local_node : node, id : value, type_id : value)
+{
+        if (findElement(id, local_node#root.dialect.map_identifier))
+        {
+                if (type_id != "" && local_node#root.dialect.map_identifier[id] != type_id)
+                {       return false;}
+                return true;
+        }
+        return false;
+}
+
+// cnormNode_checkTypeGroupOfId
+// same as checkTypeOfId but the group_id just match the beginning of type from dialect
+function cnormNode_checkTypeGroupOfId(local_node : node, id : value, group_id : value)
+{
+        if (findElement(id, local_node#root.dialect.map_identifier) && startString(local_node#root.dialect.map_identifier[id], group_id))
+        {       return true;}
+        return false;
+}
+
+// cnormNode_checkRootBlock
+// check if a node is Root Block type
+function cnormNode_checkRootBlock(local_node : node)
+{
+	if (local_node.type != "__root_block__")
+	{return false;}
+	return true;
+}
+// cnormNode_checkBlock
+// check if a node is Block type
+function cnormNode_checkBlock(local_node : node)
+{
+	if (local_node.type != "__block__" && local_node.type != "__root_block__")
+	{return false;}
+	return true;
+}
+
+// cnormNode_checkIsComposed
+function cnormNode_checkIsComposed(local_node : node)
+{
+	if (existVariable(local_node.cdecl_type) && local_node.cdecl_type == "__composed__")
+	{return true;}
+	return false;
+}
+
+// cnormNode_checkInComposed
+function cnormNode_checkInComposed(local_node : node)
+{
+	return cnormNode_checkIsComposed(local_node#parent#parent#parent);
+}
+
+// cnormNode_checkDecl
+// check if a node is Decl type
+function cnormNode_checkDecl(local_node : node)
+{
+	if (local_node.type != "__decl__" && local_node.type != "__param_decl__" 
+		&& local_node.type != "__field_decl__" && local_node.type != "__fwd_decl__")
+	{return false;}
+	return true;
+}
+
+// cnormNode_checkStmt
+// check if a node is Stmt type
+function cnormNode_checkStmt(local_node : node)
+{
+	if (!existVariable(local_node.type) && local_node.type != "__stmt__")
+	{return false;}
+	return true;
+}
+
+// cnorm_checkCtype
+// check if a node is Ctype type
+function cnormNode_checkCtype(local_node : node)
+{
+	if (local_node.type != "__ctype__")
+	{return false;}
+	return true;
+}
+
+// cnorm_checkInit
+// check if a node is block init
+function cnormNode_checkInit(local_node : node)
+{
+	if (local_node.type != "__block_init__")
+	{return false;}
+	return true;
+}
+
+// cnormNode_checkIsFuncDeclaration
+// check if a node is a declaration of function
+function cnormNode_checkIsFuncDeclaration(local_node : node)
+{
+	if (cnormNode_checkDecl(local_node) && existVariable(local_node.ctype.param) && !existVariable(local_node.body))
+	{	return true;}
+	return false;
+}
+
+// cnormNode_checkIsFuncDefinition
+// check if a node is the implementation of the function
+function cnormNode_checkIsFuncDefinition(local_node : node)
+{
+	if (cnormNode_checkDecl(local_node) && existVariable(local_node.ctype.param) && existVariable(local_node.body))
+	{	return true;}
+	return false;
+}
+
+// cnormNode_checkInBlock
+// check if a node is in an implementation block
+function cnormNode_checkInBlock(local_node : node)
+{
+        local max = 1000; // max depth
+        local i = 0;
+        localref curnode = local_node;
+        while (true)
+        {
+                if (existVariable(curnode.type) && curnode.type == "__block__")
+                {       return true;}
+                if (existVariable(curnode.type) && curnode.type == "__root_block__")
+                {       return false;}
+                ref curnode = curnode#parent;
+                i = $i + 1$;
+                if ($i > max$)
+                {       break;}
+        }
+        return false;
+}
+
+// cnormNode_checkAndRegisterTypedef
+// check if a node is a typedef declaration, if true add the type
+function cnormNode_checkAndRegisterTypedef(local_node : node)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{	return false;}
+	if (local_node.ctype.storage != "typedef")
+	{	return false;}
+	local slotid = typeHandling_getid(local_node);
+	localref type = local_node#root.block_ref[slotid];
+	insert type.types[local_node.name];
+	ref type.types[local_node.name] = local_node;
+	return true;
+}
+
+// cnormNode_checkEmptyDeclGlobScope
+// check if we are an empty node in the global scope
+function cnormNode_checkEmptyDeclGlobScope(local_node : node)
+{
+        if (local_node.ctype.storage == "typedef")
+        { return true;}
+        if (cnormNode_checkInBlock(local_node))
+        {
+                if (local_node.type == "__field_decl__" || local_node.type == "__param_decl__")
+                {       return true;}
+                if ((local_node.name == "" || local_node.ctype.identifier == "auto") && !existVariable(local_node.ctype.typeof) 
+                        && !existVariable(local_node.ctype.unknown))
+                {       return false;}
+        }
+        return true;
+}
+
+// cnormNode_unstrictClean
+// clean the state of this.unknown for unstrict handling
+function cnormNode_unstrictClean(local_node : node)
+{
+        if (local_node#root.dialect.parsing_mode != "unstrict")
+        {       return false;}
+        local slotid = typeHandling_getid(local_node);
+        localref block_node = local_node#root.block_ref[slotid];
+        // RESET
+        if (existVariable(block_node.unknown))
+        {
+                if (existVariable(local_node#root.unknown) && findElement(block_node.unknown, local_node#root.unknown))
+                {       removeElement(local_node#root.unknown, block_node.unknown); }
+		if (existVariable(local_node#root.unknown) && $getArraySize(local_node#root.unknown) == 0$)
+		{	removeVariable(local_node#root.unknown);}
+                removeVariable(block_node.unknown);
+        }
+        return true;
+}
+
+// cnormNode_unstrictSet
+// set the state of this.unknown for unstrict handling
+function cnormNode_unstrictSet(local_node : node, id : value)
+{
+        if (local_node#root.dialect.parsing_mode == "unstrict")
+        {
+                //
+                local slotid = typeHandling_getid(local_node);
+                localref block_node = local_node#root.block_ref[slotid];
+                insert block_node.unknown = id;
+                local size = $getArraySize(local_node#root.unknown) + 1$;
+                insert local_node#root.unknown[id] = size;
+        }
+}
+
+// cnormNode_DeclAsField
+// transform a declaration node into a field declaration node into a struct/union
+function cnormNode_DeclAsField(local_node : reference)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	local_node.type = "__field_decl__";
+        cnormNode_unstrictClean(local_node);
+	return true;
+}
+
+// cnormNode_DeclAsParam
+// transform a declaration node into a parameter declaration into a function declaration
+function cnormNode_DeclAsParam(local_node : reference)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	local_node.type = "__param_decl__";
+        cnormNode_unstrictClean(local_node);
+	return true;
+}
+
+function cnormNode_MapFieldOrParam(local_node : reference, remap : node = null)
+{
+	if (!cnormNode_checkBlock(local_node))
+	{return false;}
+	insert local_node.map;
+	local i = 0;
+	local size = getArraySize(local_node.block);
+	i = 0;
+	while ($i < size$)
+	{
+		local key = local_node.block#[$i$].name;
+		if (!key || local_node.block#[$i$].type == "__fwd_decl__")
+		{key = "_" + i;}
+		insert local_node.map[key] = i;
+		i = $i + 1$;
+	}
+	return true;
+}
+
+function cnormNode_DeclAsForwardDeclParam(local_node : node)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	local_node.type = "__fwd_decl__";
+	return true;
+}
+
+// cnormNodeBlock_AddNode
+// add a new basic node in a Cnorm AST tree Block
+// local_node : OUT the node to be set
+function cnormNodeBlock_AddNode(local_node : node)
+{
+	if (!cnormNode_checkBlock(local_node))
+	{return false;}
+	pushItem local_node.block;
+	return cnormNode(local_node.block#back);
+}
+
+// cnormNodeBlock_GetLastNode()
+// return a reference on the last node of a block
+// local_node : IN the node of the block
+// out_ref : OUT the reference of the last node of the block
+function cnormNodeBlock_GetLastNode(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkBlock(local_node))
+	{return false;}
+        // sometimes .block is empty
+        if ($getArraySize(local_node.block) == 0$)
+        {       pushItem local_node.block;}
+	ref	out_ref = local_node.block#back;
+	return true;
+}
+
+// cnormNodeBlock_CopyBlock
+// copy all item of src_block at the end of the local_node block
+// local_node: INOUT the node of the target block
+// src_block : IN the src_block
+function cnormNodeBlock_CopyBlock(local_node : node, src_block : node)
+{
+        foreach codeChunk in src_block.block
+        {
+                cnormNodeBlock_AddNode(local_node);
+                local lastCodeInsert;
+                cnormNodeBlock_GetLastNode(local_node, lastCodeInsert);
+                setall lastCodeInsert = codeChunk;
+        }
+        return true;
+}
+
+// ****
+/*
+   This function creates a basic empty ctype node that
+   can be filled safely by the function
+   cnormFillCtypeNode(ctype : node, command : value, arg : value)
+ */
+function cnormNodeDecl(local_node : node)
+{
+	cnormNode(local_node);
+	local_node.type = "__decl__";
+	// a root ctype in the decl
+	insert local_node.ctype;
+	// type of the node ... it's a ctype
+	insert local_node.ctype.type = "__ctype__";
+	// type of cdecl ... (primary,composed)
+	insert local_node.ctype.cdecl_type = "__primary__";// .list if composed
+	// only one storage class by decl (auto,register,typedef,static,extern)
+	insert local_node.ctype.storage = "auto";
+	// only one qualifier by decl (auto, const, volatile,restrict)
+	insert local_node.ctype.qualifier = "auto";
+	// only one specifier by decl (auto,inline,dll*,struct,enum,union,long,short)
+	insert local_node.ctype.specifier = "auto";
+	// only one funspecifier by decl (auto,inline, and in C++ virtual,explicit)
+	insert local_node.ctype.funspecifier = "auto";
+	// only one identifier by decl (char,int,float,double,void,typedefname, struct/union/enum/name)
+	insert local_node.ctype.identifier = "auto";// .sign for int
+	return true;  
+}
+
+function cnormNodeDecl_GetCtype(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	ref out_ref = local_node.ctype;
+	return true;
+}
+
+// cnormNodeDecl_SetSigned
+// set the sign of local_ctype
+function cnormNodeDecl_SetSigned(local_ctype : node, data : value)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+        if (!cnormNode_checkTypeGroupOfId(local_ctype, data, "sign"))
+        {error(data + " is not a sign flag");}
+        if (cnormNode_checkTypeOfId(local_ctype, data, "sign_unsigned"))
+	{insert local_ctype.unsigned = true;}
+	return true;
+}
+
+/*
+   a declaration follow the pattern:
+
+   T Name = init;
+ */
+
+// cnormNodeDecl_SetName()
+// set the value 'Name' of the pattern
+// local_node : INOUT the node of the decl
+// name : IN the name of the decl
+function cnormNodeDecl_SetName(local_node : node, name : value)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	insert local_node.name = name;
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	return true;
+}
+
+// array: add a dimension
+function cnormNodeDecl_AddDim(local_ctype : node, out_ref : reference)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+	if (!existVariable(local_ctype.list))
+	{insert local_ctype.list;}
+	pushItem local_ctype.list;
+	ref out_ref = local_ctype.list#back;
+	return true;
+}
+
+// cnormNodeDecl_SetSpecifier()
+// add a specifier for 'T' of the pattern
+// local_node : INOUT the node of the decl
+// specifier : IN the specifier of the decl
+function cnormNodeDecl_SetSpecifier(local_ctype : node, specifier : value)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+        if (!cnormNode_checkTypeGroupOfId(local_ctype, specifier, "specifier"))
+	{error(specifier + " is not a specifier");}
+	// if the specifier is already set, allow only doublable specifier to be added (long)
+	if (local_ctype.specifier != "auto")
+	{
+		if (local_ctype.specifier != "" && /*local_ctype.specifier != specifier && !*/cnormNode_checkTypeOfId(local_ctype, specifier, "specifier_size_size"))
+		//{ error(specifier + " already defined and != of " + local_ctype.specifier);}
+                {
+		        local_ctype.specifier += " " + specifier;
+		        return true;
+                }
+	}
+	// manage composed/enumerate specifier
+	if (cnormNode_checkTypeOfId(local_ctype, specifier, "specifier_block"))
+	{	local_ctype.cdecl_type = "__composed__";}
+	if (cnormNode_checkTypeOfId(local_ctype, specifier, "specifier_enum"))
+	{	local_ctype.cdecl_type = "__enum__";}
+	// set the specifier
+	insert local_ctype.specifier = specifier;
+	// empty the identifier for specifier
+	insert local_ctype.identifier = "";
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
+	return true;
+}
+
+// .body for __composed__ type
+function cnormNodeDecl_GetBody(local_ctype : node, out_ref : reference)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+	if (!existVariable(local_ctype.body))
+	{ 
+                insert local_ctype.body;
+                local_ctype.cdecl_type = "__composed__";
+        }
+	ref	out_ref = local_ctype.body;
+	return true;
+}
+
+// .enum for __enum__ type
+function cnormNodeDecl_MapEnum(local_ctype : node, key : value, out_ref : reference)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+	if (local_ctype.cdecl_type != "__enum__")
+	{error("local_ctype is not a enum type");}
+        local i = getArraySize(local_ctype.enum.block);
+        local idxmap = -1;
+        select item in local_ctype.enum.map[]
+        {
+                if (item.key == key)
+                {idxmap = index(item);}
+        }
+        if ($idxmap == -1$)
+        {
+                pushItem local_ctype.enum.map;
+                insert local_ctype.enum.map#back.key = key;
+                insert local_ctype.enum.map#back.idx = i;
+                pushItem local_ctype.enum.block;
+        }
+        else
+                i = local_ctype.enum.map[idxmap].idx;
+	ref out_ref = local_ctype.enum.block#[$i$];
+	return true;
+}
+
+// .assign_expr for initializer list
+function cnormNodeDecl_SetAssignExpr(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	if (!existVariable(local_node.assign_expr))
+	{insert local_node.assign_expr;}
+	ref out_ref = local_node.assign_expr;
+	return true;
+}
+
+// .colon_expr for bitfield and constructor
+function cnormNodeDecl_SetColonExpr(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	if (!existVariable(local_node.colon_expr))
+	{insert local_node.colon_expr;}
+	ref out_ref = local_node.colon_expr;
+	return true;
+}
+
+function cnormNodeDecl_Init(local_node : node)
+{
+	insert local_node.type = "__block_init__";
+	return true;
+}
+
+function cnormNodeDecl_AddInit(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkInit(local_node))
+	{return false;}
+	if (!existVariable(local_node.block))
+	{insert local_node.block;}
+	pushItem local_node.block;
+	ref out_ref = local_node.block#back;
+	return true;
+}
+
+function cnormNodeDecl_AddIndexDesignation(local_node : node, index_ref : reference, expr_ref : reference)
+{
+	insert local_node.type = "__index_designation__";
+	insert local_node.index;
+	insert local_node.expr;
+	ref index_ref = local_node.index;
+	ref expr_ref = local_node.expr;
+	return true;
+}
+
+function cnormNodeDecl_AddFieldDesignation(local_node : node, name : value, expr_ref : reference)
+{
+	insert local_node.type = "__field_designation__";
+	insert local_node.name = name;
+	insert local_node.expr;
+	ref expr_ref = local_node.expr;
+	return true;
+}
+
+// .param for function
+function cnormNodeDecl_GetParam(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	if (!existVariable(local_node.ctype.param))
+	{insert local_node.ctype.param;}
+	ref	out_ref = local_node.ctype.param;
+	return true;
+}
+
+// cnormNodeDecl_SetQualifier()
+// add a qualifier for 'T' of the pattern
+// local_node : INOUT the node of the decl
+// specifier : IN the specifier of the decl
+function cnormNodeDecl_SetQualifier(local_ctype : node, qualifier : value)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+	if (!cnormNode_checkTypeOfId(local_ctype, qualifier, "qualifier"))
+	{error(qualifier + " is not a qualifier");}
+	local_ctype.qualifier = qualifier;
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
+	return true;
+}
+
+// cnormNodeDecl_SetStorage()
+// add a storage for 'T' of the pattern
+// local_node : INOUT the node of the decl
+// specifier : IN the specifier of the decl
+function cnormNodeDecl_SetStorage(local_ctype : node, storage : value)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+	if (!cnormNode_checkTypeOfId(local_ctype, storage, "storage"))
+	{error(storage + " is not a storage");}
+	if (local_ctype.storage != "auto")
+	{error("already defined a storage:" + local_ctype.storage);}
+	local_ctype.storage = storage;
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
+	return true;
+}
+
+function cnormNodeDecl_SetFunspecifier(local_ctype : node, funspecifier : value)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+	if (!cnormNode_checkTypeOfId(local_ctype, funspecifier, "funspecifier"))
+	{error(funspecifier + " is not a function specifier");}
+	if (local_ctype.funspecifier != "auto")
+	{error("already defined a function specifier:" + local_ctype.funspecifier);}
+	local_ctype.funspecifier = funspecifier;
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
+	return true;
+}
+
+function cnormNodeDecl_ShiftPointer(dst : reference, src : reference)
+{
+	if (existVariable(src.name))
+	{
+		insert dst.name = src.name;
+		removeVariable(src.name);
+	}
+	if (existVariable(src.ctype.storage))
+	{
+		insert dst.ctype.storage = src.ctype.storage;
+		removeVariable(src.ctype.storage);
+		if (dst.ctype.storage == "typedef" 
+			&& existVariable(src.ctype.attributes.extension))
+		{
+			insert dst.ctype.attributes.extension;
+			setall dst.ctype.attributes.extension = src.ctype.attributes.extension;
+			removeVariable(src.ctype.attributes.extension);
+		}
+	}
+	insert dst.type = src.type;
+}
+
+function cnormNodeDecl_AddRef(local_node : node)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	slideNodeContent(local_node, ctype.pointer);
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.ctype.type = "__ctype__";
+	insert local_node.ctype.cdecl_type = "__pointer__";
+	insert local_node.ctype.qualifier = "auto";
+	// only qualifier for pointer type
+	cnormNodeDecl_ShiftPointer(local_node, local_node.ctype.pointer);
+	return true;
+}
+
+function cnormNodeDecl_AddFuncRef(local_node : node)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	slideNodeContent(local_node, ctype.fpointer);
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.ctype.type = "__ctype__";
+	insert local_node.ctype.cdecl_type = "__fpointer__";
+	insert local_node.ctype.qualifier = "auto";
+	// only qualifier for pointer type
+	cnormNodeDecl_ShiftPointer(local_node, local_node.ctype.fpointer);
+	return true;
+}
+
+function cnormNodeDecl_DerefAll(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+	ref out_ref = local_node.ctype;
+	if (existVariable(out_ref.pointer) || existVariable(out_ref.fpointer))
+	{
+		if (existVariable(out_ref.pointer)) {ref out_ref = out_ref.pointer;}
+		if (existVariable(out_ref.fpointer)) {ref out_ref = out_ref.fpointer;}
+		while (existVariable(out_ref.ctype.pointer) || existVariable(out_ref.ctype.fpointer))
+		{	
+			if (existVariable(out_ref.ctype.pointer)) {ref out_ref = out_ref.ctype.pointer;}
+			if (existVariable(out_ref.ctype.fpointer)) {ref out_ref = out_ref.ctype.fpointer;}
+		}
+		return true;
+	}
+	ref out_ref = local_node;
+	return true;
+}
+
+/// togrep ??
+function cnormNodeDecl_GetRef(local_ctype : node, out_ref : reference)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+	ref out_ref = local_ctype.pointer;
+	return true;
+}
+
+// cnormNodeDecl_SetIdentifier()
+// set the value of 'T' of the pattern
+// local_node : INOUT the node of the decl
+// identifier : IN the identifier of T
+function cnormNodeDecl_SetIdentifier(local_ctype : node, identifier : value)
+{
+	if (!cnormNode_checkCtype(local_ctype))
+	{return false;}
+        insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
+	insert local_ctype.identifier = identifier;
+	return true;
+}
+
+function cnormNodeDecl_SetTypedefName(local_ctype : node, identifier : value)
+{
+	local bPrecond = false;
+	local bIsType = typeHandling_search(local_ctype, identifier);
+	// l'identifier de type est a la valeur par defaut
+	if (local_ctype.identifier == "auto")
+	{bPrecond = true;}
+	if (bIsType && bPrecond)
+	{
+                insert local_ctype.location = local_ctype#root + ":" + local_ctype#root.line+ ":" + local_ctype#root.col;
+		insert local_ctype.identifier = identifier;
+		return true;
+	}
+	return false;
+}
+
+// cnormNodeDecl_CopyDecl()
+// to manage T a,b; we could use this function
+// doesn't copy pointer,array and list specification of type
+// dst_node : INOUT the target node
+// src_node : IN the source node
+function cnormNodeDecl_CopyDecl(dst_node : node, src_node : node)
+{// add test
+	localref src_ref = src_node.ctype;
+	if (existVariable(src_ref.pointer))
+	{// go deep to reach the ctype
+		while (existVariable(src_ref.pointer))
+		{ ref src_ref = src_ref.pointer.ctype;}
+	}
+	setall dst_node.ctype = src_ref;
+	if (existVariable(src_node.ctype.storage))
+	{insert dst_node.ctype.storage = src_node.ctype.storage;}
+	if (existVariable(dst_node.ctype.list))
+		removeVariable(dst_node.ctype.list);
+	return true;
+}
+
+function cnormNodeDecl_SetDeclSpecifierAttribute(local_node : node, subtree : node)
+{
+	if (!cnormNode_checkCtype(local_node))
+	{return false;}
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	if (!existVariable(local_node.attributes))
+	{insert local_node.attributes;}
+	// special case of __extension__
+	if (subtree.data == "__extension__")
+	{
+		if (!existVariable(local_node.attributes.extension))
+		{insert local_node.attributes.extension;}
+		setall local_node.attributes.extension = subtree;
+	}
+	else
+	{
+		if (!existVariable(local_node.attributes.specifier))
+		{insert local_node.attributes.specifier;}
+		pushItem local_node.attributes.specifier;
+		setall local_node.attributes.specifier#back = subtree;
+	}
+	return true;
+}
+
+function cnormNodeDecl_SetDeclComposedAttribute(local_node : node, subtree : node)
+{
+	if (!cnormNode_checkCtype(local_node))
+	{return false;}
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	if (!existVariable(local_node.attributes))
+	{insert local_node.attributes;}
+	if (!existVariable(local_node.attributes.composed))
+	{insert local_node.attributes.composed;}
+	pushItem local_node.attributes.composed;
+	setall local_node.attributes.composed#back = subtree;
+	return true;
+}
+
+function cnormNodeDecl_SetDeclarationAttribute(local_node : node, subtree : node)
+{
+	if (!cnormNode_checkDecl(local_node))
+	{return false;}
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	if (!existVariable(local_node.attributes))
+	{insert local_node.attributes;}
+	pushItem local_node.attributes;
+	setall local_node.attributes#back = subtree;
+	return true;
+}
+
+function cnormNodeDecl_Set(local_node : node, ident : value)
+{
+        if (!findElement(ident, local_node#root.dialect.map_identifier))
+        {       return false;}
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+        local sType = local_node#root.dialect.map_identifier[ident];
+        switch (sType)
+        {
+                case "funspecifier":{cnormNodeDecl_SetFunspecifier(local_node, ident);break;}
+                case "qualifier":{cnormNodeDecl_SetQualifier(local_node, ident);break;}
+                case "sign_unsigned":
+                case "sign_signed":{cnormNodeDecl_SetSigned(local_node, ident);break;}
+                case "specifier_size":
+                case "specifier_size_size":
+                case "specifier_block":
+                case "specifier_enum":{cnormNodeDecl_SetSpecifier(local_node, ident);break;}
+                case "storage":{cnormNodeDecl_SetStorage(local_node, ident);break;}
+                case "type":{cnormNodeDecl_SetIdentifier(local_node, ident);break;}
+                case "typeof":{insert local_node.typeof;break;}
+                case "unary":{
+                        // special case __extension__
+                        if (ident != "__extension__")
+                        {return false;}
+                        local attr;
+                        cnormNode_Raw(attr, "__extension__");
+                        cnormNodeDecl_SetDeclSpecifierAttribute(local_node, attr);
+                        break;
+                }
+                case "asm":
+                case "attribute":{/*insert local_node.attributes;*/break;}
+                default:return false;
+        }
+        return true;
+}
+
+// ****
+
+// we can turn a block into a stmt
+function cnormNodeStmt(local_node : node, type : value)
+{
+	cnormNode(local_node);
+	if (existVariable(local_node.block))
+	{removeVariable(local_node.block);}
+	local_node.type = "__stmt__";
+	insert local_node.stmt_type = type;
+	return true;
+}
+
+function cnormNodeStmt_Ctrl(local_node : node, ctrl_name : value)
+{
+	cnormNodeStmt(local_node, "__ctrl__");
+	insert local_node.ctrl = ctrl_name;
+	return true;
+}
+
+function cnormNodeStmt_Branch(local_node : node, branch_name : value, expr_ref : reference)
+{
+	cnormNodeStmt(local_node, "__branch__");
+	insert local_node.branch = branch_name;
+	insert local_node.expr;
+	ref expr_ref = local_node.expr;
+	return true;
+}
+
+function cnormNodeStmt_Label(local_node : node, label_name : value)
+{
+	cnormNodeStmt(local_node, "__label__");
+	insert local_node.label = label_name;
+	return true;
+}
+
+function cnormNodeStmt_Case(local_node : node, expr_ref : reference)
+{
+	cnormNodeStmt(local_node, "__case__");
+	insert local_node.label = "case";
+	insert local_node.expr;
+	ref expr_ref = local_node.expr;
+	return true;
+}
+
+function cnormNodeStmt_Conditional(local_node : node, type, out_ref : reference)
+{
+	cnormNodeStmt(local_node, "__cond__");
+	insert local_node.name = type;
+	insert local_node.condition;
+	cnormNode_TerminalId(local_node.condition, "");
+	ref out_ref = local_node.condition;
+	return true;
+}
+
+function cnormNodeStmt_Do(local_node : node, cond_ref : reference, loop_ref : reference)
+{
+	cnormNodeStmt_Conditional(local_node, "do", cond_ref);
+	insert local_node.stmt_type = "__do__";
+	insert local_node.body;
+	cnormNodeBlock(local_node.body);
+	ref loop_ref = local_node.body;
+	return true;
+}
+
+function cnormNodeStmt_For(local_node : node, init_ref : reference, cond_ref : reference, inc_ref : reference, loop_ref : reference)
+{
+	cnormNodeStmt_Conditional(local_node, "for", cond_ref);
+	local_node.stmt_type = "__for__";
+	insert local_node.initialize;
+	cnormNodeBlock(local_node.initialize);
+	insert local_node.increment;
+	cnormNode_TerminalId(local_node.increment, "");
+	insert local_node.body;
+	cnormNodeBlock(local_node.body);
+	ref		init_ref = local_node.initialize;
+	ref		inc_ref = local_node.increment;
+	ref		loop_ref = local_node.body;
+	return true;
+}
+
+function cnormNodeStmt_If(local_node : node, cond_ref : reference, then_ref : reference, else_ref : reference)
+{
+	cnormNodeStmt_Conditional(local_node, "if", cond_ref);
+	insert local_node.then;
+	cnormNodeBlock(local_node.then);
+	ref		then_ref = local_node.then;
+	insert	local_node.else;
+	cnormNodeBlock(local_node.else);
+	ref		else_ref = local_node.else;
+	return true;
+}
+
+function cnormNodeStmt_Switch(local_node : node, cond_ref : reference, case_ref : reference)
+{
+	cnormNodeStmt_Conditional(local_node, "switch", cond_ref);
+	insert local_node.body;
+	cnormNodeBlock(local_node.body);
+	ref		case_ref = local_node.body;
+	return true;
+}
+
+function cnormNodeStmt_While(local_node : node, cond_ref : reference, loop_ref : reference)
+{
+	cnormNodeStmt_Conditional(local_node, "while", cond_ref);
+	insert local_node.body;
+	cnormNodeBlock(local_node.body);
+	ref		loop_ref = local_node.body;
+	return true;
+}
+
+function cnormNodeStmt_Expr(local_node : node, out_ref : reference)
+{
+	cnormNodeStmt(local_node, "__expr__");
+	insert local_node.expr;
+	ref out_ref = local_node.expr;
+	return true;
+}
+/////////////////////////////
+
+function cnormNode_Raw(local_node : node, data : value)
+{
+	cnormNode(local_node);
+	insert local_node.type = "__expr__";
+	insert local_node.expr_type = "__raw__";
+	insert local_node.data = data;
+	return true;
+}
+
+function cnormNode_TerminalId(local_node : node, id : value)
+{
+	cnormNode(local_node);
+	insert local_node.operator = "__id__";
+	insert local_node.type = "__expr__";
+	insert local_node.expr_type = "__terminal__";
+	insert local_node.id = id;
+	return true;
+}
+
+function cnormNode_TerminalLiteral(local_node : node, literal : value)
+{
+	cnormNode(local_node);
+	insert local_node.operator = "__literal__";
+	insert local_node.type = "__expr__";
+	insert local_node.expr_type = "__terminal__";
+	insert local_node.literal = literal;
+	return true;
+}
+
+function cnormNode_ToBinary(local_node : node, op : value, right_ref : reference)
+{
+	slideNodeContent(local_node, left);
+	insert local_node.operator = op;
+	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.expr_type = "__binary__";
+	insert local_node.right;
+	ref right_ref = local_node.right;
+	return true;
+}
+
+function cnormNode_ToPost(local_node : node, op : value)
+{
+	slideNodeContent(local_node, left);
+	insert local_node.operator = op;
+	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.expr_type = "__post__";
+	return true;
+}
+
+function cnormNode_ToTernary(local_node : node, then_ref : reference, else_ref : reference)
+{
+	slideNodeContent(local_node, condition);
+	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.expr_type = "__ternary__";
+	insert local_node.then;
+	insert local_node.else;
+	ref then_ref = local_node.then;
+	ref else_ref = local_node.else;
+	return true;
+}
+
+function cnormNode_UnaryExpr(local_node : node, op : value, right_ref : reference)
+{
+	insert local_node.operator = op;
+	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.expr_type = "__unary__";
+	insert local_node.right;
+	ref right_ref = local_node.right;
+	return true;
+}
+
+function cnormNode_ParanthesisExpr(local_node : node, body_ref : reference)
+{
+	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.expr_type = "__paranth__";
+	insert local_node.body;
+	ref body_ref = local_node.body; 
+	return true;
+}
+
+function cnormNode_CompoundExpr(local_node : node, body_ref : reference)
+{
+	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.expr_type = "__compound__";
+	insert local_node.body;
+	cnormNodeBlock(local_node.body);
+	ref body_ref = local_node.body;
+	return true;
+}
+
+function cnormNode_SizeOf(local_node : node, op : value, right_ref : reference)
+{
+	insert local_node.operator = op;
+	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.expr_type = "__sizeof__";
+	insert local_node.right;
+	ref right_ref = local_node.right;
+	return true;
+}
+
+// different type of post expr
+// - index
+// - call
+function cnormNode_ToPostExpr(local_node : node, type : value, right_ref : reference)
+{
+	if (local_node.expr_type != "__postexpr__")
+	{
+		slideNodeContent(local_node, left);
+		insert local_node.type = "__expr__";
+                insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+		insert local_node.expr_type = "__postexpr__";
+		insert local_node.list;
+	}
+	pushItem local_node.list;
+	insert local_node.list#back.postexpr_type = type;
+	insert local_node.list#back.expr;
+	ref right_ref = local_node.list#back.expr;
+	return true;
+}
+
+function cnormNode_ToIndex(local_node : node, right_ref : reference)
+{
+	cnormNode_ToPostExpr(local_node, "__index__", right_ref);
+	return true;
+}
+
+function cnormNode_ToCall(local_node : node, right_ref : reference)
+{
+	cnormNode_ToPostExpr(local_node, "__call__", right_ref);
+	insert right_ref.list;
+	return true;
+}
+
+function cnormNode_CallParam(local_node : node, param_ref : reference)
+{
+	pushItem local_node.list;
+	ref param_ref = local_node.list#back;
+	return true;
+}
+
+function cnormNode_CastExpr(local_node : node, left_ref : reference, right_ref : reference)
+{
+	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.expr_type = "__cast__";
+	insert local_node.left;
+	insert local_node.right;
+	cnormNodeDecl(local_node.left);
+	ref left_ref = local_node.left;
+	ref right_ref = local_node.right;
+	return true;
+}
+
+function cnormNode_OffsetExpr(local_node : node, left_ref : reference, right_ref : reference)
+{
+	insert local_node.type = "__expr__";
+        insert local_node.location = local_node#root + ":" + local_node#root.line+ ":" + local_node#root.col;
+	insert local_node.expr_type = "__builtinoffsetof__";
+	insert local_node.left;
+	insert local_node.right;
+	cnormNodeDecl(local_node.left);
+	ref left_ref = local_node.left;
+	ref right_ref = local_node.right;
+	return true;
+}
+
+function cnormNode_TypeofExpr(local_node : node, out_ref : reference)
+{
+	cnormNode_checkCtype(local_node);
+	insert local_node.typeof;
+	cnormNodeDecl(local_node.typeof);
+	ref out_ref = local_node.typeof;
+	return true;
+}
+
+/*
+	Parse a error output to put it nicely in the tree
+*/
+function cnormLogError(local_node : node, log : value)
+{
+	if (!existVariable(local_node.error))
+	{insert local_node.error;}
+	pushItem local_node.error;
+	insert local_node.error#back.msg;
+	insert local_node.error#back.trace;
+	parseStringAsBNF({
+		all ::= [->'\n']2:this.msg
+		[	->'\n':val
+			[
+				#check(val != "\n")
+				#pushItem(this.trace)
+				=> this.trace#back = val;
+			]?
+		]*
+		;
+	}, local_node.error#back, log);
+	return true;
+}
+
+function cnormTraceError(local_node : node, all : value)
+{
+	if (existVariable(local_node.error))
+	{
+		foreach node_error in local_node.error
+		{
+			traceLine(node_error.msg);
+			if (all)
+			{
+				foreach item in node_error.trace
+				{	traceLine(item);}
+			}
+		}
+	}
+}
+
+////////////////////////////
+
+#end

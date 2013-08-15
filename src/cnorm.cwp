@@ -1,0 +1,98 @@
+/*
+** "C normalized"
+** Version 3.x
+** 
+** Authors:
+**	Lionel Auroux
+** Contributors:
+**	Cedric Lemaire
+**	David Giron
+**	David Amsallem	
+**
+** Features:
+** - Standard C 89 syntax
+** - GnuC asm expression
+** - GnuC __thread storage class specifier
+** - GnuC parameter forward declaration
+** - GnuC __extension__ evite les warnings sur l'utilisation d'extention GnuC
+** - GnuC subscript
+** - GnuC designated initializer
+** - GnuC __builtin_offsetof
+** - GnuC __builtin_va_list
+** - c99 static in direct absolute declarator
+** - c99 block as single expression ({ })
+** - c99 typeof
+** - c99 designation
+** - c99 __alignof
+** - c99 complex,__real & __imag operator
+** - c99 range expression
+** - c99 attributes
+** - implicit int as return type for function
+** - K&R parameter list
+**
+** This grammar was adapted from the one in section A13 of 
+** The C programming language, second edition, 
+** by Brian W. Kernighan and Dennis M. Ritchie 
+** (Englewood Cliffs, New Jersey: Prentice Hall PTR, 1988; ISBN
+** 0-13-110362-8), 
+** pages 234 - 238. 
+** 
+** This file is based on the original document:
+** http://www.cs.grinnell.edu/~stone/courses/languages/C-syntax.xhtml
+** 
+** A lot of change was done after reading:
+** - ISO/IEC 9899:TC2
+** - ISO/IEC 9899:1999
+**
+** V3.0 improvements are a totaly normalized AST and
+** the corresponding generation templates.
+*/
+
+#include "cnormNode.inc.cws"
+
+//----------------------------------------------------------------------------
+//                           B E G I N - C - N O R M
+//----------------------------------------------------------------------------
+
+#ignore["CNORM"] ::= 
+        [
+        	['#' ->[['\r']? '\n']]
+        	| ["//" ->[['\r']? '\n']]
+        	| ["/*" ->"*/"]
+        	| ' '
+                | ['\r']? '\n' 
+        	| '\t'
+        	| '\f' // form feed, sometimes Windows kernel headers have this character.
+        ]+:skip
+        =>{
+                insert this.line = countInputLines();
+                insert this.col = countInputCols();
+        }
+;
+
+/*
+  Root of the grammar
+*/
+translation_unit ::=
+#try
+/**/	#ignore("CNORM")
+// create the unique ROOT
+/**/	#check(cnormNodeRoot(this))
+[
+// initialize the context to reference the root
+	declaration(this) | unstrict(this)
+]*
+/**/	#continue(sError, "bad token at end of file, unexpected <" + peekChar() + ">") #empty
+#catch(sError)
+| #check(cnormLogError(this, sError))
+;
+
+// the rest of the grammar is split in 3 files for easiest understanding
+#include "cnormExpressions.cwp"
+#include "cnormStatements.cwp"
+#include "cnormDeclarations.cwp"
+
+
+//----------------------------------------------------------------------------
+//                              E N D - C - N O R M
+//----------------------------------------------------------------------------

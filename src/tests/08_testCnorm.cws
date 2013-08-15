@@ -1,0 +1,55 @@
+/*
+  UNIT TEST OF THE cnormNode LIB
+*/
+#include "cnorm.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+
+local c_block;
+cnormString(c_block, ""+
+		 //"gl=0;"+
+"enum			my_enum\n"+
+"  {\n"+
+"    FIRST,\n"+
+"    SECOND,\n"+
+"    THIRD,\n"+
+"    FOURTH,\n"+
+"    FIFTH\n"+
+"  };\n"+
+"\n"+
+"  int	main(int ac, char **av)\n"+
+"    {\n"+
+"	if (42) ++a;\n"+
+"      ac = av + 4 - 8 / 100;\n"+ 
+"      if (ac < 100) {printf(\"fuck you\\n\");}\n"+ 
+"      else {printf(\"fuck me\\n\");}\n"+ 
+"	while(42)  {a=b+c;d=e+f;}\n"+ 
+"	titi:\n"+ 
+"	for (;a<20;){a=b+c;d=e+f;}\n"+ 
+"	do {z+=4;} while(true);\n"+ 
+"	typedef int blink;\n"+ 
+"	switch (boulot) {}\n"+
+"	switch (a && 45)\n"+ 
+"	{\n"+ 
+"	case 4:printf(42);\n"+ 
+"	case 6:{blink z = 42;}\n"+ 
+"	default:{return (z == 42);}\n"+ 
+"	}\n"+ 
+"	goto titi;\n"+
+"    }\n"+
+"\n");
+
+saveProject("testCnorm.out", c_block);
+saveToFile("testCnorm.c", cnorm2c(c_block));
+
+local test;
+try
+{
+	cnormString(test, "int f() {a+}");
+}
+catch (sError)
+{
+	local this_error;
+	cnormLogError(this_error, sError);
+	cnormTraceError(this_error);
+}

@@ -1,0 +1,7 @@
+- find a way to uniformize all assembly chunk of code
+- multi-init in for statement
+- clear last obscure part in cnorm2c
+- how to understand void (__cdecl func)(void)
+- dialect to complete
+- C bind of type
+- C type coerce

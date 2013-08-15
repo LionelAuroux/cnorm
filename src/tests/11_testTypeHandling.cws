@@ -1,0 +1,62 @@
+/*
+  UNIT TEST OF THE typeHandling LIB
+*/
+#include "cnorm.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+#include "typeHandling/annotePass.inc.cws"
+
+//here doc a piece of C code
+local dummy;
+local input;
+generateString({
+	enum nia {A, B, C};
+	union pluf { int lo; int lu;} gra;
+	struct poupoum {int jiji; double jojo;};
+	int (*pf1)(int gra, int gru);
+	int (***pf2)(int gra, int gru);
+	int main(typedef int TEST;int ac, char **av)
+	{
+		int a = 42;
+		typedef int POP; 
+		POP b;
+	
+		b = b + a * 4;
+		if (a == 2)
+		{
+			typedef int IN_THEN;
+		}
+		else
+		{
+			typedef int IN_ELSE;
+		}
+		while (42)
+		{
+			typedef int IN_WHILE;
+		}
+		for (int a = 2; a < 200; ++a)
+		{
+			typedef int IN_FOR;
+		}
+		do
+		{
+			typedef int IN_DO;
+		}
+		while(true);
+		switch (32)
+		{
+			typedef int IN_SWITCH;
+		}
+	}
+@}, dummy, input);
+
+// parse It
+local source;
+cnormString(source, input);
+saveProject("testTypeHandling.c_tree", source);
+
+typeHandling_annotePass(source);
+saveProject("testTypeHandling.c_typed", source);
+
+// show It
+traceLine(cnorm2c(source));
+

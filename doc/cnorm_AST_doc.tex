@@ -1,0 +1,522 @@
+\documentclass[a4paper,11pt]{report}
+
+\usepackage{rathaxes}
+
+%---------------------------------------------------------
+
+
+\title{CNORM abstract syntax tree documentation}
+\author{David GIRON}
+\date{Vendredi 8 Aout 2008}
+
+
+\begin{document}
+  \maketitle
+
+
+%---------------------------------------------------------
+
+
+  \section*{License}
+  \addcontentsline{toc}{section}{License}
+
+  Permission to use, copy, modify, and distribute this software for any
+  purpose with or without fee is hereby granted, provided that the above
+  copyright notice and this permission notice appear in all copies.
+
+  THE ARTICLE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+  WITH REGARD TO THIS ARTICLE INCLUDING ALL IMPLIED WARRANTIES OF
+  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTUOUS ACTION, ARISING OUT OF
+  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  \newpage
+
+
+%---------------------------------------------------------
+
+
+  \section*{Introduction}
+  \addcontentsline{toc}{section}{Introduction}
+
+  \textit{CNORM is a powerfull C front end compatible with both UNIX and
+  Windows C. The result of the parsing is an abstract syntax tree wich is
+  described in shape and meaning in this documentation.}\\
+  
+  CNORM is written in CodeWorker, a parsing and code generation tool made by
+  Cedric Lemaire. More informations can be found on www.codeworker.org.
+  In this documentation, we'll assume that the reader is able to understand 
+  all features and vocabulary linked with C grammar, parsing purposes and how
+  CodeWorker is able to generate an abstract syntax tree.
+  
+  \chapter{General facts}
+
+  The CNORM's abstract syntax tree (or AST) is composed of a root block node.
+  Each block in the AST stands for a C scope (global or braces {}). So, the
+  smallest CNORM AST we can imagine would be:
+
+  \begin{lstlisting}
+    . project
+      . block
+  \end{lstlisting}
+
+  Each C code line that will parsed will add an arry entry in this block.
+  As an instance, let the following C code:
+
+  \begin{lstlisting}
+    int a;
+    char b;
+    int myfunc()
+    {
+      int c;
+    }
+  \end{lstlisting}
+
+  Will result in a AST like:
+
+  \begin{lstlisting}
+    . project
+      . block
+        . 0
+          . stuff for the int a
+        . 1
+          . stuff for the char b
+        . 2
+          . stuff for the function myfunc
+            . block
+              . 0
+                . stuff for the int c
+  \end{lstlisting}
+ 
+  The ``lines of code'' can be of 3 kinds: 
+  
+  \begin{itemize}
+    \item Declarations, to declare a new variable, a new type, \dots
+    \item Expressions, that can be unary, binary or ternary.
+    \item Statements, for tests, loops, \dots 
+  \end{itemize}
+
+  Inner scopes (i. e. in functions scope) allow declarations, expressions
+  and statements but at global scope (i.e. the project.block) C grammar
+  allows only Declarations. Each (array) entry in a block contains a node
+  named \textit{etype} that basically stands for ``C expression type''.
+  This \textit{etype} node can be filled with one or another of the
+  following items:
+
+  \begin{itemize}
+    \item declaration
+    \item expression
+    \item statement
+  \end{itemize}
+
+  \chapter{Declaration}
+  4 kinds of declaration nodes can be found:
+
+  \begin{itemize}
+    \item variable, that contains data relatives to a variable declaration.
+    \item type, that contains data relatives to a new type declaration, using
+      typedef or struct, union or enum.
+    \item prototype, that contains data relatives to a function declaration.
+    \item function, that contains data relatives to a function definition.
+  \end{itemize}
+
+  As a consequence, each declaration node (i. e. \textit{etype = declaration})
+  has a \textit{type} node to store the kind of declaration. This
+  \textit{type} node is filled with one of the following items:
+
+  \begin{itemize}
+    \item \_\_VARIABLE\_\_
+    \item \_\_TYPE\_\_
+    \item \_\_PROTOTYPE\_\_
+    \item \_\_FUNCTION\_\_
+  \end{itemize}
+  
+  To sum up, remember to previous C code:
+
+  \begin{lstlisting}
+    int a;
+    char b;
+    int myfunc()
+    {
+      int c;
+    }
+  \end{lstlisting}
+
+  The AST will look like:
+
+  \begin{lstlisting}
+    . project
+      . block
+        . 0
+          . etype = declaration
+          . type = __VARIABLE__
+          . another stuff for the int a
+        . 1
+          . etype = declaration
+          . type = __VARIABLE__
+          . another stuff for the char b
+        . 2
+          . etype = declaration
+          . type = __FUNCTION__
+          . another stuff for the function myfunc
+            . block
+              . 0
+                . etype = declaration
+                . type = __VARIABLE__
+                . another stuff for the int c
+  \end{lstlisting}
+
+  Whatever the declaration, it must always have a C type: The type of a
+  variable, the type defined by a type alias, the type definied by a struct,
+  or even the return type of a function declaration/definition.
+  Let's concentrate on a complex node used to express these C types: the
+  \textit{ctype} node.
+
+  \section{The ctype node}
+
+  This node is the most complex the CNORM AST has. It is used to express
+  the subtilities a C type can have. At full load, this node can have the
+  following subnodes, but only the two firts are mandatory:
+
+  \begin{itemize}
+    \item pctx: This node is used to hold a link to the parent context in
+      order to resolve C types. This is due to the fact that the C grammar
+      is not context free. We'll comme back on this node later.
+    \item type: a C type can by primary (void, char, short, int, \dots) or
+      composed (typedefs, structs, unions or enums). This node is tagged
+      \_\_PRIMARY\_\_ or \_\_COMPOSED\_\_ respectively.
+    \item identifier: the litteral name of the type, like ``void'' or ``int''
+      for primaries or anything like ``my\_struct'' for the composed ones.
+      The identifier may be omitted if the type is an anonyme struct or
+      similars.
+    \item sign: This node can be tagged ``signed'' or ``unsigned'' according
+      to the type's sign. This node is nonsense for composed types.
+    \item specifier: This node is where is stored specifications for the type,
+      like, ``struct'', ``union'' or ``enum'' for composed types or,
+      ``short'', ``long'', \dots for primary ones.
+    \item infotype: This node is an array wich each entry is anything that
+      can be written left to a C type. These keyword are:
+      \begin{itemize}
+        \item Storage class specifiers:
+          \begin{itemize}
+            \item auto
+            \item register
+            \item static
+            \item extern
+          \end{itemize}
+        \item Type qualifiers:
+          \begin{itemize}
+            \item const
+            \item volatile
+            \item restrict
+          \end{itemize}
+        \item Function specifiers:
+          \begin{itemize}
+            \item inline
+          \end{itemize}
+        \item typedef
+      \end{itemize}
+    \item pointer: This node is used to indicate if the type is pointed. Each
+      pointer level or const pointer is expressed as an array entry like:
+      \begin{lstlisting}
+        . pointer
+          . 0
+            . level = *
+          . 1
+            . level = *
+          . 2
+            . level = const
+      \end{lstlisting}
+    \item array: Each dimension of the array is an array entry in the node.
+      \begin{lstlisting}
+        . array
+          . 0 = 5
+          . 1 = 10
+      \end{lstlisting}
+    \item list: If the type is composed, like struct, union or enum, the
+      fields declared in an array, each entry being a varaible declaration
+      as explained in this chapter.
+  \end{itemize}
+
+  \section{The variable declaration}
+
+  A variable declaration node is filled as follows:
+  let's see three meaningfull exemples:
+
+  First, the most simple variable declaration:
+  \begin{lstlisting}
+    int a;
+  \end{lstlisting}
+  
+  Will result in the following AST:
+  \begin{lstlisting}
+    . ctype
+      . pctx = later...
+      . type = __PRIMARY__
+      . identifier = int
+      . sign = signed
+    . type = __VARIABLE__
+    . etype = declaration
+    . name = a
+  \end{lstlisting}
+
+  Then, a more complex variable declaration:
+  \begin{lstlisting}
+    char *strings_array[5];
+  \end{lstlisting}
+  
+  Will result in the following AST:
+  \begin{lstlisting}
+    . ctype
+      . pctx = later...
+      . type = __PRIMARY__
+      . identifier = char
+      . sign = signed
+      . pointer
+        . 0
+          . level = *
+      . array
+        . 0 = 5
+    . type = __VARIABLE__
+    . etype = declaration
+    . name = strings_array
+  \end{lstlisting}
+
+  Last, one using infotypes node::
+  \begin{lstlisting}
+    static short var;
+  \end{lstlisting}
+  
+  Will result in the following AST:
+  \begin{lstlisting}
+    . ctype
+      . pctx = later...
+      . type = __PRIMARY__
+      . identifier = int
+      . infoType = 1 //nb of entries
+        . static = storageClassSpecifier
+      . sign = signed
+      . specifier = short
+    . type = __VARIABLE__
+    . etype = declaration
+    . name = var
+  \end{lstlisting}
+
+  \section{Types declaration}
+
+    \subsection{structs, unions, enums}
+
+    All of those 3 types declaration result in the same tree shape:
+    \begin{lstlisting}
+      . ctype // describing the new C type, we'll detail it below
+      . type = \_\_TYPE\_\_ // declaration of a new C type
+      . etype = declaration
+    \end{lstlisting}
+
+    Most of the ctype node is the same as explained above, but a new node
+    appears to describe the fields of the resulting composed type.
+
+    Let study this exemple:
+    \begin{lstlisting}
+      struct s_struct_test
+      {
+        int a;
+        int b;
+      };
+    \end{lstlisting}
+
+    The final AST will be:
+    \begin{lstlisting}
+      . ctype
+        . pctx = later...
+	. type = __COMPOSED__
+        . identifier = s_struct_test
+	. specifier = struct
+	. list // that's the new node
+          . 0
+            . ctype
+              . pctx = later...
+              . type __PRIMARY__
+              . identifier = it
+              . sign = signed
+            . type = __VARIABLE__
+            . etype = declaration
+            . name = a
+          . 1
+            . ctype
+              . pctx = later...
+              . type = __PRIMARY__
+              . identifier = int
+              . sign = signed
+            . type = __VARIABLE__
+            . etype = declaration
+            . name = b
+      . type = __TYPE__
+      . etype = declaration
+    \end{lstlisting}
+
+    As you've noticed, the new \textit{list} node is an array where each
+    entry is one of the declarations inside the struct/union braces.
+    For enums, the \textit{list} node is slightly different. Let's look
+    at an exemple and its resulting AST:
+
+    \begin{lstlisting}
+      enum e_enum_test
+      {
+        ONE,
+        TWO,
+        THREE = 3,
+        FOUR = 4
+      };
+    \end{lstlisting}
+
+    \begin{lstlisting}
+      . ctype
+	. pctx = later...
+        . type = __COMPOSED__
+        . identifier = e_enum_test
+        . specifier = enum
+        . list
+          . ONE
+          . TWO
+          . THREE
+            . init
+              . type = constant_expression
+              . value = 3
+              . ctype
+                . identifier = int
+              . operator = literal
+              . otype = terminal
+              . etype = init
+          . FOUR
+            . init
+              . type = constant_expression
+              . value = 4
+              . ctype
+                . identifier = int
+              . operator = literal
+              . otype = terminal
+              . etype = init
+        . type = __TYPE__
+        . etype = declaration
+    \end{lstlisting}
+    
+    As we can see, the list array is now a hash table, with enum's entries as
+    keys, containing, if needed, the initialisation expression. We'll be back
+    on expressions later in this documentation.
+
+    \subsection{functions pointers}
+
+    \subsection{typedefs}
+
+    Typedefs work basically the same way structs, unions and enums do.
+    It's still a type declaration, so the nodes we be filled almost the
+    same way.
+
+    Let's check this out with 2 explicits exemples:
+
+    \begin{lstlisting}
+      typedef int INT;
+    \end{lstlisting}
+
+    Will result in the simple AST:
+    \begin{lstlisting}
+      . ctype
+        . pctx = later...
+        . type = __PRIMARY__
+        . identifier = int
+        . infoType = 1
+          . typedef = storageClassSpecifier
+        . sign = signed
+      . type = __TYPE__
+      . etype = declaration
+      . name = INT
+    \end{lstlisting}
+
+    A little bit more tricky are embeded structs/unions/enums in typedefs,
+    like:
+    \begin{lstlisting}
+      typedef struct s_struct_other_test
+      {
+        char c;
+        char d;
+      } t_struct_other_test;
+    \end{lstlisting}
+
+    The resulting AST is a little bit more complex, but follow the same shape:
+    \begin{lstlisting}
+      . ctype
+        . pctx = project.block
+        . type = __COMPOSED__
+        . identifier = s_struct_other_test
+        . infoType = 1
+          . typedef = storageClassSpecifier
+        . specifier = struct
+        . list
+          . 0
+            . ctype
+              . pctx = later...
+              . type = __PRIMARY__
+              . identifier = char
+              . sign = signed
+            . type = __VARIABLE__
+            . etype = declaration
+            . name = c
+          . 1
+            . ctype
+              . pctx = project.block
+              . type = __PRIMARY__
+              . identifier = char
+              . sign = signed
+              . type = __VARIABLE__
+              . etype = declaration
+              . name = d
+      . type = __TYPE__
+      . etype = declaration
+      . name = t_struct_other_test
+    \end{lstlisting}
+
+    At last, functions pointers can be as well embeded in typedefs.
+    It works the same way than above.
+    
+    \begin{lstlisting}
+      typedef void (*f)();
+    \end{lstlisting}
+    \begin{lstlisting}
+      . ctype
+        . pctx = later...
+          . type = __PFUNCTION__
+          . identifier = void
+          . infoType = 1
+            . typedef = storageClassSpecifier
+      . type = __TYPE__
+      . etype = declaration
+      . pfname  // the shape of this node is a little bit
+        . 0     // but it may change in the futur
+          . function
+            . name = f
+      . list  // the list node is empty because the pointed function takes no args
+      . name = f
+    \end{lstlisting}
+    
+
+  \section{Prototypes declaration}
+
+
+  \section{Functions definition}
+
+
+  \chapter{Expressions}
+
+
+    \section{unary}
+
+
+    \section{binary}
+
+
+    \section{ternary}
+
+  \chapter{statements}
+\end{document}

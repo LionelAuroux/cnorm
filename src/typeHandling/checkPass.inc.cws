@@ -1,0 +1,394 @@
+/*
+**	checkPass.inc.cws
+**	for cnorm
+**	made by auroux_l
+**
+**	the aim of this lib is to provide function to check types in C code after parsing
+**/
+
+#include "cnormNode.inc.cws"
+#include "patchLib/cnormPatchLib.inc.cws"
+
+#if !existFunction(typeHandling_checkPass_version)
+
+function typeHandling_checkPass_version()
+{return "3.0";}
+
+// public passes
+declare function typeHandling_checkPass(local_node : reference);
+
+// deref a pointer
+declare function _getDeref(dst : reference, __src__ : node);
+// get subfield of a struct
+declare function _getSubfield(dst : reference, __src__ : node, field : value);
+
+// used by _getDeref/_getSubfield...extract from a flatten representation all keys that match deref_magic
+declare function _getSubflat(dst : reference, __src__ : node, deref_magic : value);
+
+// convert a tree representation into a filtered flatten representation
+declare function _nodeFlatMode(local_node : node, out_ref : reference);
+
+// used by _nodeFlatMode...apply a filter on a flatten representation src
+declare function _getFiltered(dst : reference, src : node);
+
+// add a builtin type get from expr into the type mapping type_map and get his type_id representation into outid
+declare function _typeBuiltin(type_map : node, expr : value, outid : node);
+
+////
+
+// walk thru a block and check its content
+declare function _checkBlock(local_node : node);
+
+/////////////////////////////////////////////////////////////
+
+// get a filtered copy of diff ctype
+function _getFiltered(dst : reference, src : node)
+{
+	foreach item in sorted src
+	{
+		// don't copy subnode with name
+		if (findString(item.key(), ".name") != -1)
+		{	continue;}
+		// don't copy previous type id
+		if (findString(item.key(), ".type_id") != -1)
+		{	continue;}
+		// don't copy enum list
+		if (findString(item.key(), ".enum[") != -1)
+		{	continue;}
+		insert dst[item.key()] = item;
+	}
+}
+
+// get sub flat from a string
+function _getSubflat(dst : reference, __src__ : node, deref_magic : value)
+{
+	local deref_len = $lengthString(deref_magic)$;
+	foreach item in sorted __src__
+	{
+		local prefix = leftString(key(item), deref_len);
+		local indir = subString(key(item), deref_len);
+		if (prefix == deref_magic)
+		{
+			local metamagic = "dst" + indir;
+			insert #evaluateVariable(metamagic) = item;
+		}
+	}
+}
+
+// deref a ctype
+function _getDeref(dst : reference, __src__ : node)
+{
+	local deref_magic = "__src__.pointer.ctype";
+	_getSubflat(dst, __src__, deref_magic);
+}
+
+// subfield
+function _getSubfield(dst : reference, __src__ : node, field : value)
+{
+	local subfield_map = "__src__.body.map[\"" + field + "\"]";
+	local subfield_block = "__src__.body.block[\"" + __src__[subfield_map] + "\"]";
+	_getSubflat(dst, __src__, subfield_block);
+}
+
+function _nodeFlatMode(local_node : node, out_ref : reference)
+{
+	local	tmp;
+	nodeFlat(tmp, local_node);
+	_getFiltered(out_ref, tmp);
+}
+
+// add builtin type in mapping
+function _typeBuiltin(type_map : node, expr : value, outid : node)
+{
+	local local_node;
+	cnormPatchGlobalDeclaration(local_node, expr);
+	local built_ast;
+	_nodeFlatMode(local_node.block[0].ctype, built_ast);
+	local ast_out;
+	cnormNodeDecl(ast_out);
+	nodePatch(ast_out.ctype, built_ast);
+	local type_string = toString(built_ast);
+	local type_md5 = computeMD5(type_string);
+	insert type_map[type_md5].type = "__builtin__";
+	insert type_map[type_md5].c_expr = cnorm2c(ast_out);
+	insert type_map[type_md5].ctype;
+	setall type_map[type_md5].ctype = built_ast;
+	outid = type_md5;
+}
+
+// add ast type in mapping
+function _typeRef(local_node : node, outid : node)
+{
+        local built_ast;
+        _nodeFlatMode(local_node.ctype, built_ast);
+	local ast_out;
+	cnormNodeDecl(ast_out);
+	nodePatch(ast_out.ctype, built_ast);
+	local type_string = toString(built_ast);
+	local type_md5 = computeMD5(type_string);
+	if (!findElement(type_md5, local_node#root.type_map))
+	{
+		insert local_node#root.type_map[type_md5].type = "__dump__";
+		insert local_node#root.type_map[type_md5].c_expr = cnorm2c(ast_out);
+		insert local_node#root.type_map[type_md5].ctype;
+		setall local_node#root.type_map[type_md5].ctype = built_ast;
+	}
+	outid = type_md5;
+}
+//////////////////////////////////////
+
+// add the type of variable in mapping
+function _typeVariables(local_node : node)
+{
+	local type_md5;
+	_typeRef(local_node, type_md5);
+	insert local_node.ctype.type_id = type_md5;
+}
+
+// get a ref on the correct subnode
+function _getCtype(type_map : node, type_id : value, out_ref : reference)
+{
+	ref out_ref = type_map[type_id].ctype;
+	return true;
+}
+
+//////////////////////////////////////
+
+// apply semantic on type & operator
+function _semantic(type_map : node, diff_node : node, op : value)
+{
+	traceLine("DIFF::op" + op + " tree:" + toString(diff_node, true));
+	foreach diff in diff_node
+	{
+		// auto const cast, from data to
+//		if (diff.key() == "__src__.qualifier" && diff.src == "const" && op == "=")
+//		{
+//			//cnormLogError(type_map#root, "Can't write a const variable");
+//			error("Can't write a const variable");
+//			return 0;
+//		}
+		if (diff.dst == "const" && op == "=")
+		{
+			//cnormLogError(type_map#root, "Can't write a const variable");
+			error("Can't write a const variable");
+			return 0;
+		}
+		// type vraiment different
+		if (findString(diff.key(), ".identifier") != -1)
+		{
+			local errmsg = "Bad conversion";
+			error(errmsg);
+			//cnormLogError(type_map#root, errmsg);
+			return 0;
+		}
+	}
+	traceLine("semantic gauche");
+	return -1;
+}
+
+// get the realtype of t1,t2 and check that the operator could be apply
+function _coerce(type_map : node, type_id1 : value, type_id2 : value, op : value)
+{
+	traceLine("COERCE " + type_id1 + " ?" + op + "? " + type_id2);
+	if (type_id1 == type_id2)
+	{	return type_id1;}
+	// retrieve the complete representation
+	local real_t1;
+	local real_t2;
+	_getCtype(type_map, type_id1, real_t1);
+	_getCtype(type_map, type_id2, real_t2);
+	traceLine("rt1:" + toString(real_t1));
+	traceLine("rt2:" + toString(real_t2));
+	local diff;
+	nodeDiff(real_t2.ctype, real_t1.ctype, diff);
+	traceLine("diff t2-t1" + toString(diff, true));
+	local nSens = 0;
+	try
+	{
+		nSens = _semantic(type_map, diff, op);
+	}
+	catch(sError)
+	{cnormLogError(type_map#root, sError);}
+	if ($nSens < 0$) return type_id1;
+	if ($nSens > 0$) return type_id2;
+	type_map#root.error#back.msg += "\nBetween " + real_t1.c_expr + " and " + real_t2.c_expr;
+	return "error";
+}
+
+/////////////////////////////////
+
+function _checkExpr<T>(local_node : node, slotid : value)
+{
+	error("unknown EXPR :" + T);
+}
+
+// function call, indir array, field access
+function _checkExpr<"__postexpr__">(local_node : node, slotid : value)
+{
+	if (existVariable(local_node.list))
+	{
+	
+		foreach item in local_node.list
+		{
+			if (item.postexpr_type == "__index__")
+			{traceLine("index[]");
+			}
+			if (item.postexpr_type == "__call__")
+			{traceLine("call()");
+			}
+			if (existVariable(item.expr.list))
+			{
+				foreach param in item.expr.list
+				{
+					local bParam = _checkExpr<param.expr_type>(param, slotid);
+				}
+			}
+			else
+			{return _checkExpr<item.expr.postexpr_type>(item.expr, slotid);}
+		}
+	}
+}
+
+
+// retrieve the type of an terminal
+function _checkExpr<"__terminal__">(local_node : node, slotid : value)
+{
+	if (local_node.operator == "__literal__")
+	{
+	traceLine("LITERAL");
+		// TODO: redispatch num ou string
+		if (charAt(local_node.literal, 0) == "\"")
+		{
+			insert local_node.type_id = local_node#root.type_map.literalid_string;
+			return local_node#root.type_map.literalid_string;
+		}
+		else
+		{
+			insert local_node.type_id = local_node#root.type_map.literalid_int;
+			return local_node#root.type_map.literalid_int;
+		}
+	}
+	if (local_node.operator == "__id__")
+	{
+	traceLine("ID");
+		local md5;
+		if (typeHandling_searchVar(local_node#root.block_ref, slotid, local_node.id, md5))
+		{	
+			insert local_node.type_id = md5;
+			return md5;
+		}
+	}
+	return false;
+}
+
+// binary op type check
+function _checkExpr<"__binary__">(local_node : node, slotid : value)
+{
+	local nLeft = _checkExpr<local_node.left.expr_type>(local_node.left, slotid);
+	local nRight = _checkExpr<local_node.right.expr_type>(local_node.right, slotid);
+	traceLine("binop L:" + nLeft + " R:" + nRight);
+	if (nLeft && nRight)
+	{	
+		local type_coerce = _coerce(local_node#root.type_map, nLeft, nRight, local_node.operator);
+		if (type_coerce)
+		{
+			insert local_node.type_id = type_coerce;
+			return type_coerce;
+		}
+	}
+	return false;
+}
+
+function _checkExpr<"__decl__">(local_node : node, slotid : value)
+{
+        if (cnormNode_checkIsFuncDefinition(local_node))
+        {	_checkBlock(local_node.body);}
+        else
+        {	
+                _typeVariables(local_node);
+                // init
+                if (existVariable(local_node.assign_expr))
+                {	
+                        _checkExpr<local_node.assign_expr.expr_type>(local_node.assign_expr, slotid);
+                        // coerce ctype and assign_expr
+                        //_coerce(item#root.type_map, item.ctype.type_id, item.assign_expr.type_id, "assign_expr");
+                }
+        }
+	return local_node.ctype.type_id;
+}
+
+// cast is left propagator
+function _checkExpr<"__cast__">(local_node : node, slotid : value)
+{
+	traceLine("CAST");
+	local nLeft = _checkExpr<local_node.left.type>(local_node.left, slotid);
+	local nRight = _checkExpr<local_node.right.expr_type>(local_node.right, slotid);
+	traceLine("binop L:" + nLeft + " R:" + nRight);
+	if (nLeft && nRight)
+	{
+		// no coerce, but patch qualifier/specifier
+		insert local_node.type_id = nLeft;
+		return nLeft;
+	}
+	return false;
+}
+
+// check type of all item in a block
+function _checkBlock(local_node : node)
+{
+	if (!existVariable(local_node.block_id))
+	{	error("BAD CONSTRUCTED BLOCK");}
+	local	slotid = local_node.block_id;
+	foreach item in local_node.block
+	{
+		if (cnormNode_checkDecl(item))
+		{	_checkExpr<item.type>(item, slotid);}
+		// all statement
+		else if (cnormNode_checkStmt(item))
+		{
+			if (existVariable(item.then))
+			{	_checkBlock(item.then);}
+			if (existVariable(item.else))
+			{	_checkBlock(item.else);}
+			if (existVariable(item.body))
+			{	_checkBlock(item.body);}
+			if (existVariable(item.expr))
+			{	_checkExpr<item.expr.expr_type>(item.expr, slotid);}
+		}
+	}
+}
+
+///////////////////////////////
+
+// pass check
+function typeHandling_checkPass(local_node : reference)
+{
+	if (!cnormNode_checkRootBlock(local_node))
+	{return false;}
+	// create global type_map
+	if (!existVariable(local_node.type_map))
+	{	
+		insert local_node.type_map;
+		insert local_node.type_map.literalid_int;
+		insert local_node.type_map.literalid_string;
+		insert local_node.type_map.literalid_double;
+	}
+	_typeBuiltin(local_node.type_map, "const int _;", local_node.type_map.literalid_int);
+	_typeBuiltin(local_node.type_map, "const double _;", local_node.type_map.literalid_double);
+	_typeBuiltin(local_node.type_map, "char*const _;", local_node.type_map.literalid_string);
+	try
+	{
+		_checkBlock(local_node);
+	}
+	catch(sError)
+	{	
+		traceLine("ERROR:" + sError);
+		cnormTraceError(local_node);
+		cnormLogError(local_node, sError);
+	}
+	if (existVariable(local_node.error))
+	{	cnormTraceError(local_node);}
+	return true;
+}
+
+#end

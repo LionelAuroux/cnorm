@@ -1,0 +1,5 @@
+#!/bin/sh
+export CNORM_VERSION=2.10
+# HACK: insert a \ to avoid - detection inside "
+codeworker -nologo -I ${CNORM_PATH:?Vous devez configurer CNORM_PATH dans votre environement}/src -script cnorm.cws -args "\\$*";
+

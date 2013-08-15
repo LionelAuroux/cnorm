@@ -1,0 +1,411 @@
+NORMALISE TYPES:
+----------------
+
+
+	Test 1 - natives types:
+	----------------------
+
+/* c89 */
+void				void				OK
+char				char signed			OK
+short				short int signed		Ok
+int				int signed			OK
+long				long int signed			OK
+float				float				OK
+double				double				OK
+long long			long int signed			KO
+signed				signed int			OK
+unsigned			unsigned int			OK
+
+/* c99 */
+__complex			__complex			OK
+__complex__			__complex__			OK
+_Complex			_Complex			OK
+_Imaginary			_Imaginary			OK
+_Bool				_Bool				OK
+__label__			__label__			OK
+
+/* gnuC */
+__builtin_va_list		__builtin_va_list		OK
+
+
+TEST OK
+
+
+
+	Test 2 - signed types:
+	----------------------
+
+/* c89 */
+signed void			signed void int			KO
+signed char			signed char int			KO
+signed short			signed short int		OK
+signed int			signed int			OK
+signed long			signed long int			OK
+signed float			signed float int		KO
+signed double			signed double int		KO
+signed signed			signed int			KO
+signed unsigned			signed unsigned int		KO
+
+/* c99 */
+signed __complex		signed __complex int		KO
+signed __complex__		signed __complex__ int		KO
+signed _Complex			signed _Complex int		KO
+signed _Imaginary		signed _Imaginary int		KO
+signed _Bool			signed _Bool int		KO
+signed __label__		signed __label__ int		KO
+
+/* gnuC */
+signed __builtin_va_list	signed __builtin_va_list int	KO
+
+TEST KO
+
+
+NOTE:	Naive add of types "signed" and "int" around the given type, and identical normalisation behaviour for all types normalisation.
+	This is our First type normalisation proposal for 'simple' types:
+
+signed			->	signed int
+unsigned		->	unsigned int
+
+char			->	signed char
+signed char		->	signed char
+unsigned char		->	unsigned char
+
+short			->	signed short int
+short int		->	signed short int
+signed short int	->	signed short int
+unsigned short		->	unsigned short int
+unsigned short int	->	unsigned short int
+
+int			->	signed int
+signed int		->	signed int
+unsigned int		->	unsigned int
+
+long			->	signed long int
+long int		->	signed long int
+signed long int		->	signed long int
+unsigned long		->	unsigned long int
+unsigned long int	->	unsigned long int
+
+long long		->	signed long long int
+long long int		->	signed long long int
+signed long long int	->	signed long long int
+unsigned long long	->	unsigned long long int
+unsigned long long int	->	unsigned long long int
+
+
+NOTE:	C types specifiers can be handled anywhere in the declaration. Thus, declarations such as "signed short int" and "int short"
+	are exactly the same types. So it might be difficult to wisely parse those types to normalise them the same way.
+	The solution we'd like to expose is to apply the type normalisation in two steps:
+
+		- Types tokens are sorted in a 'logical' way we choose. Thus, equivalent types declarations are arranged the same way
+		  in the AST.
+
+		- Types are normalised like cnorm used to do, with substencial changes to perform a wise normalisation.
+
+
+
+HEXADECIMAL:
+------------
+
+
+	PROBLEM: Hexadecimal values are parsed but aren't stored in the AST. This behaviour was first noticed in union and we thought
+		 that was the 'union_specifier' rule that was not working correctly. After a few tests, this rule was stated healthy
+		 and we found that the 'constant' rule was parsing hexa values but was never storing them in anyway.
+
+	SOLUTION: Patch the rule 'constant' to store the hexadecimal value in the AST in a node 'value'
+
+
+ASM:
+---
+
+	PROBLEM: ERR... how could I say... what is ASM ?
+
+	SOLUTION: Emerge world dude... Or determine an AST shape to store ASM expressions, and even write a new asm_expression witch would
+		  wisely store asm expressions in the AST
+
+
+__BUILTIN_OFFSETOF:
+-------------------
+
+	PROBLEM: This feature is correctly parsed but no data are stored in the AST.
+
+	SOLUTION: We could store data on the model of functions calls. Moreover, a deep check must be performed in cnorm to find other
+		  datas that are parsed but not stored.
+
+
+EXPRESSIONS:
+------------
+
+	PROBLEM: According to the different cnorm versions, the generated AST's shape and the parsing behaviour are weirdly differents.
+
+	SOLUTION: Reconsider the AST shape for C expressions, respecting the node skeleton "left - operator - right", where each 'left' or
+		  'right' node can be recurssive. Moreover, a few meta-datas can be added in the expression node.
+
+
+
+NOTE: "asm_expr" rule in "translation_unit" seems to never be called, asm being parsed in the expression rules.
+
+
+
+FUNCTION_SPECIFIER:
+-------------------
+
+	PROBLEM: 'inline' token parsed but no data is stored in the AST
+
+	SOLUTION: store the data
+
+
+NOTE: gere labels addressing. ex:  'label:' and '&&label'
+
+NOTE: pfunc is equivalent to &pfunc
+
+	---------------------------------------------------------------------------------------------------------------------------
+
+
+
+CTYPE NORMALISATION REFLEXIONS:
+-------------------------------
+
+
+
+        Although storing the ctype definition in a one-block array without any meta-datas, cnorm_2.0's ctype node will detail each type
+informations. This means that storage class specifiers, types specifiers, and functions specifiers will be stored separatly in the node.
+Here is an exemple of the old node then it's description:
+
+
+	<ctype>
+		... array of types related identifiers ...
+	</ctype>
+
+
+	The array only contains types identifiers whether they are storage class specifiers, types specifiers, functions specifiers or types
+identifiers without making any differences on their kind. This is a right way to do, fast and simple, but no native structual reflexion is
+provided to the tree. Moreover, the old storage behaviour induced to iterate the ctype node naivly when generating the C code, without
+any checking on its shape or contents (except if a heavy test pattern 'switch-case' based is set up). Moreover, identifiers were stored in
+the array's key thus a useless numeric '1' stored in the correspondant value field (the numeric is replaced by char '*' in case the
+identifier is 'pointer'). This is not very regular nor relevant and should be studied one more time.
+In this state, both node shapes has common propriety: For each different ctype, the node shape is different, meaning that it might not be
+easy to check the validity of the ctype because of an heavy selves-exlusives tokens tests. This could be avoided by used a standard node
+templetate containing each identifier a ctype could be made of and a boolean value to indicate the identifier is present or not.
+Thus, any validity check should be easily performed by a binary test.
+Let's watch this sample:
+
+
+	<ctype>
+		<storage_class_specfiers>							/* only one value can be "1" */
+			<__ARRAY_ENTRY __KEY="extern" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="static" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="auto" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="register" __VALUE="0" />
+		</storage_class_specfiers>
+		<type_qualifiers>								/* no redondance  */
+			<__ARRAY_ENTRY __KEY="const" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="volatile" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="restrict" __VALUE="0" />
+		</type_qualifiers>
+		<function_specifier>
+			<__ARRAY_ENTRY __KEY="inline" __VALUE="0" />				/* c99 */
+		</function_specifier>
+		<prime_type>
+			<__ARRAY_ENTRY __KEY="void" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="char" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="short" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="int" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="long" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="float" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="double" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="signed" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="unsigned" __VALUE="0" />
+			<__ARRAY_ENTRY __KEY="__complex" __VALUE="0" />				/* c99 */
+			<__ARRAY_ENTRY __KEY="__complex__" __VALUE="0" />			/* c99 */
+			<__ARRAY_ENTRY __KEY="_Complex" __VALUE="0" />				/* c99 */
+			<__ARRAY_ENTRY __KEY="_Imaginary" __VALUE="0" />			/* c99 */
+			<__ARRAY_ENTRY __KEY="_Bool" __VALUE="0" />				/* c99 */
+			<__ARRAY_ENTRY __KEY="__label__" __VALUE="0" />				/* c99 */
+			<__ARRAY_ENTRY __KEY="__builtin_va_list__" __VALUE="0" />		/* gnuC */
+		</prime_type>
+		<user_type __VALUE="" />
+		<pointer>
+			<__ARRAY_ENTRY __KEY="0" __VALUE="[]"/>
+			<__ARRAY_ENTRY __KEY="1" __VALUE="*"/>
+			...
+		</pointer>
+	</ctype>
+
+
+
+  The first point one might notice is that the node is very massive and monolihic. Several ways to reduce the node's size might be
+considered.
+
+	- In order to iter the node easily, nodes must be normalised, but this doesn't mean the normalised nodes must have exactely the
+	  same shape. The main node is composed of sub-nodes and arrays entries. Here is a vocabulary statement: A normalised node means
+	  each instance of the node have the same sub-nodes architecture but in-nodes arrays can be variable in size or shape.
+
+	- According to the node exemple above and to C grammar, nodes' arrays can be sorted in two sides: inclusive-or arrays and
+	  exclusive-or arrays.
+
+	- An exclusive-or arrays might thus be simplified by removing excluded entries, in simplier words, by giving the selected entry
+	  to the node's value instead of maintaining a whole void array.
+
+	- The inclusive-or are more difficult to simplify wisely. Should we keep the old way to do (filling the array with what was parsed)
+	  or try another ? From an algorithmic point of view, the above solution might be one of the best: Each entry is tested on its
+	  boolean value to check if it exists or not. The problem is that such nodes are very big and often contains non-relevant datas.
+
+	- Another solution might be to keep the old style storing (store only what was parsed) but to manage the node as a kind of wall
+	  cupboard: nodes are 'labels' for the drawers, and array entries are the 'files' in the drawer. This means that no informations
+	  would be stored in the node's value (except any meta-data about the array itself) and all the datas are stored in the array.
+	  So each node must be created with an empty array entry or CodeWorker would create it as a terminal node. This array entry must'nt
+	  be an empty string because the empty string can be an information by itself. So we must use a specific 'void' token:
+	  '_@_v_KEY_v_@_' and '_@_v_VALUE_v_@_'.
+
+
+  Whatever the storing politic is, the ctype node will contain those sub-nodes:
+
+	   - storage_class_specfiers
+	   - type_specifiers
+	   - function_specifier
+	   - prime_type
+	   - user_type
+	   - pointer
+
+
+DECLARATION NODE NORMALISATION:
+-------------------------------
+
+  Six standard declarations can be pointed (current nodes):
+
+      - variables (type, ctype, name)
+      - function (type, ctype, name, params)
+      -	struct (type, name, ctype, fields, ftype)
+      -	union (type, name, ctype, fields, ftype)
+      -	enum (type, name, ctype)
+      - pfunction (type, ctype, pfunc, params)
+
+  Here is the normalisation:
+
+<project>
+	<block>
+		<declarations>
+			<__ARRAY_ENTRY __KEY="0" __VALUE="variable">
+				<name __VALUE="my_variable">
+				<ctype>
+					...
+				</ctype>
+			</__ARRAY_ENTRY>
+			<__ARRAY_ENTRY __KEY="1" __VALUE="function">
+				<name __VALUE="my_function">
+				<ctype>
+					...
+				</ctype>
+				<liste __VALUE="params">
+					...
+				</liste>
+			</__ARRAY_ENTRY>
+			<__ARRAY_ENTRY __KEY="2" __VALUE="struct">
+				<name __VALUE="my_struct">			// value peut etre genere en cas de struct anonyme
+				<ctype>
+					...
+				</ctype>
+				<liste __VALUE="fields">
+					...
+				</liste>
+			</__ARRAY_ENTRY>
+			<__ARRAY_ENTRY __KEY="3" __VALUE="union">
+				<name __VALUE="my_union">			// value peut etre genere en cas de union anonyme
+				<ctype>
+					...
+				</ctype>
+				<liste __VALUE="fields">
+					...
+				</liste>
+			</__ARRAY_ENTRY>
+			<__ARRAY_ENTRY __KEY="4" __VALUE="enum">
+				<name __VALUE="my_enum">			// value peut etre genere en cas de enum anonyme
+				<liste __VALUE="enumerators">
+					...
+				</liste>
+			</__ARRAY_ENTRY>
+			<__ARRAY_ENTRY __KEY="5" __VALUE="pfunction">
+				<name __VALUE="my_pfunction">
+				<ctype>
+					...
+				</ctype>
+				<liste __VALUE="params">
+					...
+				</liste>
+			</__ARRAY_ENTRY>
+		</declarations>
+		<expressions>
+			...
+		</expressions>
+	</block>
+</project>
+
+
+
+NOTE: dans unary expression , deplacer postfix expression vers la derniere alternative
+
+
+
+---------------- PLEIN DE TEMPS APRES ... ------------------
+
+Maintenant que les expressions et les statements sont normalises et iteres, on s'attaque au gros morceau... les declarations,,,
+Oui, je sais, ca fait longtemps que j'ai pas tenu ce fichier a jour, mais apres tout y a que moi qui le lit, alors...
+IOPI:ben non...
+
+Apres concertation avec le chef, les normalisations des noeuds declaration et ctype seront les suivantes:
+
+      - ctype:
+
+	.infotype
+	.type		(primary | composed)
+	.sign		(signed | unsigned)
+	.specifier	([short | long | long long | ...] | [struct | union | ...])
+	.identifier	([int | char | ...] | identifier)
+	.pointer
+		.0
+			.level = '*'
+		.1
+			.qualifier = 'const'
+		.2
+			.array
+				...
+	.array
+		...
+
+
+
+      - variable:
+
+        .type = variable
+	.name
+	.pfname		(pour les pfunc)
+	.ctype
+	.list		(pour les pfunc)
+
+
+      - type:
+
+        .type = type
+	.name		(pas pour les structs et assimiles)
+	.pfname		(pour les pfunc)
+	.ctype
+	.list		(pour les pfunc)
+
+
+      - fonction:
+
+        .type = function
+	.name
+	.ctype
+	.list
+	.block
+
+
+      - prototype:
+
+        .type = prototype
+	.name
+	.ctype
+	.list

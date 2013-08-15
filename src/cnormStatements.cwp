@@ -1,0 +1,247 @@
+/*
+** cnormStatements.cwp for
+** "C normalise"
+** 
+** Authors:
+**	Lionel Auroux
+** Contributors:
+**	Cedric Lemaire
+**	David Giron
+**	David Amsallem	
+**
+** see cnorm.cwp for details
+*/
+
+/* INTERACTION WITH OTHER MODULE OF CNORM:
+** cnormDeclarations::init_declarator -> compound_statement(theBlock)
+** cnormExpressions::primary_expression -> block_item_list(theBlock)
+**
+*/
+
+//----------------------------------------------------------------------------
+//                              S T A T E M E N T S
+//----------------------------------------------------------------------------
+
+/*
+  The easiest part of the C grammar and describe how to write correct sentences in C
+*/
+single_statement(theStmt : node) ::=
+        compound_statement(theStmt)
+        | labeled_statement(theStmt)
+        | expression_statement(theStmt)
+;
+
+/*
+  block between brace
+*/
+compound_statement(theBlock : node) ::=
+        '{'
+/**/    #check(cnormNodeBlock(theBlock, true))
+        block_item_list(theBlock) 
+        '}'
+;
+
+/*
+  lines of C code
+*/
+block_item_list(theBlock : node) ::=
+        [ line_of_code(theBlock) ]*
+;
+
+/*
+  item of a block (line of code)
+*/
+line_of_code(theBlock : node) ::=
+/**/    #check(cnormNode_checkBlock(theBlock)) 
+/**/    => local nCount = getArraySize(theBlock.block);
+[
+	// declaration of variable
+	[ declaration(theBlock) | unstrict(theBlock) ]
+	| // or code
+/**/    => cnormNode_unstrictClean(theBlock);
+// ARTEFACT 3
+/**/    => if ($nCount != getArraySize(theBlock.block)$) removeLastElement(theBlock.block);
+// drop artefact in block_ref hierarchy
+/**/    => {
+/**/            if ($getArraySize(theBlock#root.block_ref) > 0$ && existVariable(theBlock#root.block_ref#back) 
+/**/            && !existVariable(theBlock#root.block_ref#back.ref.type))
+/**/            {       removeLastElement(theBlock#root.block_ref); }
+/**/       }
+        [
+/**/    #pushItem(theBlock.block)
+/**/    => local lastNode;
+/**/    #check(cnormNodeBlock_GetLastNode(theBlock, lastNode))
+        single_statement(lastNode)
+        ]
+]
+;
+
+/*
+  classical statement of the language (if,for,while,do) and labels
+*/
+labeled_statement(theStmt : node) ::=
+        rootidentifier:sKeyword statement<sKeyword>(theStmt)
+;
+
+/*
+  label
+ */
+statement<sKeyword>(theStmt : node) ::= ':' 
+/**/    => cnormNodeStmt_Label(theStmt, sKeyword);
+;
+
+/*
+  __extension__ only on GnuC 
+*/
+statement<"__extension__">(theStmt : node) ::=
+/**/    => cnormNode_Raw(theStmt, "__extension__");
+;
+
+/*
+  case inside a switch
+*/
+statement<"case">(theStmt : node) ::= 
+/**/    => local expr;
+/**/    => cnormNodeStmt_Case(theStmt, expr);
+/**/    #continue(sErr, "bad range expression after 'case'")
+        range_expression(expr)
+        ':'
+;
+
+/*
+  if else
+*/
+statement<"if">(theStmt : node) ::= 
+/**/    => local condition;
+/**/    => local if_then;
+/**/    => local if_else;
+/**/    => cnormNodeStmt_If(theStmt, condition, if_then, if_else);
+/**/    #continue(sErr, "bad token after 'if'")
+        '('
+/**/    #continue(sErr, "bad expression after '('")
+        expression(condition)
+/**/    #continue(sErr, "bad token before ')'")
+        ')'
+/**/    #continue(sErr, "bad single statement after '('")
+        single_statement(if_then)
+        [
+                "else" 
+/**/            #continue(sErr, "bad single statement after 'else'")
+                single_statement(if_else)
+/**/            | => removeVariable(if_else);
+        ]
+;
+
+/*
+  switch
+*/
+statement<"switch">(theStmt : node) ::=
+/**/    => local condition;
+/**/    => local case_body;
+/**/    => cnormNodeStmt_Switch(theStmt, condition, case_body);
+/**/    #continue(sErr, "bad token after 'switch'")
+        '(' 
+/**/    #continue(sErr, "bad expression after '('")
+        expression(condition) 
+/**/    #continue(sErr, "bad token before ')'")
+        ')'
+        compound_statement(case_body)
+;
+
+/*
+  while
+*/
+statement<"while">(theStmt : node) ::= 
+/**/    => local w_condition;
+/**/    => local while_block;
+/**/    => cnormNodeStmt_While(theStmt, w_condition, while_block); 
+/**/    #continue(sErr, "bad token after 'while'")
+        '(' 
+/**/    #continue(sErr, "bad expression after '('")
+        expression(w_condition) 
+/**/    #continue(sErr, "bad token before ')'")
+        ')'
+/**/    #continue(sErr, "bad single statement after '('")
+        single_statement(while_block)
+;
+
+/*
+  do while
+*/
+statement<"do">(theStmt : node) ::=
+/**/    => local d_condition;
+/**/    => local do_block;
+/**/    => cnormNodeStmt_Do(theStmt, d_condition, do_block);
+/**/    #continue(sErr, "bad single statement after 'do'")
+        single_statement(do_block) 
+/**/    #continue(sErr, "bad token before 'while'")
+        "while" 
+/**/    #continue(sErr, "bad token after 'while'")
+        '(' 
+/**/    #continue(sErr, "bad expression after '('")
+        expression(d_condition) 
+/**/    #continue(sErr, "bad token before ')'")
+        ')' 
+/**/    #continue(sErr, "bad token after ')'")
+        ';'
+;
+
+/*
+  for
+*/
+statement<"for">(theStmt : node) ::=
+/**/    => local f_init;
+/**/    => local f_cond;
+/**/    => local f_incr;
+/**/    => local f_loop;
+/**/    => cnormNodeStmt_For(theStmt, f_init, f_cond, f_incr, f_loop);
+/**/    #continue(sErr, "bad token after 'for'")
+        '(' 
+        [ line_of_code(f_init) ]?
+        [ expression(f_cond) ]? ';'
+        [ expression(f_incr) ]? 
+/**/    #continue(sErr, "bad token before ')'")
+         ')'
+/**/    #continue(sErr, "bad single statement after ')'")
+        single_statement(f_loop)
+;
+
+/* continue */
+statement<"continue">(theStmt : node) ::=
+/**/    => cnormNodeStmt_Ctrl(theStmt, "continue");
+/**/    #continue(sErr, "bad token after 'continue'")
+        ';'
+;
+
+/* break */
+statement<"break">(theStmt : node) ::=
+/**/    => cnormNodeStmt_Ctrl(theStmt, "break");
+/**/    #continue(sErr, "bad token after 'break'")
+        ';'
+;
+
+/* goto */
+statement<"goto">(theStmt : node) ::=
+/**/    => local expr;
+/**/    => cnormNodeStmt_Branch(theStmt, "goto", expr);
+/**/    #continue(sErr, "bad expression after 'goto'")
+        expression(expr)
+/**/    #continue(sErr, "bad token before ';'")
+        ';'
+;
+
+/* return */
+statement<"return">(theStmt : node) ::=
+/**/    => local expr;
+/**/    => cnormNodeStmt_Branch(theStmt, "return", expr);
+        [expression(expr)]?
+/**/    #continue(sErr, "bad token before ';'")
+        ';'
+;
+
+/* C expression ended by ; */
+expression_statement(theStmt : node) ::=
+/**/    => local expr;
+/**/    #check(cnormNodeStmt_Expr(theStmt, expr))
+        [expression(expr)]? ';'
+;

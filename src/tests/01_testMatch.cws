@@ -1,0 +1,81 @@
+/*
+  UNIT TEST OF THE nodeDiffAndPatch LIB
+
+  check the diff and patch function
+*/
+
+#include "cwTool.inc.cws"
+
+local a;
+local b;
+local diff_a2b;
+local diff_b2a;
+
+function createAB(a : node, b : node);
+{
+  a = 99;
+  pushItem a;
+  pushItem a;
+  pushItem a = 999;
+  insert a.c = 42;
+  insert a.z = "node supplementaire";
+  insert a.z.w = "node supplementaire";
+  insert a.y["glum"] = "node supplementaire";
+  insert a.e = 56;
+  insert a.e.f = 78;
+  insert a.e.g = 99;
+  
+  b = 66;
+  pushItem b = 777;
+  pushItem b = 888;
+  pushItem b = 999;
+  insert b.c = 42;
+  insert b.d = 42;
+  insert b.e = 56;
+  insert b.e.f = 78;
+  insert b.e.g = 99;
+ insert b.e.g.x = 12;
+}
+
+createAB(a, b);
+
+traceLine("A:");
+traceLine(toString(a, true));
+traceLine("B:");
+traceLine(toString(b, true));
+
+nodeDiff(a, b, diff_a2b);
+
+traceLine(toString(diff_a2b, true));
+
+nodeDiff(b, a, diff_b2a);
+traceLine(toString(diff_b2a, true));
+
+
+nodePatch(a, diff_a2b);
+traceLine("final:" + toString(a, true));
+
+if (nodeCmp(a, b))
+  {traceLine("OK");}
+else
+  {
+    traceLine("Trees are different");
+    exit(42);
+  }
+
+/*
+TODO: when getStringReference available
+
+local X = "tutu"{.glum="4"};
+local Y = "tutu"{.glum="4"};
+
+ref X.glum = X;
+ref Y.glum = Y;
+
+traceLine(toString(X, 0));
+traceLine(toString(Y, 0));
+
+local diff_XY;
+nodeDiff(X, Y, diff_XY);
+traceLine(toString(diff_XY, 0));
+*/

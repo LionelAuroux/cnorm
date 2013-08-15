@@ -1,0 +1,4 @@
+#!/bin/sh
+
+codeworker -nologo -stack 800000 -script ${CNORM_PATH:?Vous devez configurer CNORM_PATH dans votre environement}/src/cnormValidator.cws -args $*;
+

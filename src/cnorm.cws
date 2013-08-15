@@ -1,0 +1,53 @@
+/*
+**	Main script of the C normalized
+**	parse and pretty print a C file
+*/
+
+#include "cnorm.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+local   desc_option;
+addOption(desc_option, "files", "-f", "--filename", "set file name to process", "default", "list");
+addOption(desc_option, "unstrict", "-u", "--unstrict", "parse in unstrict mode");
+addOption(desc_option, "help", "-h", "--help", "help mode");
+addOption(desc_option, "typecheck", "-t", "--type-check", "type check the AST", "optional");
+
+local option_tree;
+parseOption("cnorm", desc_option, option_tree);
+
+foreach source in option_tree["files"]
+{
+        local target;
+	local sExtension = rightString(source, 2);
+	local sOutput  = replaceString(sExtension, ".c_out", source);
+	local treeFile = getWorkingPath() + replaceString(sExtension, ".c_tree", source);
+	local treeFile2 = getWorkingPath() + replaceString(sExtension, ".c_typed", source);
+	
+	traceLine("\033[0m");
+	traceLine("[CNORM -dev 3.0]\tProcessing: [" + source + "] to [" + sOutput + "].");
+	try
+	{	
+		local dialect = "__std__";
+		if (option_tree["unstrict"])
+		{	dialect = "__unstrict__";}
+		cnormFile(target, source, dialect);
+	}
+	catch (sError)
+	{
+		traceLine(sError);
+		foreach err in target.error
+		{	traceLine(err);}
+		exit(42);
+	}
+	saveProject(treeFile, target);
+	traceLine("[CNORM2C] Iterating node...");
+	saveToFile(sOutput, cnorm2c(target));
+	if (option_tree["typecheck"])
+	{
+		traceLine("[CNORM2C] Checking...");
+		//typeHandling_annotePass(source);
+		saveProject(treeFile2, target);
+	}
+}
+traceLine("[CNORM] Done.");
+

@@ -1,0 +1,75 @@
+/*
+   UNIT TEST OF THE cnormExpression grammar
+ */
+#include "cnorm.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+
+local listTest = {
+	// basic literal
+	"14.5f",
+	"14.5lf",
+	"14.5i",
+	"\"tutu\"",
+	"4.5",
+	"L\"niania\"",
+	// basic binary expr
+	"42 || 42",
+	"42 && 42",
+	"42 | 42",
+	"42 ^ 42",
+	"42 & 42",
+	"toto == 42", "42 != 42",
+	"42 <= 42", "42 >= 42", "42 < 42", "42 > 42",
+	"42 << 42", "42 >> 42",
+	"42 + 42", "42 - 42",
+	"42 * 42", "42 / 42", "42 % 42",
+	"b = a + 3", "a << 4", "tutu == 12 - +--++4",
+	// basic post expr
+	"bla->nia = 44",
+	"**tutu[plop]",
+	"printf(\"%c %d %e\\n\", 'c', 42, 6.7)",
+        "func(c, b)",
+	// cast expr
+	"(int ) a",
+        "func(c, (double ) b)",
+	""
+};
+local i = 0;
+local nGoodTest = $getArraySize(listTest) - 1$;
+local nTest = 0;
+foreach item in listTest
+{
+	local c_block;
+	if (item != "")
+	{
+		cnormDialect<"__std__">(c_block);
+		parseStringAsBNF({
+			#include "cnormNode.inc.cws"
+
+			test_unit ::= #ignore(C++)
+			/**/	=> cnormNodeRoot(this);
+			expression(this.block)
+			#continue
+			#empty
+			;
+
+			#include "cnormExpressions.cwp"
+			// for cast
+			#include "cnormDeclarations.cwp"
+		}, c_block, item);
+		i = $i + 1$;
+		saveProject("testExpr_" + i + ".out", c_block);
+		c_block.block = "testExpr_" + i;
+		local sStr = cnorm2c(c_block.block);
+		local bOk = (sStr == item) ? "OK" : "KO";
+		traceLine("TEST:" + i + " <" + sStr + "> ?? <" + item + ">:" + bOk);
+		if (sStr == item)
+		{nTest = $nTest + 1$;}
+	}
+}
+traceLine(nTest + "/" + nGoodTest + " test OK");
+if (nTest != nGoodTest)
+{
+	traceLine("Test FAILED!");
+	exit(42);
+}

@@ -1,0 +1,162 @@
+/*
+**	search.inc.cws
+**	for cnorm
+**	made by auroux_l
+**
+**	the aim of this lib is to provide function to search things in C code used by the Parser
+*/
+
+#if !existFunction(typeHandling_search_version)
+
+function typeHandling_search_version()
+{return "3.0";}
+
+// public management
+declare function typeHandling_create(local_node : reference);
+declare function typeHandling_register(local_node : reference);
+declare function typeHandling_search(local_node : node, istype : value);
+
+// fetch into nodes
+declare	function typeHandling_getid(local_node : reference);
+declare	function typeHandling_getname(local_node : reference);
+
+// specific
+declare function typeHandling_searchVar(block_ref : node , slotid : value, varname : value, outid : node);
+declare function typeHandling_searchFun(block_ref : node , slotid : value, varname : value, outid : node);
+
+// create the type registry for all the typeHandling
+// local_node : a node of the ast
+function typeHandling_create(local_node : reference)
+{
+	localref root = local_node#root;
+	if (!existVariable(root.block_ref))
+	{
+		insert local_node.block_id = 0;
+		insert root.block_ref;
+		pushItem root.block_ref = "global scope";
+	}
+	return true;
+}
+
+// add the block represented by local_node in the type registry
+// local_node : a block node in the ast
+function typeHandling_register(local_node : reference)
+{
+	local parent = typeHandling_getid(local_node#parent);
+	localref root = local_node#root;
+	pushItem root.block_ref;
+	insert	root.block_ref#back.parent = parent;
+	insert	root.block_ref#back.ref;
+	ref	root.block_ref#back.ref = local_node;
+	///
+	insert local_node.block_id = $getArraySize(root.block_ref) - 1$;
+        if (local_node.block_id == 0)
+        {   removeVariable(root.block_ref#back.parent);}
+	return true;
+}
+
+// search if an identifier is defined as a type (via typedef)
+// local_node : a node of ast
+// istype : an identifier
+function typeHandling_search(local_node : node, istype : value)
+{
+	localref root_types = local_node#root.block_ref;
+	local	local_id = typeHandling_getid(local_node);
+        insert this.count = 0;
+	while (true)
+	{
+		if (findElement(istype, root_types[local_id].types))
+		{return true;}
+		if (existVariable(root_types[local_id].parent))	
+			local_id = root_types[local_id].parent;
+		else
+		        return false;
+                this.count = $this.count + 1$;
+                if ($this.count > 1000$)
+                {error("ABORT: no found info for type:" + istype);}
+	}
+	return false;
+}
+
+// get the slot id in the registry of the block containing local_node
+// local_node : a node of the ast
+function typeHandling_getid(local_node : reference)
+{
+	localref node_ref = local_node;
+        insert this.count = 0;
+	while (!existVariable(node_ref.block_id))
+	{	ref node_ref = node_ref#parent;
+        
+                this.count = $this.count + 1$;
+                if ($this.count > 1000$)
+                {
+                        traceLine("COUNT:" + this.count);
+                        error("ABORT: no found block_id");
+                }
+        }
+	return node_ref.block_id;
+}
+
+// get the name of the node (first attributes name found in parent)
+// local_node : a node of the ast
+function typeHandling_getname(local_node : reference)
+{
+	localref node_ref = local_node;
+        insert this.count = 0;
+	while (!existVariable(node_ref.name) && node_ref.type != "__root_block__")
+	{	ref node_ref = node_ref#parent;
+        
+                this.count = $this.count + 1$;
+                if ($this.count > 1000$)
+                {error("ABORT: no found name");}
+        }
+	if (existVariable(node_ref.name)) return node_ref.name;
+	return "__unknown__";
+}
+
+function typeHandling_searchVar(block_ref : node , slotid : value, varname : value, outid : node)
+{
+	local type_slot = slotid;
+	do
+	{
+		if (findElement(varname, block_ref[type_slot].variables))
+		{
+			localref var = block_ref[type_slot].variables[varname];
+			outid = var.ctype.type_id;
+			return true;
+		}
+		if (existVariable(block_ref[type_slot].parent))
+		{	type_slot = block_ref[type_slot].parent;}
+		else
+		{	break;}
+	}
+	while (true);
+	return false;
+}
+
+function typeHandling_searchFun(block_ref : node , slotid : value, varname : value, outid : node)
+{
+	local type_slot = slotid;
+	do
+	{
+		if (findElement(varname, block_ref[type_slot].prototypes))
+		{
+			localref var = block_ref[type_slot].prototypes[varname];
+			outid = var.ctype.type_id;
+			return true;
+		}
+		if (findElement(varname, block_ref[type_slot].functions))
+		{
+			localref var = block_ref[type_slot].functions[varname];
+			outid = var.ctype.type_id;
+			return true;
+		}
+		if (existVariable(block_ref[type_slot].parent))
+		{	type_slot = block_ref[type_slot].parent;}
+		else
+		{	break;}
+	}
+	while (true);
+	return false;
+}
+#end

@@ -1,0 +1,88 @@
+
+#include "cnorm.inc.cws"
+#include "cnorm2c/cnorm2c.inc.cws"
+#include "typeHandling/annotePass.inc.cws"
+#include "typeHandling/checkPass.inc.cws"
+
+// test func pointeur
+local func_node;
+cnormPatchGlobalDeclaration(func_node, "int (*fa[12][21])(int,double);");
+traceLine("func pointeur:" + toString(func_node, true));
+traceLine("code:" + cnorm2c(func_node));
+
+// test flat
+local local_node;
+cnormPatchGlobalDeclaration(local_node, "struct a {int blop; float poulp;};");
+local flat;
+nodeFlat(flat, local_node.block[0].ctype);
+traceLine("normal:" + toString(local_node, true));
+traceLine("flatten" + toString(flat, true));
+local subf;
+_getSubfield(subf, flat, "poulp");
+traceLine("subf:" + toString(subf, true));
+
+// test typebuiltin
+local type_map;
+local litint;
+local litdouble;
+local litstring;
+_typeBuiltin(type_map, "const int _;", litint);
+_typeBuiltin(type_map, "const double _;", litdouble);
+_typeBuiltin(type_map, "char*const _;", litstring);
+local deref;
+traceLine("STRING:" + toString(type_map[litstring].ctype, true));
+_getDeref(deref, type_map[litstring].ctype);
+traceLine("DEREF TEST:" + toString(deref, true));
+
+//here doc a piece of C code
+local dummy;
+local input;
+generateString({
+        /*
+	int gl_val = 42;
+	int gl_val2 = 1;
+
+	typedef struct {int bla; double bu;} HH;
+	typedef struct {int jiji; double jojo;} GG;
+	enum plop {A,B,C,D};
+	typedef double POLO;
+
+	int	printf(char *, ...);
+        */
+
+	int	main(int ac, char **av)
+	{
+		//int val = (int)"toto";
+		int val;
+                val = 42;
+		//const int plop = (const int)val;
+		//const int nia = 2 * plop + 4;
+		//printf[2]->pop("a", val, "c", "d");
+		//nia = 66;
+		//nia = val;
+
+		/*
+		pupu = 12;
+		printf("TEST\n");
+		for (int i = 0; i < 10; ++i)
+		{	
+			POLO dudule = 4.2;
+			typedef float HUHU;
+			HUHU	kikou;
+		}*/
+	}
+@}, dummy, input);
+
+// parse It
+local source;
+cnormString(source, input);
+saveProject("testTypeHandling2_1.c_tree", source);
+
+typeHandling_annotePass(source);
+saveProject("testTypeHandling2_2.c_typed", source);
+
+typeHandling_checkPass(source);
+saveProject("testTypeHandling2_3.c_typed", source);
+// show It
+traceLine(cnorm2c(source));
+

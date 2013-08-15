@@ -1,0 +1,414 @@
+/*
+**	cnormPatchLib.inc.cws
+**	for LSE - cnorm
+**	made by auroux_l
+**
+**	the aim of this lib is to provide usefull functions to build C norm's chunks of AST.
+*/
+
+/*
+*/
+
+#include "cnorm.inc.cws"
+#include "cnormNode.inc.cws" 
+
+#if !existFunction(cnormPatch_version)
+
+function cnormPatch_version()
+{return "3.0";}
+
+/* private functions */
+declare function _dispatchRule(type_disp : value, local_node : node, code_chunk : value, dialect : value = "__std__"); 
+
+/* public functions */
+
+// to inject chunk of code
+declare function cnormPatchGlobalDeclaration(local_node : node, chunk : value, dialect : value = "__std__");
+declare function cnormPatchCode(local_node : node, chunk : value, dialect : value = "__std__");
+declare function cnormPatchParam(local_node : node, chunk : value, dialect : value = "__std__");
+declare function cnormPatchField(local_node : node, chunk : value, dialect : value = "__std__");
+declare function cnormPatchEnum(local_node : node, chunk : value, dialect : value = "__std__");
+declare function cnormPatchExpression(local_node : node, chunk : value, dialect : value = "__std__");
+
+// to lookup a place to inject
+declare function cnormPatchFetchLookup(local_node : node, name : value, list_out_ref : node);
+declare function cnormPatchCopyToInjectPoint(local_node : node, name : value, inject_code : node);
+declare function cnormPatchGetInjectPoint(local_node : node, name : value, out_ref : reference);
+declare function cnormPatchGetInjectPointNode(local_node : node, name : value, index : value, out_ref : reference);
+
+// get the correct block to inject
+declare function cnormPatchGetComposedFiedlNode(local_node : node, out_ref : reference);
+declare function cnormPatchGetEnumBlockNode(local_node : node, out_ref : reference);
+declare function cnormPatchGetFunctionBlockNode(local_node : node, out_ref : reference);
+declare function cnormPatchGetFunctionParamNode(local_node : node, out_ref : reference);
+
+// create/modify placeHolder to inject
+declare function cnormPatchInjectPointInPlace(local_node : node, name : value);
+declare function cnormPatchInjectPoint(local_node : node);
+declare function cnormPatchSetInjectPointLabel(local_node : node, label : value);
+
+// change field/param order
+declare	function cnormPatchReorderFieldParamAll(local_node : node, map : node);
+declare	function cnormPatchReorderFieldParamOne(local_node : node, name : value, index : value);
+
+// statement manipulation
+declare function cnormPatchGetStmtConditionalExpr(local_node : node, out_ref : reference);
+declare function cnormPatchGetStmtConditionalBody(local_node : node, out_ref : reference);
+declare function cnormPatchGetStmtIfThen(local_node : node, out_ref : reference);
+declare function cnormPatchGetStmtIfElse(local_node : node, out_ref : reference);
+declare function cnormPatchGetStmtForIncr(local_node : node, out_ref : reference);
+declare function cnormPatchGetStmtForInit(local_node : node, out_ref : reference);
+
+// change typedef
+declare function cnormPatchRenameType(local_node : node, oldname : value, newname : value);
+
+/////////////////////////////////////////////////////////////////////////////////
+
+/*
+  Dispatch the correct rule for cnormRulesDispatcher for Declaration and Statement
+*/
+function _dispatchRule(type_disp : value, local_node : node, code_chunk : value, dialect : value)
+{
+	// set the rule dispatcher
+	local_node = type_disp;
+	// initialize a dialect
+        insert local_node.dialect = dialect;
+	// call the rule dispatcher
+	parseStringAsBNF("patchLib/cnormRulesDispatcher.cwp", local_node, code_chunk);
+	// erase the artefact
+	local_node = "";
+	// test if error
+	if (existVariable(local_node.error))
+	{cnormTraceError(local_node);}
+	return true;
+}
+
+// create a declaration in a global block
+// local_node : a __root_block__
+// chunk : a string of C declaration code
+function cnormPatchGlobalDeclaration(local_node : node, chunk : value, dialect : value)
+{
+	return _dispatchRule("declaration", local_node, chunk, dialect);
+}
+
+// add both declaration or statement into a local block
+// local_node : a classic __block__
+// chunk : a string of C code
+function cnormPatchCode(local_node : node, chunk : value, dialect : value)
+{
+	return _dispatchRule("line_of_code", local_node, chunk, dialect);
+}
+
+// add parameters into parameter list
+// local_node : get by cnormPatchGetFunctionParamNode
+// chunk : a string of valid C code found in parameter list
+function cnormPatchParam(local_node : node, chunk : value, dialect : value)
+{
+	return _dispatchRule("function_param", local_node, chunk, dialect);
+}
+
+// add fields into field list
+// local_node : get by cnormPatchGetComposedFiedlNode
+// chunk : a string of valid C code found in struct/union block
+function cnormPatchField(local_node : node, chunk : value, dialect : value)
+{
+	return _dispatchRule("field", local_node, chunk, dialect);
+}
+
+// add enums into enum list
+// local_node : get by cnormPatchGetEnumBlockNode
+// chunk : a string of valid C code found inside a enum block
+function cnormPatchEnum(local_node : node, chunk : value, dialect : value)
+{
+	return _dispatchRule("enum_field", local_node, chunk, dialect);
+}
+
+// add one expression into conditional
+// local_node : get by cnormPatchGetStmtConditionalExpr
+// chunk : a string of valid C code found inside a conditional
+function cnormPatchExpression(local_node : node, chunk : value, dialect : value)
+{
+	return _dispatchRule("expression", local_node, chunk, dialect);
+}
+
+// slow lookup (cf typeHandling to create index and use fast lookup function)
+// local_node : a __block__ where is defined the thing we search
+// name : name of the thing we search
+// list_out_ref : output collected list of reference of all things named as name
+function cnormPatchFetchLookup(local_node : node, name : value, list_out_ref : node)
+{
+	if (!cnormNode_checkBlock(local_node))
+	{return false;}
+	local nFound = 0;
+	foreach item in local_node.block
+	{
+		if 	(item.name == name
+			|| (existVariable(item.ctype) && existVariable(item.ctype.identifier) && item.ctype.identifier == name)
+			)
+		{
+			nFound = $nFound + 1$;
+			pushItem list_out_ref;
+			ref list_out_ref#back = item;
+		}
+	}
+	return nFound;
+}
+
+// inject a block into the inject point
+// local_node : a __block__ connected to the global AST
+// name : key name of the injection point
+// inject_code : a __block__ of crafted C code to put in the injection point
+function cnormPatchCopyToInjectPoint(local_node : node, name : value, inject_code : node)
+{	
+	local rootNode;
+	if (!cnormNode_searchRoot(local_node, rootNode) && !cnormNode_checkBlock(inject_code) 
+		&& !existVariable(rootNode.block.injects) && !findElement(name, rootNode.block.injects))
+	{return false;}
+	local curIndex = rootNode.block.injects[name].idx;
+	localref base = rootNode.block.injects[name].base;
+	foreach chunk in inject_code.block
+	{
+		local sKey = "_" + $getArraySize(base.block) + 1$;
+		insertElementAt(base.block, sKey, curIndex);
+		setall base.block#[curIndex] = chunk;
+		curIndex = $curIndex + 1$;
+	}
+	return true;
+}
+
+// get a reference on the inject point
+// local_node : a __block__ connected to the global AST
+// name : key name of the injection point
+// out_ref : output reference of the inject point
+function cnormPatchGetInjectPoint(local_node : node, name : value, out_ref : reference)
+{
+	local rootNode;
+	if (!cnormNode_searchRoot(local_node, rootNode) && !existVariable(rootNode.block.injects) && !findElement(name, rootNode.block.injects))
+	{return false;}
+	ref out_ref = rootNode.block.injects[name];
+	return true;
+}
+
+// get the node referenced by the injection point
+// local_node : the injection point
+function cnormPatchGetInjectPointNode(local_node : node, name : value, index : value, out_ref : reference)
+{
+	local rootNode;
+	if (!cnormNode_searchRoot(local_node, rootNode) && !existVariable(rootNode.block.injects) && !findElement(name, rootNode.block.injects))
+	{return false;}
+	local idx = $rootNode.block.injects[name].idx + index$;
+	localref base = rootNode.block.injects[name].base.block;
+	ref out_ref = base#[idx];
+	return true;
+}
+
+// get the block of one struct/union
+// local_node : a declaration node of a struct/union
+// out_ref : output reference to use with cnormPatchField
+function cnormPatchGetComposedFiedlNode(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkDecl(local_node) && !cnormNode_checkIsComposed(local_node.ctype))
+	{return false;}
+        return cnormNodeDecl_GetBody(local_node.ctype, out_ref);
+}
+
+// get the block of one enum
+// local_node : a declaration node of a enum
+// out_ref : output reference to use with cnormPatchEnum
+function cnormPatchGetEnumBlockNode(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkDecl(local_node) && local_node.cdecl_type != "__enum__")
+	{return false;}
+	ref out_ref = local_node.ctype;
+	return true;
+}
+
+// check the node and get a ref to the body
+// local_node : a definition node of a function
+// out_ref : output reference to use with cnormPatchCode
+function cnormPatchGetFunctionBlockNode(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkIsFuncDefinition(local_node))
+	{return false;}
+	ref out_ref = local_node.body;
+	return true;
+}
+
+// check the node and get a ref to the parameter list
+// local_node : a declaration/definition of a function 
+// out_ref : output reference to use with cnormPatchParam
+function cnormPatchGetFunctionParamNode(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkIsFuncDefinition(local_node) && !cnormNode_checkIsFuncDeclaration(local_node))
+	{return false;}
+	ref out_ref = local_node.ctype.param;
+	return true;
+}
+
+// create an injection point on the last node of the block local_node
+// local_node : use the last node of this __block__
+// name : key name of the injection point
+function cnormPatchInjectPointInPlace(local_node : node, name : value)
+{
+	local rootNode;
+	if (!cnormNode_checkBlock(local_node))
+	{	cnormNodeBlock(local_node);}
+	if (!cnormNode_searchRoot(local_node, rootNode))//workaround
+	{	return false;}
+	if (!existVariable(rootNode.block.injects))
+	{insert rootNode.block.injects;}
+	local curIndex = getArraySize(local_node.block);
+	insert rootNode.block.injects[name].base;
+	ref rootNode.block.injects[name].base = local_node;
+	insert rootNode.block.injects[name].idx = curIndex;
+	return true;
+}
+
+function cnormPatchSetInjectPointLabel(local_node : node, label : value)
+{
+	local rootNode;
+	if (!cnormNode_checkBlock(local_node))
+	{return false;}
+	if (!cnormNode_searchRoot(local_node, rootNode))//workaround
+	{	return false;}
+	if (!existVariable(rootNode.block.injects))
+	{insert rootNode.block.injects;}
+	// itere the block and found the label
+	local idx = 0;
+	foreach line in local_node.block
+	{
+		if (line.type == "__stmt__" && line.stmt_type == "__label__" && line.label == label)
+		{
+			insert rootNode.block.injects[label].base;
+			ref rootNode.block.injects[label].base = local_node;
+			insert rootNode.block.injects[label].idx = idx;
+			return true;
+		}
+		idx = $idx + 1$;
+	}
+	return false;
+}
+
+//????? to erase???
+function cnormPatchInjectPoint(local_node : node)
+{
+	clearVariable(local_node);
+	insert local_node.base;
+	insert local_node.idx;
+}
+
+// reorder fields of struct or parameters of function
+// local_node : a __block__ node get by cnormPatchGetFunctionParamNode/cnormPatchGetFunctionBlockNode/cnormPatchGetComposedFiedlNode
+// map : just the list of the parameter/field in the new order
+function cnormPatchReorderFieldParamAll(local_node : node, map : node)
+{
+	if (!existVariable(local_node.map))
+	{return false;}
+	// erase all fields/params mapping with a new one
+	local tmpMap;
+	setall tmpMap = local_node.map;
+	removeAllElements(local_node.map);
+	foreach item in map
+	{insert local_node.map[item] = tmpMap[item];}
+	return true;
+}
+
+// change the order of only one parameter (shift the others)
+// local_node : a __block__ node get by cnormPatchGetFunctionParamNode/cnormPatchGetFunctionBlockNode/cnormPatchGetComposedFiedlNode
+// name : the name of the parameter/field
+// index : the new index in the parameter/field list
+function cnormPatchReorderFieldParamOne(local_node : node, name : value, index : value)
+{
+	if (!existVariable(local_node.map))
+	{return false;}
+	// index can't be greater than the number of param mapped
+	if ($index > getArraySize(local_node.map)$)
+	{return false;}
+	// insert name at the index pos and shift all
+	local tmpMap;
+	setall tmpMap = local_node.map;
+	removeAllElements(local_node.map);
+	foreach item in tmpMap
+	{
+		if (item.key() != name)
+		{	insert local_node.map[item.key()] = tmpMap[item.key()];}
+	}
+	insertElementAt(local_node.map, name, index);
+	local_node.map#[index] = tmpMap[name];
+	return true;
+}
+
+
+function cnormPatchGetStmtConditionalExpr(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkStmt(local_node) && local_node.stmt_type != "__cond__" && local_node.stmt_type != "__do__"
+		&& local_node.stmt_type != "__for__")
+	{return false;}
+	ref out_ref = local_node.condition;
+	return true;
+}
+
+function cnormPatchGetStmtConditionalBody(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkStmt(local_node) && local_node.stmt_type != "__cond__" && local_node.stmt_type != "__do__"
+		&& local_node.stmt_type != "__for__")
+	{return false;}
+	ref out_ref = local_node.body;
+	return true;
+}
+
+function cnormPatchGetStmtIfThen(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkStmt(local_node) && local_node.name != "if")
+	{return false;}
+	ref out_ref = local_node.then;
+	return true;
+}
+
+function cnormPatchGetStmtIfElse(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkStmt(local_node) && local_node.name != "if")
+	{return false;}
+	if (!existVariable(local_node.else))
+	{insert local_node.else;}
+	cnormNode_TerminalId(local_node.else, "");
+	ref out_ref = local_node.else;
+	return true;
+}
+
+function cnormPatchGetStmtForIncr(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkStmt(local_node) && local_node.stmt_type != "__for__")
+	{return false;}
+	ref out_ref = local_node.increment;
+	return true;
+}
+
+function cnormPatchGetStmtForInit(local_node : node, out_ref : reference)
+{
+	if (!cnormNode_checkStmt(local_node) && local_node.stmt_type != "__for__")
+	{return false;}
+	ref out_ref = local_node.initialize;
+	return true;
+}
+
+// rename a type
+// local_node : the __block__ where the type is defined
+// oldname : old name of the typedef
+// newname : new name of the typedef
+function cnormPatchRenameType(local_node : node, oldname : value, newname : value)
+{
+	if (!cnormNode_checkDecl(local_node) && local_node.ctype.storage != "typedef")
+	{return false;}
+	// change type name
+	local_node.name = newname;
+	// follow the parent context to found where the type is indexed
+	local dummy;
+	local slotid = typeHandling_getid(local_node);
+	ref local_node#root.block_ref[slotid].types[oldname] = dummy;
+	removeElement(local_node#root.block_ref[slotid].types, oldname);
+	ref local_node#root.block_ref[slotid].types[newname] = local_node;
+	return true;
+}
+
+#end
