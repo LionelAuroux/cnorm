@@ -55,11 +55,18 @@ class InternalCnorm_Test(unittest.TestCase):
         e = nodes.Literal('42')
         self.assertEqual(str(e.to_c()), "42", "Failed to convert to C")
         e = nodes.Binary(nodes.Raw('+'), [nodes.Id('a'), nodes.Literal('12')])
+        p = e
         self.assertEqual(str(e.to_c()), "a + 12", "Failed to convert to C")
         e = nodes.Func(nodes.Id('f'), [nodes.Id('a'), nodes.Literal('12')])
         self.assertEqual(str(e.to_c()), "f(a, 12)", "Failed to convert to C")
         e = nodes.Ternary('', [nodes.Id('a'), nodes.Literal('1'), nodes.Literal('2')])
         self.assertEqual(str(e.to_c()), "a ? 1 : 2", "Failed to convert to C")
+        e = nodes.Unary(nodes.Raw('++'), [nodes.Id('a')])
+        self.assertEqual(str(e.to_c()), "++a", "Failed to convert to C")
+        e = nodes.Paren('', [p])
+        self.assertEqual(str(e.to_c()), "(a + 12)", "Failed to convert to C")
+        e = nodes.Post(nodes.Raw('++'), [nodes.Id('a')])
+        self.assertEqual(str(e.to_c()), "a++", "Failed to convert to C")
 
     def test_03_basicstmt(self):
         """Test cnorm statement nodes"""

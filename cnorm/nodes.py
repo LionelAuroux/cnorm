@@ -21,6 +21,12 @@ class Func(Expr):
 class Unary(Func):
     """For unary operator"""
 
+class Paren(Unary):
+    """For () expression"""
+
+class Post(Unary):
+    """For post{inc,dec} expression"""
+
 class Binary(Func):
     """For binary operator"""
 

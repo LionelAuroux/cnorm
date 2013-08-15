@@ -112,7 +112,7 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(res, "Failed to parse a multiplicative_expression")
         self.assertTrue(type(res) is nodes.Binary, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "12 * 4", "Failed to get the correct node value")
-        res = expr.parse("12    *   b   / c   %42                /   e                 ", "multiplicative_expression")
+        res = expr.parse("12 * b / c %42 / e", "multiplicative_expression")
         self.assertTrue(res, "Failed to parse a multiplicative_expression")
         self.assertTrue(type(res) is nodes.Binary, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "12 * b / c % 42 / e", "Failed to get the correct node value")
@@ -209,9 +209,33 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(str(res.to_c()) == "a = 5 + 4 += b - d <<= 3", "Failed to get the correct node value")
         # expression
         res = expr.parse("a = 5, b = c, f >>= 42", "expression")
-        self.assertTrue(res, "Failed to parse a assignement_expression")
+        self.assertTrue(res, "Failed to parse a expression")
         self.assertTrue(type(res) is nodes.Binary, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "a = 5, b = c, f >>= 42", "Failed to get the correct node value")
+        # ()
+        res = expr.parse("(a * (1 + b))", "expression")
+        self.assertTrue(res, "Failed to parse an () expression")
+        self.assertTrue(type(res) is nodes.Paren, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "(a * (1 + b))", "Failed to get the correct node value")
+        # unary
+        res = expr.parse("+a * -1 + -b", "expression")
+        self.assertTrue(res, "Failed to parse an expression with unarys")
+        self.assertTrue(type(res) is nodes.Binary, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "+a * -1 + -b", "Failed to get the correct node value")
+        # post
+        res = expr.parse("a++ * --c++ + ++b", "expression")
+        self.assertTrue(res, "Failed to parse an expression with post/pre")
+        self.assertTrue(type(res) is nodes.Binary, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "a++ * --c++ + ++b", "Failed to get the correct node value")
+        # func call
+        res = expr.parse("a()", "expression")
+        self.assertTrue(res, "Failed to parse an expression with func")
+        self.assertTrue(type(res) is nodes.Func, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "a()", "Failed to get the correct node value")
+        res = expr.parse("a(b, 12 + 4, ++z)", "expression")
+        self.assertTrue(res, "Failed to parse an expression with func")
+        self.assertTrue(type(res) is nodes.Func, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "a(b, 12 + 4, ++z)", "Failed to get the correct node value")
 
     def test_02_stmt(self):
         stmt = statement.Statement()

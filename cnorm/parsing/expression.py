@@ -161,17 +161,57 @@ class Expression(Grammar, Literal):
 
         mul_op ::= @ignore('null') [['*'|'/'|'%']:op !'='] #new_raw(_, op);
         multiplicative_expression ::=
-            primary_expression:_
+            unary_expression:_
             [   
                 mul_op:op
-                primary_expression:param
+                unary_expression:param
                 #new_binary(_, op, param)
             ]*
         ;
 
+        unary_op ::= @ignore('null') 
+            ["++"
+            |"--"
+            |"&&"
+            | '&' !'='
+            | '*' !'='
+            | '~' !'='
+            | '!' !'='
+            | '+' !'='
+            | '-' !['>'|'=']
+            ]:op #new_raw(_, op)
+        ;
+        unary_expression ::=
+            postfix_expression:_
+            | unary_op:op unary_expression:expr #new_unary(_, op, expr)
+            // | sizeof
+        ;
+
+        // ***
+        postfix_expression ::=
+            primary_expression:_
+            [
+                '[' expression ']'
+                | '(' func_arg_list?:args ')' #new_func_call(_, _, args)
+                | '.' identifier
+                | "->" identifier
+                | ["++"|"--"]:op #new_raw(op, op) #new_post(_, op, _)
+            ]?
+        ;
+
+        func_arg_list ::=
+            assignement_expression:a #new_arg(_, a)
+            [   ','
+                assignement_expression:a #new_arg(_, a)
+            ]*
+        ;
+
+        // ***
+
         primary_expression ::=
-            Literal.literal:_
-            | identifier:_
+            [Literal.literal
+            | identifier]:_
+            | '(' expression:expr ')' #new_paren(_, expr)
         ;
 
         identifier ::= @ignore('null')
@@ -199,6 +239,36 @@ def new_ternary(self, ast, then_expr, else_expr):
 @meta.hook(Expression)
 def new_binary(self, ast, op, param):
     ast.node = nodes.Binary(op.node, [ast.node, param.node])
+    return True
+
+@meta.hook(Expression)
+def new_unary(self, ast, op, param):
+    ast.node = nodes.Unary(op.node, [param.node])
+    return True
+
+@meta.hook(Expression)
+def new_paren(self, ast, expr):
+    ast.node = nodes.Paren("()", [expr.node])
+    return True
+
+@meta.hook(Expression)
+def new_post(self, ast, op, param):
+    ast.node = nodes.Post(op.node, [param.node])
+    return True
+
+@meta.hook(Expression)
+def new_arg(self, ast, arg):
+    if not hasattr(ast, 'node'):
+        ast.node = []
+    ast.node.append(arg.node)
+    return True
+
+@meta.hook(Expression)
+def new_func_call(self, ast, call, args):
+    if hasattr(args, 'node'):
+        ast.node = nodes.Func(call.node, args.node)
+    else:
+        ast.node = nodes.Func(call.node, [])
     return True
 
 @meta.hook(Expression)
