@@ -189,9 +189,21 @@ def to_c(self):
 def to_c(self):
     return fmt.sep("", [self.call_expr.to_c(), self.params[0].to_c()])
 
+@meta.add_method(nodes.Dot)
+def to_c(self):
+    return fmt.sep(".", [self.call_expr.to_c(), self.params[0].to_c()])
+
+@meta.add_method(nodes.Arrow)
+def to_c(self):
+    return fmt.sep("->", [self.call_expr.to_c(), self.params[0].to_c()])
+
 @meta.add_method(nodes.Paren)
 def to_c(self):
     return fmt.block('(', ')', [self.params[0].to_c()])
+
+@meta.add_method(nodes.Array)
+def to_c(self):
+    return fmt.sep("", [self.call_expr.to_c(), fmt.block('[', ']', [self.params[0].to_c()])])
 
 @meta.add_method(nodes.Post)
 def to_c(self):

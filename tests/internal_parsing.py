@@ -236,6 +236,21 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(res, "Failed to parse an expression with func")
         self.assertTrue(type(res) is nodes.Func, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "a(b, 12 + 4, ++z)", "Failed to get the correct node value")
+        # array call
+        res = expr.parse("tab[z * i]", "expression")
+        self.assertTrue(res, "Failed to parse an expression with array indexes")
+        self.assertTrue(type(res) is nodes.Array, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "tab[z * i]", "Failed to get the correct node value")
+        # field
+        res = expr.parse("s.i", "expression")
+        self.assertTrue(res, "Failed to parse an expression with array indexes")
+        self.assertTrue(type(res) is nodes.Dot, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "s.i", "Failed to get the correct node value")
+        # field deref
+        res = expr.parse("p->i", "expression")
+        self.assertTrue(res, "Failed to parse an expression with array indexes")
+        self.assertTrue(type(res) is nodes.Arrow, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "p->i", "Failed to get the correct node value")
 
     def test_02_stmt(self):
         stmt = statement.Statement()

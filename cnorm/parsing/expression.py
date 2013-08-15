@@ -187,14 +187,13 @@ class Expression(Grammar, Literal):
             // | sizeof
         ;
 
-        // ***
         postfix_expression ::=
             primary_expression:_
             [
-                '[' expression ']'
+                '[' expression:expr ']' #new_array_call(_, _, expr)
                 | '(' func_arg_list?:args ')' #new_func_call(_, _, args)
-                | '.' identifier
-                | "->" identifier
+                | '.' identifier:i #new_dot(_, _, i)
+                | "->" identifier:i #new_arrow(_, _, i)
                 | ["++"|"--"]:op #new_raw(op, op) #new_post(_, op, _)
             ]?
         ;
@@ -205,8 +204,6 @@ class Expression(Grammar, Literal):
                 assignement_expression:a #new_arg(_, a)
             ]*
         ;
-
-        // ***
 
         primary_expression ::=
             [Literal.literal
@@ -261,6 +258,21 @@ def new_arg(self, ast, arg):
     if not hasattr(ast, 'node'):
         ast.node = []
     ast.node.append(arg.node)
+    return True
+
+@meta.hook(Expression)
+def new_array_call(self, ast, call, index):
+    ast.node = nodes.Array(call.node, [index.node])
+    return True
+
+@meta.hook(Expression)
+def new_dot(self, ast, call, field):
+    ast.node = nodes.Dot(call.node, [field.node])
+    return True
+
+@meta.hook(Expression)
+def new_arrow(self, ast, call, field):
+    ast.node = nodes.Arrow(call.node, [field.node])
     return True
 
 @meta.hook(Expression)
