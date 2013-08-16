@@ -132,10 +132,10 @@ class FuncType(CType):
 class Decl(Expr):
     """For basic declaration"""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, ct=PrimaryType('int')):
         Expr.__init__(self)
         self._name = name
-        self._ctype = PrimaryType('int')
+        self._ctype = ct
 
     @property
     def ctype(self) -> CType:
