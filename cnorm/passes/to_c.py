@@ -56,7 +56,7 @@ def type_to_c(self, lstypes, lsres, thedecl):
         paren.lsdata.append(thedecl.get_declarator_str())
 
 @meta.add_method(nodes.ArrayType)
-def type_to_c(self, lstypes, lsres, thedecl, idxhead=None):
+def type_to_c(self, lstypes: iter, lsres: fmt.ident, thedecl: nodes.node, idxhead:int=None):
     if idxhead == None:
         idxdeclarator = len(lsres)
         lsres.append("declarator")

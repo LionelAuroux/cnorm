@@ -47,6 +47,15 @@ class InternalCnorm_Test(unittest.TestCase):
         d.ctype.add_in(nodes.ArrayType())
         self.assertEqual(str(d.to_c()), "volatile int * const (*a[][]);\n",
             "Failed to convert to C")
+        d = nodes.Decl('tf', nodes.PrimaryType('double'))
+        #d.ctype.add_in(nodes.ArrayType())
+        #d.ctype.add_out(nodes.QualType(nodes.Qualifiers.CONST))
+        d.ctype.add_in(nodes.QualType(nodes.Qualifiers.CONST))
+        d.ctype.add_in(nodes.ArrayType())
+        print(repr(d))
+        print(str(d.to_c()))
+        self.assertEqual(str(d.to_c()), "const double tf[];\n",
+            "Failed to convert to C")
 
     def test_02_basicexpr(self):
         """Test cnorm expression nodes"""

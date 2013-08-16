@@ -66,7 +66,7 @@ class Statement(Grammar, Expression):
         ;
 
         for_statement ::=
-            '(' 
+            '(' // TODO: optionals
                 expression:init ';'
                 expression:cond ';'
                 expression:inc
