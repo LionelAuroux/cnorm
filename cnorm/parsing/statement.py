@@ -36,8 +36,7 @@ class Statement(Grammar, Expression):
         ;
 
         line_of_code ::=
-            // TODO:add declaration
-                single_statement:_
+            single_statement:_
         ;
 
         labeled_statement ::=
