@@ -1,80 +1,101 @@
-from pyrser import meta
+from pyrser import meta, fmt
 from cnorm import nodes
-from cnorm.passes import fmt
 
 # DECL
 
 @meta.add_method(nodes.Decl)
 def to_c(self):
+    fmtdecl = fmt.sep("", [self._name])
+    return fmt.end(';\n', [self._ctype.type_to_c(fmtdecl)])
+
+@meta.add_method(nodes.PrimaryType)
+def type_to_c(self, fmtdecl: fmt.indentable):
     lsdecl = []
     # storage
-    if self._ctype._storage != nodes.Storages.AUTO:
-        lsdecl.append(nodes.Storages.rmap[self._ctype._storage].lower())
+    if self._storage != nodes.Storages.AUTO:
+        lsdecl.append(nodes.Storages.rmap[self._storage].lower())
     # iterator on declarator type
-    itdt = reversed(self._ctype._decltypes)
+    itdt = reversed(self._decltypes)
     # add here FIRST?! QUAL if != pointer
-    if type(self._ctype._decltypes[-1]) is nodes.QualType:
+    if len(self._decltypes) > 0 and type(self._decltypes[-1]) is nodes.QualType:
         item = next(itdt)
         lsdecl.append(nodes.Qualifiers.rmap[item._qualifier].lower())
     # type identifier
-    lsdecl.append(self._ctype._identifier)
+    lsdecl.append(self._identifier)
     # iter thru quals
     item = next(itdt, None)
     if item != None:
-        item.type_to_c(itdt, lsdecl, self)
-    return fmt.end(';\n', [fmt.sep(' ', lsdecl)])
+        item.type_to_c(itdt, lsdecl, fmtdecl)
+    else:
+        lsdecl.append(fmtdecl)
+    return fmt.sep(' ', lsdecl)
 
-@meta.add_method(nodes.Decl)
-def get_declarator_str(self):
-    return self._name
+@meta.add_method(nodes.FuncType)
+def type_to_c(self, fmtdecl: fmt.indentable):
+    print("entre %s" % str(fmtdecl))
+    lsp = []
+    for p in self._params:
+        ptoc = p._ctype.type_to_c(fmt.sep("", [p._name]))
+        lsp.append(ptoc)
+        print("Param intern %s" % str(ptoc))
+    fmtlist = fmt.sep(', ', lsp)
+    fmtparams = fmt.block('(', ')', [fmtlist])
+    itdt = reversed(self._decltypes)
+    item = next(itdt, None)
+    if item != None:
+        # iterator on declarator type
+        #paren = fmt.sep('', [fmt.block('(', ')', [])])
+        #item.type_to_c(itdt, paren.lsdata[0].lsdata, fmtdecl)
+        paren = fmt.block('(', ')', [])
+        #item.type_to_c(itdt, paren.lsdata[0].lsdata, fmtdecl)
+        print("param extern")
+        item.type_to_c(itdt, paren.lsdata, fmtdecl)
+        fmtdecl = paren
+        print("intern: %s" % str(fmtdecl))
+    fmtdecl.lsdata.append(fmtparams)
+    print("ajout return type")
+    return self._return_type.type_to_c(fmtdecl)
 
 @meta.add_method(nodes.PointerType)
-def type_to_c(self, lstypes, lsres, thedecl):
+def type_to_c(self, lstypes, lsres, fmtdecl: fmt.indentable):
     lsres.append('*')
     item = next(lstypes, None)
     if item != None:
-        return item.type_to_c(lstypes, lsres, thedecl)
-    lsres.append(thedecl.get_declarator_str())
+        return item.type_to_c(lstypes, lsres, fmtdecl)
+    lsres.append(fmtdecl)
 
 @meta.add_method(nodes.QualType)
-def type_to_c(self, lstypes, lsres, thedecl):
+def type_to_c(self, lstypes, lsres, fmtdecl: fmt.indentable):
     if self._qualifier != nodes.Qualifiers.AUTO:
         lsres.append(nodes.Qualifiers.rmap[self._qualifier].lower())
     item = next(lstypes, None)
     if item != None:
-        return item.type_to_c(lstypes, lsres, thedecl)
-    lsres.append(thedecl.get_declarator_str())
+        return item.type_to_c(lstypes, lsres, fmtdecl)
+    lsres.append(fmtdecl)
 
 @meta.add_method(nodes.ParenType)
-def type_to_c(self, lstypes, lsres, thedecl):
+def type_to_c(self, lstypes, lsres, fmtdecl: fmt.indentable):
     paren = fmt.block('(', ')', [])
     lsres.append(paren)
     item = next(lstypes, None)
     if item != None:
-        item.type_to_c(lstypes, paren.lsdata, thedecl)
-    else:
-        paren.lsdata.append(thedecl.get_declarator_str())
+        return item.type_to_c(lstypes, paren.lsdata, fmtdecl)
+    paren.lsdata.append(fmtdecl)
 
 @meta.add_method(nodes.ArrayType)
-def type_to_c(self, lstypes: iter, lsres: fmt.ident, thedecl: nodes.node, idxhead:int=None):
-    if idxhead == None:
-        idxdeclarator = len(lsres)
-        lsres.append("declarator")
-    else:
-        idxdeclarator = idxhead
+def type_to_c(self, lstypes: iter, lsres: fmt.indentable, fmtdecl: fmt.indentable):
+    # add the placeholder for the array
     ary = fmt.block('[', ']', [])
-    lsres.append(ary)
+    fmtdecl.lsdata.append(ary)
     # for expression in []
     subexpr = self._expr
     if subexpr != None:
-        subexpr.type_to_c(lstypes, ary.lsdata, thedecl)
+        subexpr.type_to_c(lstypes, lsres, ary.lsdata)
     # for expression following []
     item = next(lstypes, None)
     if item != None:
-        item.type_to_c(lstypes, lsres, thedecl, idxdeclarator)
-    if idxhead == None:
-        # finish so add declarator
-        lsres[idxdeclarator] = thedecl.get_declarator_str()
+        return item.type_to_c(lstypes, lsres, fmtdecl)
+    lsres.append(fmtdecl)
 
 # STATEMENT
 

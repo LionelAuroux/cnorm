@@ -1,8 +1,8 @@
 import unittest
+from pyrser import fmt
 from cnorm import nodes
 from cnorm.passes import dump_nodes
 from cnorm.passes import to_c
-from cnorm.passes import fmt
 
 class InternalCnorm_Test(unittest.TestCase):
 
@@ -34,6 +34,8 @@ class InternalCnorm_Test(unittest.TestCase):
     def test_01_basicdecl(self):
         """Test cnorm nodes construction"""
         d = nodes.Decl('a')
+        self.assertEqual(str(d.to_c()), "int a;\n",
+            "Failed to convert to C")
         d.ctype.add_in(nodes.QualType(nodes.Qualifiers.VOLATILE))
         d.ctype.add_in(nodes.PointerType())
         d.ctype.add_in(nodes.QualType(nodes.Qualifiers.CONST))
@@ -48,14 +50,22 @@ class InternalCnorm_Test(unittest.TestCase):
         self.assertEqual(str(d.to_c()), "volatile int * const (*a[][]);\n",
             "Failed to convert to C")
         d = nodes.Decl('tf', nodes.PrimaryType('double'))
-        #d.ctype.add_in(nodes.ArrayType())
-        #d.ctype.add_out(nodes.QualType(nodes.Qualifiers.CONST))
-        d.ctype.add_in(nodes.QualType(nodes.Qualifiers.CONST))
         d.ctype.add_in(nodes.ArrayType())
-        print(repr(d))
-        print(str(d.to_c()))
+        d.ctype.add_out(nodes.QualType(nodes.Qualifiers.CONST))
         self.assertEqual(str(d.to_c()), "const double tf[];\n",
             "Failed to convert to C")
+        ft = nodes.FuncType(nodes.PrimaryType('double'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
+        f = nodes.Decl('f', ft)
+        self.assertEqual(str(f.to_c()), "double f(size_t a, int b);\n",
+            "Failed to convert to C")
+        f.ctype.add_in(nodes.PointerType())
+        print(str(f.to_c()))
+        self.assertEqual(str(f.to_c()), "double (*f(size_t a, int b));\n",
+            "Failed to convert to C")
+        ft2 = nodes.FuncType(f.ctype, [])
+        f2 = nodes.Decl('f2', ft2)
+        print("f2: %r" % f2)
+        print(str(f2.to_c()))
 
     def test_02_basicexpr(self):
         """Test cnorm expression nodes"""

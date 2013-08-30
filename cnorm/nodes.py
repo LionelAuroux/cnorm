@@ -124,10 +124,20 @@ class PrimaryType(CType):
 class FuncType(CType):
     """For function in declaration"""
 
-    def __init__(self, rt: CType=PrimaryType('int')):
+    def __init__(self, rt: CType=PrimaryType('int'), params=[]):
         CType.__init__(self)
-        self._params = []
-        self._return_type = [rt]
+        self._params = params
+        self._return_type = rt
+        # TODO: func definition
+        # self.body
+
+    @property
+    def return_type(self):
+        return self._return_type
+
+    @property
+    def params(self):
+        return self._params
 
 class Decl(Expr):
     """For basic declaration"""
@@ -159,6 +169,24 @@ class BlockStmt(Stmt):
     def __init__(self, block: [ExprStmt]):
         parsing.Node.__init__(self)
         self.block = block
+
+    def func(self, name: str):
+        """return the func defined named name"""
+
+    def var(self, name: str):
+        """return the var instancied named name"""
+
+    def type(self, name: str):
+        """return the complete definition of type 'name'"""
+
+    def declfuncs(self, name: str):
+        """return all declaration of function 'name'"""
+
+    def declvars(self, name: str):
+        """return all declaration of variable 'name'"""
+
+    def decltypes(self, name: str):
+        """return all declaration of type 'name'"""
 
 class RootBlockStmt(BlockStmt):
     """Root Block statement"""

@@ -3,7 +3,7 @@ from pyrser import meta
 from pyrser import error
 from pyrser import grammar
 from cnorm import nodes
-from cnorm.parsing import literal, expression, statement
+from cnorm.parsing import literal, expression, statement, declaration
 
 class InternalParsing_Test(unittest.TestCase):
 
@@ -315,7 +315,22 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(type(res) is nodes.For, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "for (b = 0; a < 12; b += 1)\n    b = 1;\n", "Failed to get the correct node value")
         
-
+    def test_03_decl(self):
+        decl = declaration.Declaration()
+        # basic decl
+        res = decl.parse("int a;", "declaration")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        print(repr(res))
+        print(str(res.to_c()))
+        #self.assertTrue(type(res) is nodes.ExprStmt, "Failed to set the correct type node")
+        #self.assertTrue(str(res.to_c()) == "a = 4 * 5 + 12;\n", "Failed to get the correct node value")
+        # complexe decl
+        #res = decl.parse("int main(){ int a;}", "cdecl")
+        #self.assertTrue(res, "Failed to parse a cdecl")
+        #print(repr(res))
+        #print(str(res.to_c()))
+        #self.assertTrue(type(res) is nodes.ExprStmt, "Failed to set the correct type node")
+        #self.assertTrue(str(res.to_c()) == "a = 4 * 5 + 12;\n", "Failed to get the correct node value")
 
 
 

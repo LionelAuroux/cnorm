@@ -8,6 +8,15 @@ class   indentable:
         self._indent = 0
         self._lsdata = None
 
+    def __repr__(self):
+        txt = str(type(self))
+        if len(self._lsdata) > 0:
+            txt += '('
+            for d in self._lsdata:
+                txt += ', ' + repr(d)
+            txt += ')'
+        return txt
+
     @property
     def lsdata(self) -> list:
         return self._lsdata

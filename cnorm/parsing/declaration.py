@@ -4,18 +4,24 @@ from pyrser.parsing.node import Node
 from cnorm import nodes
 from pyrser.grammar import Grammar
 from cnorm.parsing.statement import Statement
+from cnorm.parsing.expression import Idset
 
 class Declaration(Grammar, Statement):
     """
         interaction with other CNORM PART:
 
     """
-
+    entry = "translation_unit"
     grammar = """
 
+        translation_unit ::=
+            declaration*
+        ;
+
         declaration ::=
-            asm_decl
-            | c_decl
+            //asm_decl
+            //| 
+            c_decl:_
         ;
 
         asm_decl ::=
@@ -31,35 +37,44 @@ class Declaration(Grammar, Statement):
             ';'//?
         ;
 
-        cdecl ::=
+        c_decl ::=
             declaration_specifier*
-            init_declarator?
+            init_declarator:init //?
+            #new_decl(_, init)
+            //[
+            //    ','
+            //    init_declarator
+            //]*
             [
-                ','
-                init_declarator
-            ]*
-            [
-                compound_statement
+                Statement.compound_statement
                 | ';'
             ]
         ;
 
+        // overload of Statement
+        line_of_code ::=
+            // TODO:add declaration
+                Declaration.declaration:_
+                | single_statement:_
+        ;
+
         declaration_specifier ::=
-            Base.id
-            [
-                composed_type_specifier
-                | enum_specifier
-                | typeof_expr
-                | asm_decl_follow
-                | attr_decl_follow
-            ]?
-            | typedef_name
+            Base.id:i
+            #new_decl_spec(i)
+            //[
+                //composed_type_specifier
+                //| enum_specifier
+                //| typeof_expr
+                //| asm_decl_follow
+                //| attr_decl_follow
+                //| typedef_name
+            //]?
         ;
 
         type_qualifier ::=
             Base.id
             // TODO: hooks
-            | attribute_decl
+            //| attribute_decl
         ;
 
         name_of_composed_type ::= Base.id ;
@@ -90,11 +105,6 @@ class Declaration(Grammar, Statement):
             identifier ['=' constant_expression]?
         ;
 
-        typedef_name ::=
-            identifier
-            // TODO: hooks
-        ;
-
         typeof_expr ::=
             '('
                 [
@@ -106,13 +116,13 @@ class Declaration(Grammar, Statement):
 
         init_declarator ::=
             declarator
-            [
-                ':' constant_expression
-            ]?
-            attribute_decl*
-            [
-                '=' initializer
-            ]?
+            //[
+            //    ':' constant_expression
+            //]?
+            //attribute_decl*
+            //[
+            //    '=' initializer
+            //]?
             !![','|';'|'{'|'}'] 
         ;
 
@@ -140,7 +150,8 @@ class Declaration(Grammar, Statement):
                 ')'
                 | function_or_variable_identifier?
             ]
-            direct_absolute_declarator
+            //direct_absolute_declarator
+            ['(' dummy_with_paren ')']? // TODO: erase
         ;
 
         direct_absolute_declarator ::=
@@ -246,7 +257,33 @@ class Declaration(Grammar, Statement):
             return res.node
         return res
 
-@meta.hook(Statement)
-def new_expr(self, ast, expr):
-    ast.node = nodes.ExprStmt(expr.node)
+@meta.hook(Declaration)
+def new_decl_spec(self, i):
+    if i.value in Idset:
+        if Idset[i.value] == "type":
+            self._current_decl_spec = nodes.PrimaryType(i.value)
+            return True
+        if Idset[i.value] == "storage":
+            return True
+        if Idset[i.value] == "qualifier":
+            return True
+        if Idset[i.value] == "funspecifier":
+            return True
+        if Idset[i.value] == "sign_unsigned":
+            return True
+        if Idset[i.value] == "sign_signed":
+            return True
+        if Idset[i.value] == "specifier_size":
+            return True
+        if Idset[i.value] == "specifier_size_size":
+            return True
+    return False
+
+@meta.hook(Declaration)
+def new_decl(self, ast, init):
+    # classical declaration
+    #print("<%s>" % init.value)
+    if hasattr(self, '_current_decl_spec'):
+       ast.node = nodes.Decl(init.value, self._current_decl_spec)
+    # else: no declspec! default int
     return True

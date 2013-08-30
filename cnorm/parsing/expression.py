@@ -5,6 +5,113 @@ from cnorm import nodes
 from pyrser.grammar import Grammar
 from cnorm.parsing.literal import Literal
 
+# TODO: handle dialect differently
+Idset = {
+            # ASM
+            "asm"                   : "asm",
+            "__asm"                 : "asm", 
+            "__asm__"               : "asm",
+            # ATTRIBUTE
+            "attribute"             : "attribute", 
+            "__attribute"           : "attribute",
+            "__attribute__"         : "attribute",
+            #      windows attribute 
+            "__declspec"            : "attribute",
+            ############
+            "auto"                  : "qualifier",
+            # SPECIFIER
+            #      sign
+            "unsigned"              : "sign_unsigned", 
+            "__unsigned"            : "sign_unsigned",
+            "__unsigned__"          : "sign_unsigned",
+            "signed"                : "sign_signed",
+            "__signed"              : "sign_signed",
+            "__signed__"            : "sign_signed",
+            #      size
+            "short"                 : "specifier_size",
+            "long"                  : "specifier_size_size",
+            #      composed
+            "struct"                : "specifier_block",
+            "union"                 : "specifier_block",
+            "enum"                  : "specifier_enum",
+            #      function
+            "inline"                : "funspecifier",
+            "__inline"              : "funspecifier",
+            "__inline__"            : "funspecifier",
+            "__forceinline"         : "funspecifier",
+            # STORAGE
+            "register"              : "storage",
+            "typedef"               : "storage",
+            "static"                : "storage",
+            "extern"                : "storage",
+            "__thread"              : "storage",
+            # QUALIFIER
+            "const"                 : "qualifier",
+            "volatile"              : "qualifier",
+            "restrict"              : "qualifier",
+            "__volatile"            : "qualifier",
+            "__volatile__"          : "qualifier",
+            "__const"               : "qualifier",
+            "__restrict"            : "qualifier",
+            #      windows qualifier 
+            "__cdecl"               : "qualifier",
+            "__stdcall"             : "qualifier",
+            "__fastcall"            : "qualifier",
+            "__w64"                 : "qualifier",
+            "__ptr32"               : "qualifier",
+            "__ptr64"               : "qualifier",
+            # TYPE
+            "void"                  : "type",
+            "char"                  : "type",
+            "int"                   : "type",
+            "float"                 : "type",
+            "double"                : "type",
+            "_Complex"              : "type",
+            "__complex"             : "type",
+            "__complex__"           : "type",
+            "_Imaginary"            : "type",
+            "__imag"                : "type",
+            "__imag__"              : "type",
+            "__real"                : "type",
+            "__real__"              : "type",
+            "_Bool"                 : "type",
+            "__label__"             : "type",
+            "__builtin_va_list"     : "type",
+            "__int8"                : "type",
+            "__int16"               : "type",
+            "__int32"               : "type",
+            "__int64"               : "type",
+            # SIZEOF/TYPEOF
+            #      sizeof
+            "sizeof"                : "sizeof",
+            "__alignof"             : "sizeof",
+            "__alignof__"           : "sizeof",
+            #      typeof
+            "typeof"                : "typeof",
+            "__typeof"              : "typeof",
+            "__typeof__"            : "typeof",
+            # UNARY OP
+            "__real"                : "unary",
+            "__real__"              : "unary",
+            "__imag"                : "unary",
+            "__imag__"              : "unary",
+            "__extension__"         : "unary",
+            # RESERVED KEYWORDS
+            "switch"                : "reserved",
+            "case"                  : "reserved",
+            "default"               : "reserved",
+            "if"                    : "reserved",
+            "else"                  : "reserved",
+            "while"                 : "reserved",
+            "do"                    : "reserved",
+            "for"                   : "reserved",
+            "goto"                  : "reserved",
+            "continue"              : "reserved",
+            "break"                 : "reserved",
+            "return"                : "reserved",
+            "__builtin_offsetof"    : "reserved"
+}
+
 class Expression(Grammar, Literal):
     """
         interaction with other CNORM PART:
@@ -303,110 +410,4 @@ def check_not_paren(self, c):
 
 @meta.hook(Expression)
 def check_is_id(self, identifier):
-    # TODO: handle dialect differently
-    idset = {
-                # ASM
-                "asm"                   : "asm",
-                "__asm"                 : "asm", 
-                "__asm__"               : "asm",
-                # ATTRIBUTE
-                "attribute"             : "attribute", 
-                "__attribute"           : "attribute",
-                "__attribute__"         : "attribute",
-                #      windows attribute 
-                "__declspec"            : "attribute",
-                ############
-                "auto"                  : "qualifier",
-                # SPECIFIER
-                #      sign
-                "unsigned"              : "sign_unsigned", 
-                "__unsigned"            : "sign_unsigned",
-                "__unsigned__"          : "sign_unsigned",
-                "signed"                : "sign_signed",
-                "__signed"              : "sign_signed",
-                "__signed__"            : "sign_signed",
-                #      size
-                "short"                 : "specifier_size",
-                "long"                  : "specifier_size_size",
-                #      composed
-                "struct"                : "specifier_block",
-                "union"                 : "specifier_block",
-                "enum"                  : "specifier_enum",
-                #      function
-                "inline"                : "funspecifier",
-                "__inline"              : "funspecifier",
-                "__inline__"            : "funspecifier",
-                "__forceinline"         : "funspecifier",
-                # STORAGE
-                "register"              : "storage",
-                "typedef"               : "storage",
-                "static"                : "storage",
-                "extern"                : "storage",
-                "__thread"              : "storage",
-                # QUALIFIER
-                "const"                 : "qualifier",
-                "volatile"              : "qualifier",
-                "restrict"              : "qualifier",
-                "__volatile"            : "qualifier",
-                "__volatile__"          : "qualifier",
-                "__const"               : "qualifier",
-                "__restrict"            : "qualifier",
-                #      windows qualifier 
-                "__cdecl"               : "qualifier",
-                "__stdcall"             : "qualifier",
-                "__fastcall"            : "qualifier",
-                "__w64"                 : "qualifier",
-                "__ptr32"               : "qualifier",
-                "__ptr64"               : "qualifier",
-                # TYPE
-                "void"                  : "type",
-                "char"                  : "type",
-                "int"                   : "type",
-                "float"                 : "type",
-                "double"                : "type",
-                "_Complex"              : "type",
-                "__complex"             : "type",
-                "__complex__"           : "type",
-                "_Imaginary"            : "type",
-                "__imag"                : "type",
-                "__imag__"              : "type",
-                "__real"                : "type",
-                "__real__"              : "type",
-                "_Bool"                 : "type",
-                "__label__"             : "type",
-                "__builtin_va_list"     : "type",
-                "__int8"                : "type",
-                "__int16"               : "type",
-                "__int32"               : "type",
-                "__int64"               : "type",
-                # SIZEOF/TYPEOF
-                #      sizeof
-                "sizeof"                : "sizeof",
-                "__alignof"             : "sizeof",
-                "__alignof__"           : "sizeof",
-                #      typeof
-                "typeof"                : "typeof",
-                "__typeof"              : "typeof",
-                "__typeof__"            : "typeof",
-                # UNARY OP
-                "__real"                : "unary",
-                "__real__"              : "unary",
-                "__imag"                : "unary",
-                "__imag__"              : "unary",
-                "__extension__"         : "unary",
-                # RESERVED KEYWORDS
-                "switch"                : "reserved",
-                "case"                  : "reserved",
-                "default"               : "reserved",
-                "if"                    : "reserved",
-                "else"                  : "reserved",
-                "while"                 : "reserved",
-                "do"                    : "reserved",
-                "for"                   : "reserved",
-                "goto"                  : "reserved",
-                "continue"              : "reserved",
-                "break"                 : "reserved",
-                "return"                : "reserved",
-                "__builtin_offsetof"    : "reserved"
-    }
-    return identifier.value not in idset
+    return identifier.value not in Idset
