@@ -1,0 +1,6 @@
+[run]
+branch = True
+omit =
+    type_handling/THandling.py
+    type_handling/TypeLang.py
+

@@ -1,2 +1,0 @@
-#!/bin/sh
-codeworker -nologo -I $CNORM_PATH/src -script $CNORM_PATH/src/cwDoc/cwDoc.cws -args $*

@@ -1,5 +1,5 @@
 from pyrser import meta, directives
-from pyrser.hooks import copy, print
+from pyrser.hooks import copy, echo
 from pyrser.parsing.node import Node
 from cnorm import nodes
 from pyrser.grammar import Grammar
@@ -117,7 +117,7 @@ class Expression(Grammar, Literal):
         interaction with other CNORM PART:
 
     """
-
+    entry = "expression"
     grammar = """
 
         /*
@@ -129,7 +129,7 @@ class Expression(Grammar, Literal):
             '{' dummy_with_brace* '}'
             | Base.string
             | Base.char
-            | Base.read_byte:c #check_not_brace(c)
+            | Base.read_char:c #check_not_brace(c)
             ]
         ;
 
@@ -138,7 +138,7 @@ class Expression(Grammar, Literal):
             '(' dummy_with_paren* ')'
             | Base.string
             | Base.char
-            | Base.read_byte:c #check_not_paren(c)
+            | Base.read_char:c #check_not_paren(c)
             ]
         ;
 
@@ -329,7 +329,7 @@ class Expression(Grammar, Literal):
 
     """
 
-    def parse(self, source, entry):
+    def parse(self, source, entry=None):
         res = Grammar.parse(self, source, entry)
         if hasattr(res, 'node'):
             return res.node

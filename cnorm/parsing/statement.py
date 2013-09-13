@@ -1,5 +1,5 @@
 from pyrser import meta, directives
-from pyrser.hooks import copy, print
+from pyrser.hooks import copy, echo
 from pyrser.parsing.node import Node
 from cnorm import nodes
 from pyrser.grammar import Grammar
@@ -12,7 +12,7 @@ class Statement(Grammar, Expression):
         Declaration.init_declarator -> compound_statement
         Expression.primary_expression -> block_item_list
     """
-
+    entry = "single_statement"
     grammar = """
 
         /*
@@ -113,7 +113,7 @@ class Statement(Grammar, Expression):
 
     """
 
-    def parse(self, source, entry):
+    def parse(self, source, entry=None):
         res = Grammar.parse(self, source, entry)
         if hasattr(res, 'node'):
             return res.node
