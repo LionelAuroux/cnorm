@@ -37,26 +37,40 @@ class InternalCnorm_Test(unittest.TestCase):
         d = nodes.Decl('a')
         self.assertEqual(str(d.to_c()), "int a;\n",
             "Failed to convert to C")
-        d.ctype.add_in(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        d.ctype.add_in(nodes.PointerType())
-        #print(repr(d.ctype))
-        #print(str(d.to_c()))
+        qual = d.ctype
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
         self.assertEqual(str(d.to_c()), "volatile int *a;\n",
             "Failed to convert to C")
-        d.ctype.add_in(nodes.QualType(nodes.Qualifiers.CONST))
-        self.assertEqual(str(d.to_c()), "volatile int * const a;\n",
+        qual = d.ctype
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
+        print(str(d.to_c()))
+        self.assertEqual(str(d.to_c()), "volatile int *const a;\n",
             "Failed to convert to C")
-        d.ctype.add_in(nodes.ParenType())
-        d.ctype.add_in(nodes.PointerType())
-        self.assertEqual(str(d.to_c()), "volatile int * const (*a);\n",
+        qual = d.ctype
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.ParenType())
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
+        self.assertEqual(str(d.to_c()), "volatile int *const (*a);\n",
             "Failed to convert to C")
-        d.ctype.add_in(nodes.ArrayType())
-        d.ctype.add_in(nodes.ArrayType())
-        self.assertEqual(str(d.to_c()), "volatile int * const (*a[][]);\n",
+        qual = d.ctype
+        qual = qual.link(nodes.ArrayType())
+        qual = qual.link(nodes.ArrayType())
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.ParenType())
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
+        self.assertEqual(str(d.to_c()), "volatile int *const (*a[][]);\n",
             "Failed to convert to C")
         d = nodes.Decl('tf', nodes.PrimaryType('double'))
-        d.ctype.add_in(nodes.ArrayType())
-        d.ctype.add_out(nodes.QualType(nodes.Qualifiers.CONST))
+        qual = d.ctype
+        qual = qual.link(nodes.ArrayType())
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         self.assertEqual(str(d.to_c()), "const double tf[];\n",
             "Failed to convert to C")
         ft = nodes.FuncType(nodes.PrimaryType('double'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
@@ -110,6 +124,11 @@ class InternalCnorm_Test(unittest.TestCase):
         ft = nodes.FuncType(nodes.PrimaryType('double'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
         f = nodes.Decl('f', ft)
         print("dev:\n %s" % str(f.txt_qual()))
+        ft = nodes.FuncType(nodes.PrimaryType('double'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
+        ft.return_type.add_in(nodes.PointerType())
+        f = nodes.Decl('f', ft)
+        print("!!dev:\n %s" % str(f.txt_qual()))
+        self.assertEqual(1, 2, "MUU")
 
     def test_02_basicexpr(self):
         """Test cnorm expression nodes"""
