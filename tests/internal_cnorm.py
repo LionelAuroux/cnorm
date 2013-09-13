@@ -6,6 +6,7 @@ from cnorm.passes import to_c
 
 class InternalCnorm_Test(unittest.TestCase):
 
+    # TODO: to put in pyrser
     def test_00(self):
         """Test pprint functions"""
         data = fmt.block("{", "}", ['a', 'b', 'c'])
@@ -38,6 +39,10 @@ class InternalCnorm_Test(unittest.TestCase):
             "Failed to convert to C")
         d.ctype.add_in(nodes.QualType(nodes.Qualifiers.VOLATILE))
         d.ctype.add_in(nodes.PointerType())
+        #print(repr(d.ctype))
+        #print(str(d.to_c()))
+        self.assertEqual(str(d.to_c()), "volatile int *a;\n",
+            "Failed to convert to C")
         d.ctype.add_in(nodes.QualType(nodes.Qualifiers.CONST))
         self.assertEqual(str(d.to_c()), "volatile int * const a;\n",
             "Failed to convert to C")
@@ -59,13 +64,52 @@ class InternalCnorm_Test(unittest.TestCase):
         self.assertEqual(str(f.to_c()), "double f(size_t a, int b);\n",
             "Failed to convert to C")
         f.ctype.add_in(nodes.PointerType())
-        print(str(f.to_c()))
-        self.assertEqual(str(f.to_c()), "double (*f(size_t a, int b));\n",
+        print("pointer of function: %s" % str(f.to_c()))
+        self.assertEqual(str(f.to_c()), "double (*f)(size_t a, int b);\n",
             "Failed to convert to C")
-        ft2 = nodes.FuncType(f.ctype, [])
+        ft2 = nodes.FuncType(f.ctype, [nodes.Decl('p', nodes.PrimaryType('ext_func'))])
         f2 = nodes.Decl('f2', ft2)
-        print("f2: %r" % f2)
-        print(str(f2.to_c()))
+        print("function return pointer of function :%s" % str(f2.to_c()))
+        ## NOT OK
+        self.assertEqual(str(f2.to_c()), "double (*f2(ext_func p))(size_t a, int b);\n",
+            "Failed to convert to C")
+        ## test CTYPE construction
+        ctype = nodes.makeCType('int')
+        d = nodes.Decl('ghh', ctype)
+        self.assertEqual(str(d.to_c()), "int ghh;\n",
+            "Failed to convert to C")
+        ctype = nodes.makeCType('const')
+        ctype = nodes.makeCType('double', ctype)
+        d = nodes.Decl('ghh', ctype)
+        self.assertEqual(str(d.to_c()), "const double ghh;\n",
+            "Failed to convert to C")
+        ctype = nodes.makeCType('__int8', ctype)
+        ctype = nodes.makeCType('__unsigned__', ctype)
+        ctype = nodes.makeCType('extern', ctype)
+        d = nodes.Decl('ghh', ctype)
+        self.assertEqual(str(d.to_c()), "extern unsigned const __int8 ghh;\n",
+            "Failed to convert to C")
+        d = nodes.Decl('GG', nodes.PrimaryType('XXX'))
+        d.ctype.add_out(nodes.QualType(nodes.Qualifiers.CONST))
+        d.ctype.add_out(nodes.PointerType())
+        d.ctype.add_out(nodes.ParenType())
+        d.ctype.add_out(nodes.ArrayType("12"))
+        d.ctype.add_out(nodes.ParenType())
+        d.ctype.add_out(nodes.ArrayType("66"))
+        print("dev:\n %s" % str(d.txt_qual()))
+
+        ft = nodes.FuncType(nodes.PrimaryType('HHHHH'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
+        d = nodes.Decl('func', ft)
+        d.ctype.add_out(nodes.QualType(nodes.Qualifiers.CONST))
+        d.ctype.add_out(nodes.PointerType())
+        d.ctype.add_out(nodes.ParenType())
+        d.ctype.add_out(nodes.ArrayType("12"))
+        d.ctype.add_out(nodes.ParenType())
+        d.ctype.add_out(nodes.ArrayType("66"))
+        print("dev:\n %s" % str(d.txt_qual()))
+        ft = nodes.FuncType(nodes.PrimaryType('double'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
+        f = nodes.Decl('f', ft)
+        print("dev:\n %s" % str(f.txt_qual()))
 
     def test_02_basicexpr(self):
         """Test cnorm expression nodes"""

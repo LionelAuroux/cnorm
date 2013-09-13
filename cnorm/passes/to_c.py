@@ -3,6 +3,89 @@ from cnorm import nodes
 
 # DECL
 
+import weakref
+class dumbList(list):
+    def __repr__(self):
+        return list.__repr__(self)
+
+def flatlist(lst, qual):
+    for item in lst:
+        if isinstance(item, list):
+            flatlist(item, qual)
+        elif item[0] == "(":
+            qual.insert(0, ")")
+        elif item[0] == ")":
+            qual.insert(0, "(")
+        else:
+            qual.insert(0, item)
+
+def catlist(l):
+    t = ""
+    for i in l:
+        if t == "":
+            t = i
+        elif t[-1] == "(" or t[-1] == ")" or t[-1] == "[" or t[-1] == "]":
+            t += i
+        else:
+            t += ' ' + i
+    return t
+
+def decltypes_list(decltypes, lst):
+    for dcls in reversed(decltypes):
+        print(type(dcls))
+        if isinstance(dcls, nodes.ArrayType):
+            lst().insert(0, "[" + dcls.expr + "]")
+        if isinstance(dcls, nodes.ParenType):
+            lst().append(["(", dumbList(), ")"])
+            print("t:%s" % len(lst()))
+            lst = weakref.ref(lst()[-1][1])
+        if isinstance(dcls, nodes.PointerType):
+            lst().insert(0, "*")
+        if isinstance(dcls, nodes.QualType):
+            lst().insert(0, "const")
+    return lst
+
+@meta.add_method(nodes.Decl)
+def txt_qual(self):
+    f = fmt.sep("", [])
+    reflst = dumbList()
+    lst = weakref.ref(reflst)
+    lst = decltypes_list(self.ctype.decltypes, lst)
+#    for dcls in reversed(self.ctype.decltypes):
+#        print(type(dcls))
+#        if isinstance(dcls, nodes.ArrayType):
+#            lst().insert(0, "[" + dcls.expr + "]")
+#        if isinstance(dcls, nodes.ParenType):
+#            lst().append(["(", dumbList(), ")"])
+#            print("t:%s" % len(lst()))
+#            lst = weakref.ref(lst()[-1][1])
+#        if isinstance(dcls, nodes.PointerType):
+#            lst().insert(0, "*")
+#        if isinstance(dcls, nodes.QualType):
+#            lst().insert(0, "const")
+    # ADD declarator and params of function
+    declarator = ""
+    if self._name != "":
+        declarator = self._name
+    if hasattr(self.ctype, 'params'):
+        pf = []
+        for p in self.ctype.params:
+             pf.append(p.txt_qual())
+        declarator += '(' + ", ".join(pf) + ')'
+    if declarator != "":
+        lst().insert(0, declarator)
+    print(repr(reflst))
+    # flat the list
+    qual_ls = []
+    flatlist(reflst, qual_ls)
+    if hasattr(self.ctype, 'identifier'):
+       qual_ls.insert(0, self.ctype.identifier)
+    if hasattr(self.ctype, 'return_type'):
+        # todo recurs sur le return
+       qual_ls.insert(0, self.ctype.return_type.identifier)
+    print("QUAL: %s" % qual_ls)
+    return catlist(qual_ls)
+
 @meta.add_method(nodes.Decl)
 def to_c(self):
     fmtdecl = fmt.sep("", [self._name])
@@ -14,6 +97,15 @@ def type_to_c(self, fmtdecl: fmt.indentable):
     # storage
     if self._storage != nodes.Storages.AUTO:
         lsdecl.append(nodes.Storages.rmap[self._storage].lower())
+    # sign
+    if hasattr(self, '_sign') and self._sign != nodes.Signs.AUTO:
+        lsdecl.append(nodes.Signs.rmap[self._sign].lower())
+    # specifier
+    if self._specifier != nodes.Specifiers.AUTO:
+        if self._specifier == nodes.Specifiers.LONGLONG:
+            lsdecl.append("long long")
+        else:
+            lsdecl.append(nodes.Specifiers.rmap[self._specifier].lower())
     # iterator on declarator type
     itdt = reversed(self._decltypes)
     # add here FIRST?! QUAL if != pointer
@@ -32,37 +124,34 @@ def type_to_c(self, fmtdecl: fmt.indentable):
 
 @meta.add_method(nodes.FuncType)
 def type_to_c(self, fmtdecl: fmt.indentable):
-    print("entre %s" % str(fmtdecl))
+    #print("entre %s" % str(fmtdecl))
     lsp = []
     for p in self._params:
         ptoc = p._ctype.type_to_c(fmt.sep("", [p._name]))
         lsp.append(ptoc)
-        print("Param intern %s" % str(ptoc))
+        #print("Param intern %s" % str(ptoc))
     fmtlist = fmt.sep(', ', lsp)
     fmtparams = fmt.block('(', ')', [fmtlist])
     itdt = reversed(self._decltypes)
     item = next(itdt, None)
     if item != None:
         # iterator on declarator type
-        #paren = fmt.sep('', [fmt.block('(', ')', [])])
-        #item.type_to_c(itdt, paren.lsdata[0].lsdata, fmtdecl)
         paren = fmt.block('(', ')', [])
-        #item.type_to_c(itdt, paren.lsdata[0].lsdata, fmtdecl)
-        print("param extern")
+        #print("param extern")
         item.type_to_c(itdt, paren.lsdata, fmtdecl)
         fmtdecl = paren
-        print("intern: %s" % str(fmtdecl))
-    fmtdecl.lsdata.append(fmtparams)
-    print("ajout return type")
+        #print("intern: %s" % str(fmtdecl))
+    fmtdecl = fmt.sep("", [fmtdecl, fmtparams])
+    #print("ajout return type")
     return self._return_type.type_to_c(fmtdecl)
 
 @meta.add_method(nodes.PointerType)
 def type_to_c(self, lstypes, lsres, fmtdecl: fmt.indentable):
-    lsres.append('*')
     item = next(lstypes, None)
     if item != None:
+        lsres.append('*')
         return item.type_to_c(lstypes, lsres, fmtdecl)
-    lsres.append(fmtdecl)
+    lsres.append(fmt.sep("", ["*", fmtdecl]))
 
 @meta.add_method(nodes.QualType)
 def type_to_c(self, lstypes, lsres, fmtdecl: fmt.indentable):
@@ -90,10 +179,21 @@ def type_to_c(self, lstypes: iter, lsres: fmt.indentable, fmtdecl: fmt.indentabl
     # for expression in []
     subexpr = self._expr
     if subexpr != None:
-        subexpr.type_to_c(lstypes, lsres, ary.lsdata)
+        ary.lsdata.append(subexpr.to_c())
     # for expression following []
     item = next(lstypes, None)
     if item != None:
+    #    if isinstance(item, nodes.ParenType):
+    #        print("aft: %r" % lsres)
+    #        print("fmt: %r" % fmtdecl)
+    #        ptr = fmt.sep('', [])
+    #        rest = []
+    #        item.type_to_c(lstypes, ptr, rest)
+    #        print("ffwaft: %r" % ptr)
+    #        print("ffwfmt: %r" % rest)
+    #        ptr.lsdata.append(fmtdecl.lsdata.pop())
+    #        ptr.lsdata.append(fmtdecl)
+    #        return ptr
         return item.type_to_c(lstypes, lsres, fmtdecl)
     lsres.append(fmtdecl)
 

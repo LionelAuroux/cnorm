@@ -1,9 +1,10 @@
 from pyrser import parsing, meta
 
-Storages = meta.enum('AUTO', 'REGISTER', 'TYPEDEF', 'STATIC', 'EXTERN')
+Storages = meta.enum('AUTO', 'REGISTER', 'TYPEDEF', 'STATIC', 'EXTERN', 'INLINE', 'VIRTUAL', 'EXPLICIT')
 Qualifiers = meta.enum('AUTO', 'CONST', 'VOLATILE', 'RESTRICT')
-Specifiers = meta.enum('AUTO', 'INLINE', 'STRUCT', 'UNION', 'ENUM', 'LONG',
-                       'LONGLONG', 'SHORT', 'VIRTUAL', 'EXPLICIT')
+Specifiers = meta.enum('AUTO', 'STRUCT', 'UNION', 'ENUM', 'LONG',
+                       'LONGLONG', 'SHORT')
+Signs = meta.enum('AUTO', 'SIGNED', 'UNSIGNED')
 
 # EXPRESSION PART
 
@@ -75,10 +76,20 @@ class ArrayType(DeclType):
     def __init__(self, expr=None):
         DeclType.__init__(self)
         self._expr = expr
+    
+    @property
+    def expr(self):
+        return self._expr
 
 class ParenType(DeclType):
     """For parenthesis in declaration"""
 
+    def __init__(self, temp=True):
+        DeclType.__init__(self)
+        # at creation the paren is open (temp==True)
+        # we set it to close (temp==False) when we parse the ')'
+        # it's used to know where to add_{in,out}
+        self.temp = temp
 
 class QualType(DeclType):
     """For qualifier in declaration"""
@@ -99,8 +110,20 @@ class CType(parsing.Node):
     def __init__(self):
         parsing.Node.__init__(self)
         self._decltypes = []
-        # only one storage by declaration (auto, register, typedef, static, extern)
+        # only one storage by declaration (auto, register, typedef, static, extern, ...)
         self._storage = Storages.AUTO
+        # only one specifier by declaration (auto, short, long, struct, union, enum)
+        self._specifier = Specifiers.AUTO
+
+    def copy(self):
+        import copy
+        theclone = copy.copy(self)
+        theclone._decltypes = []
+        return theclone
+
+    @property
+    def decltypes(self):
+        return self._decltypes
 
     def add_out(self, t: DeclType):
         if not isinstance(t, DeclType):
@@ -112,6 +135,7 @@ class CType(parsing.Node):
             raise Exception("add only C type declarator")
         self._decltypes.insert(0, t)
 
+
 class PrimaryType(CType):
     """For primary type in declaration"""
 
@@ -119,6 +143,10 @@ class PrimaryType(CType):
         CType.__init__(self)
         # identifier (void, char, int, float, double, typedefname)
         self._identifier = identifier
+
+    @property
+    def identifier(self):
+        return self._identifier
 
 
 class FuncType(CType):
@@ -138,6 +166,39 @@ class FuncType(CType):
     @property
     def params(self):
         return self._params
+
+# helper to create a CType from previous one
+def makeCType(declspecifier: str, ctype=None):
+    from cnorm.parsing.expression import Idset
+    if ctype == None:
+        ctype = PrimaryType('int')
+    if Idset[declspecifier] == "type":
+        ctype._identifier = declspecifier
+    if Idset[declspecifier] == "storage":
+        cleantxt = declspecifier.strip("_")
+        ctype._storage = Storages.map[cleantxt.upper()]
+    if Idset[declspecifier] == "qualifier":
+        cleantxt = declspecifier.strip("_")
+        ctype.add_in(QualType(Qualifiers.map[cleantxt.upper()]))
+    if Idset[declspecifier] == "funspecifier":
+        cleantxt = declspecifier.strip("_")
+        ctype._storage = Storages.map[cleantxt.upper()]
+    if Idset[declspecifier] == "sign_unsigned":
+        cleantxt = declspecifier.strip("_")
+        ctype._sign = Signs.map[cleantxt.upper()]
+    if Idset[declspecifier] == "sign_signed":
+        cleantxt = declspecifier.strip("_")
+        ctype._sign = Signs.map[cleantxt.upper()]
+    if Idset[declspecifier] == "specifier_size":
+        cleantxt = declspecifier.strip("_")
+        ctype._specifier = Specifiers.map[cleantxt.upper()]
+    if Idset[declspecifier] == "specifier_size_size":
+        cleantxt = declspecifier.strip("_")
+        if ctype._specifier == Specifiers.AUTO:
+            ctype._specifier = Specifiers.map[cleantxt.upper()]
+        else:
+            ctype._specifier = Specifiers.LONGLONG
+    return ctype
 
 class Decl(Expr):
     """For basic declaration"""
