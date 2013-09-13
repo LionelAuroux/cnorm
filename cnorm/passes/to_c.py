@@ -1,95 +1,93 @@
 from pyrser import meta, fmt
 from cnorm import nodes
 
+
 # DECL
 
-import weakref
-class dumbList(list):
-    def __repr__(self):
-        return list.__repr__(self)
-
-def flatlist(lst, qual):
-    for item in lst:
-        if isinstance(item, list):
-            flatlist(item, qual)
-        elif item[0] == "(":
-            qual.insert(0, ")")
-        elif item[0] == ")":
-            qual.insert(0, "(")
+def flat(l, out):
+    for i in l:
+        if type(i) is list:
+            flat(i, out)
         else:
-            qual.insert(0, item)
+            out.append(i)
 
 def catlist(l):
     t = ""
     for i in l:
         if t == "":
             t = i
-        elif t[-1] == "(" or t[-1] == ")" or t[-1] == "[" or t[-1] == "]":
+        elif t[-1] == "(" or t[-1] == ")" or t[-1] == "[" \
+            or t[-1] == "]" or t[-1] == "*" or i[0] == "[" or i[0] == ")":
             t += i
         else:
             t += ' ' + i
     return t
 
-def decltypes_list(decltypes, lst):
-    for dcls in reversed(decltypes):
-        print(type(dcls))
-        if isinstance(dcls, nodes.ArrayType):
-            lst().insert(0, "[" + dcls.expr + "]")
-        if isinstance(dcls, nodes.ParenType):
-            lst().append(["(", dumbList(), ")"])
-            print("t:%s" % len(lst()))
-            lst = weakref.ref(lst()[-1][1])
-        if isinstance(dcls, nodes.PointerType):
-            lst().insert(0, "*")
-        if isinstance(dcls, nodes.QualType):
-            lst().insert(0, "const")
-    return lst
-
-@meta.add_method(nodes.Decl)
-def txt_qual(self):
-    f = fmt.sep("", [])
-    reflst = dumbList()
-    lst = weakref.ref(reflst)
-    lst = decltypes_list(self.ctype.decltypes, lst)
-#    for dcls in reversed(self.ctype.decltypes):
-#        print(type(dcls))
-#        if isinstance(dcls, nodes.ArrayType):
-#            lst().insert(0, "[" + dcls.expr + "]")
-#        if isinstance(dcls, nodes.ParenType):
-#            lst().append(["(", dumbList(), ")"])
-#            print("t:%s" % len(lst()))
-#            lst = weakref.ref(lst()[-1][1])
-#        if isinstance(dcls, nodes.PointerType):
-#            lst().insert(0, "*")
-#        if isinstance(dcls, nodes.QualType):
-#            lst().insert(0, "const")
-    # ADD declarator and params of function
+@meta.add_method(nodes.CType)
+def ctype_to_c(self, func_var_name=""):
     declarator = ""
-    if self._name != "":
-        declarator = self._name
-    if hasattr(self.ctype, 'params'):
+    if func_var_name != "":
+        declarator = func_var_name
+    if hasattr(self, 'params'):
         pf = []
-        for p in self.ctype.params:
-             pf.append(p.txt_qual())
+        for p in self.params:
+             pf.append(p.ctype.ctype_to_c(p._name))
         declarator += '(' + ", ".join(pf) + ')'
-    if declarator != "":
-        lst().insert(0, declarator)
-    print(repr(reflst))
-    # flat the list
-    qual_ls = []
-    flatlist(reflst, qual_ls)
-    if hasattr(self.ctype, 'identifier'):
-       qual_ls.insert(0, self.ctype.identifier)
-    if hasattr(self.ctype, 'return_type'):
-        # todo recurs sur le return
-       qual_ls.insert(0, self.ctype.return_type.identifier)
-    print("QUAL: %s" % qual_ls)
-    return catlist(qual_ls)
+    qualextern = None
+    decl_ls = []
+    if self.link() != None:
+        print("%s" % repr(self.link()))
+        qual_list = []
+        if declarator != "":
+            qual_list = [declarator]
+        unqual_list = self.link()
+        while unqual_list != None:
+            if isinstance(unqual_list, nodes.ArrayType):
+                if unqual_list.expr != None:
+                    qual_list.append("[" + str(unqual_list.expr.to_c()) + "]")
+                else:
+                    qual_list.append("[]")
+            if isinstance(unqual_list, nodes.ParenType):
+                qual_list = ["(", qual_list, ")"]
+            if isinstance(unqual_list, nodes.PointerType):
+                qual_list.insert(0, "*")
+            if isinstance(unqual_list, nodes.QualType):
+                if unqual_list._qualifier != nodes.Qualifiers.AUTO:
+                    if unqual_list.link() == None:
+                        qualextern = unqual_list
+                    else:
+                        qual_list.insert(0, nodes.Qualifiers.rmap[unqual_list._qualifier].lower())
+            unqual_list = unqual_list.link()
+        flat(qual_list, decl_ls)
+    elif declarator != "":
+        decl_ls.append(declarator)
+    if hasattr(self, 'identifier'):
+        decl_ls.insert(0, self.identifier)
+    if hasattr(self, 'return_type'):
+        print("before %s" % decl_ls[-1])
+        decl_ls.insert(0, self.return_type.ctype_to_c())
+        print("after %s" % decl_ls[-1])
+    # specifier
+    if self._specifier != nodes.Specifiers.AUTO:
+        if self._specifier == nodes.Specifiers.LONGLONG:
+            decl_ls.insert(0, "long long")
+        else:
+            decl_ls.insert(0, nodes.Specifiers.rmap[self._specifier].lower())
+    # sign
+    if hasattr(self, '_sign') and self._sign != nodes.Signs.AUTO:
+        decl_ls.insert(0, nodes.Signs.rmap[self._sign].lower())
+    # qualifier externalized
+    if qualextern != None:
+        decl_ls.insert(0, nodes.Qualifiers.rmap[qualextern._qualifier].lower())
+    # End by storage
+    if self._storage != nodes.Storages.AUTO:
+        decl_ls.insert(0, nodes.Storages.rmap[self._storage].lower())
+    print("FIN: %r" % decl_ls)
+    return catlist(decl_ls)
 
 @meta.add_method(nodes.Decl)
 def to_c(self):
-    fmtdecl = fmt.sep("", [self._name])
-    return fmt.end(';\n', [self._ctype.type_to_c(fmtdecl)])
+    return fmt.end(';\n', [self.ctype.ctype_to_c(self._name)])
 
 @meta.add_method(nodes.PrimaryType)
 def type_to_c(self, fmtdecl: fmt.indentable):

@@ -64,6 +64,16 @@ class Raw(Terminal):
 
 class DeclType(parsing.Node):
     """For type in declaration"""
+    
+    def __init__(self):
+        self._decltype = None
+
+    def link(self, t: 'DeclType'=None):
+        if t != None:
+            if not isinstance(t, DeclType):
+                raise Exception("add only C type declarator")
+            self._decltype = t
+        return self._decltype
 
 
 class PointerType(DeclType):
@@ -84,12 +94,12 @@ class ArrayType(DeclType):
 class ParenType(DeclType):
     """For parenthesis in declaration"""
 
-    def __init__(self, temp=True):
+    def __init__(self):
         DeclType.__init__(self)
         # at creation the paren is open (temp==True)
         # we set it to close (temp==False) when we parse the ')'
         # it's used to know where to add_{in,out}
-        self.temp = temp
+        self.temp = True
 
 class QualType(DeclType):
     """For qualifier in declaration"""
@@ -109,7 +119,7 @@ class CType(parsing.Node):
 
     def __init__(self):
         parsing.Node.__init__(self)
-        self._decltypes = []
+        self._decltype = None
         # only one storage by declaration (auto, register, typedef, static, extern, ...)
         self._storage = Storages.AUTO
         # only one specifier by declaration (auto, short, long, struct, union, enum)
@@ -118,23 +128,15 @@ class CType(parsing.Node):
     def copy(self):
         import copy
         theclone = copy.copy(self)
-        theclone._decltypes = []
+        theclone._decltype = None
         return theclone
 
-    @property
-    def decltypes(self):
-        return self._decltypes
-
-    def add_out(self, t: DeclType):
-        if not isinstance(t, DeclType):
-            raise Exception("add only C type declarator")
-        self._decltypes.append(t)
-
-    def add_in(self, t: DeclType):
-        if not isinstance(t, DeclType):
-            raise Exception("add only C type declarator")
-        self._decltypes.insert(0, t)
-
+    def link(self, t: DeclType=None):
+        if t != None:
+            if not isinstance(t, DeclType):
+                raise Exception("add only C type declarator")
+            self._decltype = t
+        return self._decltype
 
 class PrimaryType(CType):
     """For primary type in declaration"""
@@ -179,7 +181,7 @@ def makeCType(declspecifier: str, ctype=None):
         ctype._storage = Storages.map[cleantxt.upper()]
     if Idset[declspecifier] == "qualifier":
         cleantxt = declspecifier.strip("_")
-        ctype.add_in(QualType(Qualifiers.map[cleantxt.upper()]))
+        ctype.link(QualType(Qualifiers.map[cleantxt.upper()]))
     if Idset[declspecifier] == "funspecifier":
         cleantxt = declspecifier.strip("_")
         ctype._storage = Storages.map[cleantxt.upper()]
