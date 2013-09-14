@@ -46,7 +46,6 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        print(str(d.to_c()))
         self.assertEqual(str(d.to_c()), "volatile int *const a;\n",
             "Failed to convert to C")
         qual = d.ctype
@@ -81,7 +80,6 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = f.ctype
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.ParenType([nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))]))
-        print("pointer of function: %s" % str(f.to_c()))
         self.assertEqual(str(f.to_c()), "double(*f)(size_t a, int b);\n",
             "Failed to convert to C")
         ft2 = nodes.FuncType('double', [nodes.Decl('p', nodes.PrimaryType('ext_func'))])
@@ -89,7 +87,6 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = f2.ctype
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.ParenType([nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))]))
-        print("function return pointer of function :%s" % str(f2.to_c()))
         ## NOT OK
         self.assertEqual(str(f2.to_c()), "double(*f2(ext_func p))(size_t a, int b);\n",
             "Failed to convert to C")
@@ -117,7 +114,6 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.ArrayType(nodes.Literal("12")))
         qual = qual.link(nodes.ParenType())
         qual = qual.link(nodes.ArrayType(nodes.Literal("66")))
-        print("dev:\n %s" % str(d.to_c()))
 
         ft = nodes.FuncType('HHHHH', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
         d = nodes.Decl('func', ft)
@@ -128,14 +124,11 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.ArrayType(nodes.Literal("12")))
         qual = qual.link(nodes.ParenType())
         qual = qual.link(nodes.ArrayType(nodes.Literal("66")))
-        print("dev:\n %s" % str(d.to_c()))
         ft = nodes.FuncType('double', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
         f = nodes.Decl('f', ft)
-        print("dev:\n %s" % str(f.to_c()))
         ft = nodes.FuncType('double', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
         ft.link(nodes.PointerType())
         f = nodes.Decl('f', ft)
-        print("!!dev:\n %s" % str(f.to_c()))
 
     def test_02_basicexpr(self):
         """Test cnorm expression nodes"""
@@ -171,6 +164,7 @@ class InternalCnorm_Test(unittest.TestCase):
         s = nodes.If(c, thencond, elsecond)
         self.assertEqual(str(s.to_c()), "if (a < 12)\n%sb = 1;\nelse\n%sc = 2;\n" % (" " * 4, " " * 4), "Failed to convert to C")
         s = nodes.RootBlockStmt([thencond, nodes.BlockStmt([thencond, elsecond]), elsecond])
+        print("<< %s >>" % str(s.to_c()))
         self.assertEqual(str(s.to_c()), "b = 1;\n{\n%sb = 1;\n%sc = 2;\n}\nc = 2;\n" % (" " * 4, " " * 4), "Failed to convert to C")
         s = nodes.While(c, thencond)
         self.assertEqual(str(s.to_c()), "while (a < 12)\n%sb = 1;\n" % (" " * 4),

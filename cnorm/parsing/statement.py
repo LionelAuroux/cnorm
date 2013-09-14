@@ -174,6 +174,8 @@ def new_label(self, ast, ident):
 
 @meta.hook(Statement)
 def new_blockstmt(self, ast, lsblock):
+    if not hasattr(lsblock, 'node'):
+        return False
     ast.node = nodes.BlockStmt(lsblock.node)
     return True
 

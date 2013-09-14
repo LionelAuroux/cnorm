@@ -130,6 +130,13 @@ class CType(parsing.Node):
         # only one specifier by declaration (auto, short, long, struct, union, enum)
         self._specifier = Specifiers.AUTO
 
+    def copy(self):
+        import copy
+        theclone = copy.copy(self)
+        theclone._decltype = None
+        return theclone
+
+
     def link(self, t: DeclType=None):
         if t != None:
             if not isinstance(t, DeclType):
@@ -178,7 +185,7 @@ class FuncType(PrimaryType):
 # helper to create a CType from previous one
 def makeCType(declspecifier: str, ctype=None):
     from cnorm.parsing.expression import Idset
-    print("%s %s" %(declspecifier, ctype))
+    #print("%s %s" %(declspecifier, ctype))
     if ctype == None:
         ctype = PrimaryType('int')
     if Idset[declspecifier] == "type":
@@ -216,16 +223,6 @@ class Decl(Expr):
         Expr.__init__(self)
         self._name = name
         self._ctype = ct
-
-    def dup(self):
-        theclone = self.__class__(self)
-        theclone.__class__ = self.__class__
-        theclone._ctype._storage = self._ctype._storage
-        theclone._ctype._specifier = self._ctype._specifier
-        if hasattr(self._ctype, '_sign'):
-            theclone._ctype._sign = self._ctype._sign
-        theclone._ctype._decltype = None
-        return theclone
 
     @property
     def ctype(self) -> CType:
