@@ -28,10 +28,14 @@ def ctype_to_c(self, func_var_name=""):
     declarator = []
     if func_var_name != "":
         declarator = [func_var_name]
+    # intern prototype
     if hasattr(self, 'params'):
         pf = []
         for p in self.params:
-             pf.append(p.ctype.ctype_to_c(p._name))
+            if p.ctype != None:
+                print("PP %r" % p)
+                if hasattr(p.ctype, 'ctype_to_c'):
+                    pf.append(p.ctype.ctype_to_c(p._name))
         declarator.append('(' + ", ".join(pf) + ')')
     qualextern = None
     decl_ls = []
@@ -41,6 +45,7 @@ def ctype_to_c(self, func_var_name=""):
         else:
             qual_list = []
         unqual_list = self.link()
+        # qualification of declaration
         while unqual_list != None:
             if isinstance(unqual_list, nodes.ArrayType):
                 if unqual_list.expr != None:
@@ -68,10 +73,6 @@ def ctype_to_c(self, func_var_name=""):
         decl_ls = declarator
     if hasattr(self, 'identifier'):
         decl_ls.insert(0, self.identifier)
-#    if hasattr(self, 'return_type'):
-#        print("before %s" % decl_ls[-1])
-#        decl_ls.insert(0, self.return_type.ctype_to_c())
-#        print("after %s" % decl_ls[-1])
     # specifier
     if self._specifier != nodes.Specifiers.AUTO:
         if self._specifier == nodes.Specifiers.LONGLONG:
@@ -87,13 +88,16 @@ def ctype_to_c(self, func_var_name=""):
     # End by storage
     if self._storage != nodes.Storages.AUTO:
         decl_ls.insert(0, nodes.Storages.rmap[self._storage].lower())
-    print("FIN: %r" % decl_ls)
     return catlist(decl_ls)
 
 @meta.add_method(nodes.Decl)
 def to_c(self):
-    return fmt.end(';\n', [self.ctype.ctype_to_c(self._name)])
+    if hasattr(self.ctype, 'body') and len(self.ctype.body) > 0:
+        return fmt.sep("\n", [self.ctype.ctype_to_c(self._name), self.ctype.body.to_c()])
+    else:
+        return fmt.end(';\n', [self.ctype.ctype_to_c(self._name)])
 
+#####
 @meta.add_method(nodes.PrimaryType)
 def type_to_c(self, fmtdecl: fmt.indentable):
     lsdecl = []
@@ -199,6 +203,8 @@ def type_to_c(self, lstypes: iter, lsres: fmt.indentable, fmtdecl: fmt.indentabl
     #        return ptr
         return item.type_to_c(lstypes, lsres, fmtdecl)
     lsres.append(fmtdecl)
+#############
+
 
 # STATEMENT
 
@@ -270,17 +276,18 @@ def to_c(self):
 
 @meta.add_method(nodes.BlockStmt)
 def to_c(self):
-    lsblock = []
-    for e in self.block:
-        lsblock.append(e.to_c())
-    return fmt.block("{\n", "}\n", [fmt.tab(lsblock)])
+    lsbody = []
+    for e in self.body:
+        lsbody.append(e.to_c())
+    return fmt.block("{\n", "}\n", [fmt.tab(lsbody)])
 
 @meta.add_method(nodes.RootBlockStmt)
 def to_c(self):
-    lsblock = []
-    for e in self.block:
-        lsblock.append(e.to_c())
-    return fmt.sep("", lsblock)
+    lsbody = []
+    for e in self.body:
+        print("[%s] : %s" % (type(e), repr(e)))
+        lsbody.append(e.to_c())
+    return fmt.sep("", lsbody)
 
 # EXPRESSION
 
