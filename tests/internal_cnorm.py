@@ -55,7 +55,7 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        self.assertEqual(str(d.to_c()), "volatile int *const (*a);\n",
+        self.assertEqual(str(d.to_c()), "volatile int *const(*a);\n",
             "Failed to convert to C")
         qual = d.ctype
         qual = qual.link(nodes.ArrayType())
@@ -65,7 +65,7 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        self.assertEqual(str(d.to_c()), "volatile int *const (*a[][]);\n",
+        self.assertEqual(str(d.to_c()), "volatile int *const(*a[][]);\n",
             "Failed to convert to C")
         d = nodes.Decl('tf', nodes.PrimaryType('double'))
         qual = d.ctype
@@ -73,19 +73,25 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         self.assertEqual(str(d.to_c()), "const double tf[];\n",
             "Failed to convert to C")
-        ft = nodes.FuncType(nodes.PrimaryType('double'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
+        ft = nodes.FuncType('double', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
         f = nodes.Decl('f', ft)
         self.assertEqual(str(f.to_c()), "double f(size_t a, int b);\n",
             "Failed to convert to C")
-        f.ctype.add_in(nodes.PointerType())
+        f = nodes.Decl('f', nodes.PrimaryType('double'))
+        qual = f.ctype
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.ParenType([nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))]))
         print("pointer of function: %s" % str(f.to_c()))
-        self.assertEqual(str(f.to_c()), "double (*f)(size_t a, int b);\n",
+        self.assertEqual(str(f.to_c()), "double(*f)(size_t a, int b);\n",
             "Failed to convert to C")
-        ft2 = nodes.FuncType(f.ctype, [nodes.Decl('p', nodes.PrimaryType('ext_func'))])
+        ft2 = nodes.FuncType('double', [nodes.Decl('p', nodes.PrimaryType('ext_func'))])
         f2 = nodes.Decl('f2', ft2)
+        qual = f2.ctype
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.ParenType([nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))]))
         print("function return pointer of function :%s" % str(f2.to_c()))
         ## NOT OK
-        self.assertEqual(str(f2.to_c()), "double (*f2(ext_func p))(size_t a, int b);\n",
+        self.assertEqual(str(f2.to_c()), "double(*f2(ext_func p))(size_t a, int b);\n",
             "Failed to convert to C")
         ## test CTYPE construction
         ctype = nodes.makeCType('int')
@@ -101,34 +107,35 @@ class InternalCnorm_Test(unittest.TestCase):
         ctype = nodes.makeCType('__unsigned__', ctype)
         ctype = nodes.makeCType('extern', ctype)
         d = nodes.Decl('ghh', ctype)
-        self.assertEqual(str(d.to_c()), "extern unsigned const __int8 ghh;\n",
+        self.assertEqual(str(d.to_c()), "extern const unsigned __int8 ghh;\n",
             "Failed to convert to C")
         d = nodes.Decl('GG', nodes.PrimaryType('XXX'))
-        d.ctype.add_out(nodes.QualType(nodes.Qualifiers.CONST))
-        d.ctype.add_out(nodes.PointerType())
-        d.ctype.add_out(nodes.ParenType())
-        d.ctype.add_out(nodes.ArrayType("12"))
-        d.ctype.add_out(nodes.ParenType())
-        d.ctype.add_out(nodes.ArrayType("66"))
-        print("dev:\n %s" % str(d.txt_qual()))
+        qual = d.ctype
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.ParenType())
+        qual = qual.link(nodes.ArrayType(nodes.Literal("12")))
+        qual = qual.link(nodes.ParenType())
+        qual = qual.link(nodes.ArrayType(nodes.Literal("66")))
+        print("dev:\n %s" % str(d.to_c()))
 
-        ft = nodes.FuncType(nodes.PrimaryType('HHHHH'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
+        ft = nodes.FuncType('HHHHH', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
         d = nodes.Decl('func', ft)
-        d.ctype.add_out(nodes.QualType(nodes.Qualifiers.CONST))
-        d.ctype.add_out(nodes.PointerType())
-        d.ctype.add_out(nodes.ParenType())
-        d.ctype.add_out(nodes.ArrayType("12"))
-        d.ctype.add_out(nodes.ParenType())
-        d.ctype.add_out(nodes.ArrayType("66"))
-        print("dev:\n %s" % str(d.txt_qual()))
-        ft = nodes.FuncType(nodes.PrimaryType('double'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
+        qual = d.ctype
+        qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
+        qual = qual.link(nodes.PointerType())
+        qual = qual.link(nodes.ParenType())
+        qual = qual.link(nodes.ArrayType(nodes.Literal("12")))
+        qual = qual.link(nodes.ParenType())
+        qual = qual.link(nodes.ArrayType(nodes.Literal("66")))
+        print("dev:\n %s" % str(d.to_c()))
+        ft = nodes.FuncType('double', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
         f = nodes.Decl('f', ft)
-        print("dev:\n %s" % str(f.txt_qual()))
-        ft = nodes.FuncType(nodes.PrimaryType('double'), [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
-        ft.return_type.add_in(nodes.PointerType())
+        print("dev:\n %s" % str(f.to_c()))
+        ft = nodes.FuncType('double', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
+        ft.link(nodes.PointerType())
         f = nodes.Decl('f', ft)
-        print("!!dev:\n %s" % str(f.txt_qual()))
-        self.assertEqual(1, 2, "MUU")
+        print("!!dev:\n %s" % str(f.to_c()))
 
     def test_02_basicexpr(self):
         """Test cnorm expression nodes"""

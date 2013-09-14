@@ -94,12 +94,17 @@ class ArrayType(DeclType):
 class ParenType(DeclType):
     """For parenthesis in declaration"""
 
-    def __init__(self):
+    def __init__(self, params=[]):
         DeclType.__init__(self)
         # at creation the paren is open (temp==True)
         # we set it to close (temp==False) when we parse the ')'
         # it's used to know where to add_{in,out}
         self.temp = True
+        self._params = params
+
+    @property
+    def params(self):
+        return self._params
 
 class QualType(DeclType):
     """For qualifier in declaration"""
@@ -151,13 +156,12 @@ class PrimaryType(CType):
         return self._identifier
 
 
-class FuncType(CType):
+class FuncType(PrimaryType):
     """For function in declaration"""
 
-    def __init__(self, rt: CType=PrimaryType('int'), params=[]):
-        CType.__init__(self)
+    def __init__(self, identifier: str, params=[]):
+        PrimaryType.__init__(self, identifier)
         self._params = params
-        self._return_type = rt
         # TODO: func definition
         # self.body
 
