@@ -14,13 +14,19 @@ def flat(l, out):
 def catlist(l):
     t = ""
     for i in l:
-        if t == "":
-            t = i
-        elif t[-1] == "(" or t[-1] == ")" or t[-1] == "[" \
-            or t[-1] == "]" or t[-1] == "*" or i[0] == "[" or i[0] == ")" or i[0] == "(":
-            t += i
-        else:
-            t += ' ' + i
+        if i == "":
+            continue
+        try:
+            if t == "":
+                t = i
+            elif t[-1] == "(" or t[-1] == ")" or t[-1] == "[" \
+                or t[-1] == "]" or t[-1] == "*" or i[0] == "[" \
+                or i[0] == ")" or i[0] == "(":
+                t += i
+            else:
+                t += ' ' + i
+        except:
+            continue
     return t
 
 @meta.add_method(nodes.CType)
@@ -33,7 +39,7 @@ def ctype_to_c(self, func_var_name=""):
         pf = []
         for p in self.params:
             if p.ctype != None:
-                print("PP %r" % p)
+                #print("PP %r" % p)
                 if hasattr(p.ctype, 'ctype_to_c'):
                     pf.append(p.ctype.ctype_to_c(p._name))
         declarator.append('(' + ", ".join(pf) + ')')
@@ -92,119 +98,10 @@ def ctype_to_c(self, func_var_name=""):
 
 @meta.add_method(nodes.Decl)
 def to_c(self):
-    if hasattr(self.ctype, 'body') and len(self.ctype.body) > 0:
-        return fmt.sep("\n", [self.ctype.ctype_to_c(self._name), self.ctype.body.to_c()])
+    if hasattr(self, 'body') and len(self.body) > 0:
+        return fmt.sep("\n", [self.ctype.ctype_to_c(self._name), self.body.to_c()])
     else:
         return fmt.end(';\n', [self.ctype.ctype_to_c(self._name)])
-
-#####
-@meta.add_method(nodes.PrimaryType)
-def type_to_c(self, fmtdecl: fmt.indentable):
-    lsdecl = []
-    # storage
-    if self._storage != nodes.Storages.AUTO:
-        lsdecl.append(nodes.Storages.rmap[self._storage].lower())
-    # sign
-    if hasattr(self, '_sign') and self._sign != nodes.Signs.AUTO:
-        lsdecl.append(nodes.Signs.rmap[self._sign].lower())
-    # specifier
-    if self._specifier != nodes.Specifiers.AUTO:
-        if self._specifier == nodes.Specifiers.LONGLONG:
-            lsdecl.append("long long")
-        else:
-            lsdecl.append(nodes.Specifiers.rmap[self._specifier].lower())
-    # iterator on declarator type
-    itdt = reversed(self._decltypes)
-    # add here FIRST?! QUAL if != pointer
-    if len(self._decltypes) > 0 and type(self._decltypes[-1]) is nodes.QualType:
-        item = next(itdt)
-        lsdecl.append(nodes.Qualifiers.rmap[item._qualifier].lower())
-    # type identifier
-    lsdecl.append(self._identifier)
-    # iter thru quals
-    item = next(itdt, None)
-    if item != None:
-        item.type_to_c(itdt, lsdecl, fmtdecl)
-    else:
-        lsdecl.append(fmtdecl)
-    return fmt.sep(' ', lsdecl)
-
-@meta.add_method(nodes.FuncType)
-def type_to_c(self, fmtdecl: fmt.indentable):
-    #print("entre %s" % str(fmtdecl))
-    lsp = []
-    for p in self._params:
-        ptoc = p._ctype.type_to_c(fmt.sep("", [p._name]))
-        lsp.append(ptoc)
-        #print("Param intern %s" % str(ptoc))
-    fmtlist = fmt.sep(', ', lsp)
-    fmtparams = fmt.block('(', ')', [fmtlist])
-    itdt = reversed(self._decltypes)
-    item = next(itdt, None)
-    if item != None:
-        # iterator on declarator type
-        paren = fmt.block('(', ')', [])
-        #print("param extern")
-        item.type_to_c(itdt, paren.lsdata, fmtdecl)
-        fmtdecl = paren
-        #print("intern: %s" % str(fmtdecl))
-    fmtdecl = fmt.sep("", [fmtdecl, fmtparams])
-    #print("ajout return type")
-    return self._return_type.type_to_c(fmtdecl)
-
-@meta.add_method(nodes.PointerType)
-def type_to_c(self, lstypes, lsres, fmtdecl: fmt.indentable):
-    item = next(lstypes, None)
-    if item != None:
-        lsres.append('*')
-        return item.type_to_c(lstypes, lsres, fmtdecl)
-    lsres.append(fmt.sep("", ["*", fmtdecl]))
-
-@meta.add_method(nodes.QualType)
-def type_to_c(self, lstypes, lsres, fmtdecl: fmt.indentable):
-    if self._qualifier != nodes.Qualifiers.AUTO:
-        lsres.append(nodes.Qualifiers.rmap[self._qualifier].lower())
-    item = next(lstypes, None)
-    if item != None:
-        return item.type_to_c(lstypes, lsres, fmtdecl)
-    lsres.append(fmtdecl)
-
-@meta.add_method(nodes.ParenType)
-def type_to_c(self, lstypes, lsres, fmtdecl: fmt.indentable):
-    paren = fmt.block('(', ')', [])
-    lsres.append(paren)
-    item = next(lstypes, None)
-    if item != None:
-        return item.type_to_c(lstypes, paren.lsdata, fmtdecl)
-    paren.lsdata.append(fmtdecl)
-
-@meta.add_method(nodes.ArrayType)
-def type_to_c(self, lstypes: iter, lsres: fmt.indentable, fmtdecl: fmt.indentable):
-    # add the placeholder for the array
-    ary = fmt.block('[', ']', [])
-    fmtdecl.lsdata.append(ary)
-    # for expression in []
-    subexpr = self._expr
-    if subexpr != None:
-        ary.lsdata.append(subexpr.to_c())
-    # for expression following []
-    item = next(lstypes, None)
-    if item != None:
-    #    if isinstance(item, nodes.ParenType):
-    #        print("aft: %r" % lsres)
-    #        print("fmt: %r" % fmtdecl)
-    #        ptr = fmt.sep('', [])
-    #        rest = []
-    #        item.type_to_c(lstypes, ptr, rest)
-    #        print("ffwaft: %r" % ptr)
-    #        print("ffwfmt: %r" % rest)
-    #        ptr.lsdata.append(fmtdecl.lsdata.pop())
-    #        ptr.lsdata.append(fmtdecl)
-    #        return ptr
-        return item.type_to_c(lstypes, lsres, fmtdecl)
-    lsres.append(fmtdecl)
-#############
-
 
 # STATEMENT
 
@@ -285,7 +182,6 @@ def to_c(self):
 def to_c(self):
     lsbody = []
     for e in self.body:
-        print("[%s] : %s" % (type(e), repr(e)))
         lsbody.append(e.to_c())
     return fmt.sep("", lsbody)
 

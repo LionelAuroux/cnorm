@@ -45,7 +45,8 @@ class Declaration(Grammar, Statement):
             declaration_specifier*
             init_declarator:_
             [
-                ',' #copy_decl
+                ',' "":local_specifier
+                #copy_decl
                 init_declarator:_
             ]*
             [
@@ -221,7 +222,7 @@ class Declaration(Grammar, Statement):
         parameter_declaration ::=
             "":local_specifier
             #clear(local_specifier)
-            type_name:name
+            type_name:_
         ;
 
         initializer ::=
@@ -293,11 +294,8 @@ def clear(self, lspec):
 
 @meta.hook(Declaration)
 def copy_decl(self):
-    import copy
-    if len(self._current_block) > 0:
-        tmp = (self._current_block[-1]).dup()
-        print("COPY [%s]:%s" % (type(tmp), tmp))
-        self._current_block.append(tmp)
+    lspec = self.rulenodes['local_specifier']
+    lspec.ctype = self._current_block[-1].ctype.copy()
     return True
 
 
@@ -311,7 +309,7 @@ def new_decl_spec(self, i):
 
 @meta.hook(Declaration)
 def add_body(self, ast, body):
-    ast.node.body = body
+    ast.node.body = body.node
     return True
 
 @meta.hook(Declaration)
@@ -335,8 +333,8 @@ def first_pointer(self):
 @meta.hook(Declaration)
 def commit_declarator(self, ast):
     lspec = self.rulenodes['local_specifier']
-    print("CI DECL : %s" % vars(ast))
-    print("LSPEC %s" % str(lspec.ctype))
+    if not hasattr(ast, 'name_absdecl'):
+        return False
     ast.node = nodes.Decl(ast.name_absdecl, lspec.ctype)
     self._current_block.append(ast.node)
     return True
@@ -346,6 +344,8 @@ def add_pointer(self):
     lspec = self.rulenodes['local_specifier']
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int', lspec.ctype)
+    if not hasattr(lspec.ctype, 'push'):
+        return False
     lspec.ctype.push(nodes.PointerType())
     return True
 
@@ -354,7 +354,9 @@ def add_paren(self):
     lspec = self.rulenodes['local_specifier']
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int', lspec.ctype)
-    lspec.push(nodes.ParenType())
+    if not hasattr(lspec.ctype, 'push'):
+        return False
+    lspec.ctype.push(nodes.ParenType())
     return True
 
 @meta.hook(Declaration)
@@ -362,18 +364,19 @@ def add_ary(self, expr):
     lspec = self.rulenodes['local_specifier']
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int', lspec.ctype)
-    lspec.push(nodes.ArrayType(expr.node))
+    if not hasattr(lspec.ctype, 'push'):
+        print("CAS A LA CON")
+        return False
+    lspec.ctype.push(nodes.ArrayType(expr.node))
     return True
 
 @meta.hook(Declaration)
 def p_fun(self, ast, metadata):
     lspec = self.rulenodes['local_specifier']
-    print("P_FUN:%s" % vars(ast))
-    print("P_META:%s" % vars(metadata))
     # if a list of param exist, it's a function
     if hasattr(metadata, 'params'):
-        ast.node = nodes.Decl(ast.name_absdecl, nodes.FuncType(lspec._identifier, metadata.params))
-        print("TESTOUILLE %s" % str(ast.node.to_c()))
+        ast.node = nodes.Decl(ast.name_absdecl,
+            nodes.FuncType(lspec.ctype._identifier, metadata.params))
     return True
 
 @meta.hook(Declaration)
@@ -384,6 +387,7 @@ def name_absdecl(self, ast, ident):
 
 @meta.hook(Declaration)
 def add_param(self, ast, param):
+    lspec = self.rulenodes['local_specifier']
     if not hasattr(ast, 'params'):
         ast.params = []
     ast.params.append(param.node)
