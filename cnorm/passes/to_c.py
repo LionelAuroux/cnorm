@@ -17,7 +17,7 @@ def catlist(l):
         if t == "":
             t = i
         elif t[-1] == "(" or t[-1] == ")" or t[-1] == "[" \
-            or t[-1] == "]" or t[-1] == "*" or i[0] == "[" or i[0] == ")":
+            or t[-1] == "]" or t[-1] == "*" or i[0] == "[" or i[0] == ")" or i[0] == "(":
             t += i
         else:
             t += ' ' + i
@@ -25,21 +25,21 @@ def catlist(l):
 
 @meta.add_method(nodes.CType)
 def ctype_to_c(self, func_var_name=""):
-    declarator = ""
+    declarator = []
     if func_var_name != "":
-        declarator = func_var_name
+        declarator = [func_var_name]
     if hasattr(self, 'params'):
         pf = []
         for p in self.params:
              pf.append(p.ctype.ctype_to_c(p._name))
-        declarator += '(' + ", ".join(pf) + ')'
+        declarator.append('(' + ", ".join(pf) + ')')
     qualextern = None
     decl_ls = []
     if self.link() != None:
-        print("%s" % repr(self.link()))
-        qual_list = []
-        if declarator != "":
-            qual_list = [declarator]
+        if len(declarator) > 0:
+            qual_list = declarator
+        else:
+            qual_list = []
         unqual_list = self.link()
         while unqual_list != None:
             if isinstance(unqual_list, nodes.ArrayType):
@@ -49,6 +49,11 @@ def ctype_to_c(self, func_var_name=""):
                     qual_list.append("[]")
             if isinstance(unqual_list, nodes.ParenType):
                 qual_list = ["(", qual_list, ")"]
+                if len(unqual_list.params) > 0:
+                    pf = []
+                    for p in unqual_list.params:
+                         pf.append(p.ctype.ctype_to_c(p._name))
+                    qual_list.append('(' + ", ".join(pf) + ')')
             if isinstance(unqual_list, nodes.PointerType):
                 qual_list.insert(0, "*")
             if isinstance(unqual_list, nodes.QualType):
@@ -59,14 +64,14 @@ def ctype_to_c(self, func_var_name=""):
                         qual_list.insert(0, nodes.Qualifiers.rmap[unqual_list._qualifier].lower())
             unqual_list = unqual_list.link()
         flat(qual_list, decl_ls)
-    elif declarator != "":
-        decl_ls.append(declarator)
+    elif len(declarator) > 0:
+        decl_ls = declarator
     if hasattr(self, 'identifier'):
         decl_ls.insert(0, self.identifier)
-    if hasattr(self, 'return_type'):
-        print("before %s" % decl_ls[-1])
-        decl_ls.insert(0, self.return_type.ctype_to_c())
-        print("after %s" % decl_ls[-1])
+#    if hasattr(self, 'return_type'):
+#        print("before %s" % decl_ls[-1])
+#        decl_ls.insert(0, self.return_type.ctype_to_c())
+#        print("after %s" % decl_ls[-1])
     # specifier
     if self._specifier != nodes.Specifiers.AUTO:
         if self._specifier == nodes.Specifiers.LONGLONG:
