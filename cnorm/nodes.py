@@ -130,17 +130,20 @@ class CType(parsing.Node):
         # only one specifier by declaration (auto, short, long, struct, union, enum)
         self._specifier = Specifiers.AUTO
 
-    def copy(self):
-        import copy
-        theclone = copy.copy(self)
-        theclone._decltype = None
-        return theclone
-
     def link(self, t: DeclType=None):
         if t != None:
             if not isinstance(t, DeclType):
                 raise Exception("add only C type declarator")
             self._decltype = t
+        return self._decltype
+
+    def push(self, t: DeclType=None):
+        if t != None:
+            if not isinstance(t, DeclType):
+                raise Exception("add only C type declarator")
+            old = self._decltype
+            self._decltype = t
+            self._decltype.link(old)
         return self._decltype
 
 class PrimaryType(CType):
@@ -162,8 +165,7 @@ class FuncType(PrimaryType):
     def __init__(self, identifier: str, params=[]):
         PrimaryType.__init__(self, identifier)
         self._params = params
-        # TODO: func definition
-        # self.body
+        #self.body = BlockStmt([])
 
     @property
     def return_type(self):
@@ -176,6 +178,7 @@ class FuncType(PrimaryType):
 # helper to create a CType from previous one
 def makeCType(declspecifier: str, ctype=None):
     from cnorm.parsing.expression import Idset
+    print("%s %s" %(declspecifier, ctype))
     if ctype == None:
         ctype = PrimaryType('int')
     if Idset[declspecifier] == "type":
@@ -214,6 +217,16 @@ class Decl(Expr):
         self._name = name
         self._ctype = ct
 
+    def dup(self):
+        theclone = self.__class__(self)
+        theclone.__class__ = self.__class__
+        theclone._ctype._storage = self._ctype._storage
+        theclone._ctype._specifier = self._ctype._specifier
+        if hasattr(self._ctype, '_sign'):
+            theclone._ctype._sign = self._ctype._sign
+        theclone._ctype._decltype = None
+        return theclone
+
     @property
     def ctype(self) -> CType:
         return self._ctype
@@ -233,9 +246,9 @@ class ExprStmt(Stmt):
 class BlockStmt(Stmt):
     """Block statement"""
 
-    def __init__(self, block: [ExprStmt]):
+    def __init__(self, body: [ExprStmt]):
         parsing.Node.__init__(self)
-        self.block = block
+        self.body = body
 
     def func(self, name: str):
         """return the func defined named name"""
@@ -258,8 +271,8 @@ class BlockStmt(Stmt):
 class RootBlockStmt(BlockStmt):
     """Root Block statement"""
 
-    def __init__(self, block: [ExprStmt]):
-        BlockStmt.__init__(self, block)
+    def __init__(self, body: [ExprStmt]):
+        BlockStmt.__init__(self, body)
 
 class Label(Stmt):
     """Label statement"""
