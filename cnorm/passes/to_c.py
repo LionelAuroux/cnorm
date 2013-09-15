@@ -55,12 +55,12 @@ def ctype_to_c(self, func_var_name=""):
                         qual_list.lsdata.insert(0, nodes.Qualifiers.rmap[unqual_list._qualifier].lower())
             unqual_list = unqual_list.link()
         # add qualified declarator
-        print("QUALS: %s" % str(qual_list))
+        #print("QUALS: %s" % str(qual_list))
         return
         decl_ls.lsdata.append(qual_list)
     elif len(declarator.lsdata) > 0:
         decl_ls.lsdata.append(declarator)
-    print("IIIDDDD")
+    #print("IIIDDDD")
     if hasattr(self, 'identifier'):
         decl_ls.lsdata.insert(0, self.identifier)
     # specifier
@@ -78,7 +78,7 @@ def ctype_to_c(self, func_var_name=""):
     # End by storage
     if self._storage != nodes.Storages.AUTO:
         decl_ls.lsdata.insert(0, nodes.Storages.rmap[self._storage].lower())
-    print("DECLS: %s" % str(decl_ls))
+    #print("DECLS: %s" % str(decl_ls))
     return decl_ls
 
 @meta.add_method(nodes.Decl)
@@ -167,7 +167,7 @@ def to_c(self):
 def to_c(self):
     lsbody = []
     for e in self.body:
-        print("ROOT %s" % vars(e))
+        #print("ROOT %s" % vars(e))
         lsbody.append(e.to_c())
     return fmt.sep("", lsbody)
 
