@@ -302,7 +302,7 @@ class Expression(Grammar, Literal):
                 | '.' identifier:i #new_dot(_, _, i)
                 | "->" identifier:i #new_arrow(_, _, i)
                 | ["++"|"--"]:op #new_raw(op, op) #new_post(_, op, _)
-            ]?
+            ]*
         ;
 
         func_arg_list ::=

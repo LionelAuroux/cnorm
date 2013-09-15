@@ -1,104 +1,89 @@
-from pyrser import meta, fmt
+from pyrser import meta
+from cnorm.passes import fmt_old as fmt
 from cnorm import nodes
 
 
 # DECL
 
-def flat(l, out):
-    for i in l:
-        if type(i) is list:
-            flat(i, out)
-        else:
-            out.append(i)
-
-def catlist(l):
-    t = ""
-    for i in l:
-        if i == "":
-            continue
-        try:
-            if t == "":
-                t = i
-            elif t[-1] == "(" or t[-1] == ")" or t[-1] == "[" \
-                or t[-1] == "]" or t[-1] == "*" or i[0] == "[" \
-                or i[0] == ")" or i[0] == "(":
-                t += i
-            else:
-                t += ' ' + i
-        except:
-            continue
-    return t
-
 @meta.add_method(nodes.CType)
 def ctype_to_c(self, func_var_name=""):
-    declarator = []
+    # our global declarator
+    declarator = fmt.sep(' ', [])
+    # typename or full decl
     if func_var_name != "":
-        declarator = [func_var_name]
+        declarator.lsdata.append(func_var_name)
     # intern prototype
     if hasattr(self, 'params'):
-        pf = []
+        # param list
+        pf = fmt.sep(", ", [])
         for p in self.params:
             if p.ctype != None:
-                #print("PP %r" % p)
                 if hasattr(p.ctype, 'ctype_to_c'):
-                    pf.append(p.ctype.ctype_to_c(p._name))
-        declarator.append('(' + ", ".join(pf) + ')')
+                    pf.lsdata.append(p.ctype.ctype_to_c(p._name))
+        declarator.lsdata.append(fmt.block('(', ')',  [pf]))
+    # for externalize the last qualifier
     qualextern = None
-    decl_ls = []
+    # final output
+    decl_ls = fmt.sep(" ", [])
     if self.link() != None:
-        if len(declarator) > 0:
+        if len(declarator.lsdata) > 0:
             qual_list = declarator
         else:
-            qual_list = []
+            qual_list = fmt.sep("", [])
         unqual_list = self.link()
         # qualification of declaration
         while unqual_list != None:
             if isinstance(unqual_list, nodes.ArrayType):
                 if unqual_list.expr != None:
-                    qual_list.append("[" + str(unqual_list.expr.to_c()) + "]")
+                    qual_list.lsdata.append(fmt.block("[", "]", [unqual_list.expr.to_c()]))
                 else:
-                    qual_list.append("[]")
+                    qual_list.lsdata.append("[]")
             if isinstance(unqual_list, nodes.ParenType):
-                qual_list = ["(", qual_list, ")"]
+                qual_list.lsdata.append(fmt.block("(", ")", [qual_list]))
                 if len(unqual_list.params) > 0:
-                    pf = []
+                    pf = fmt.sep(", ", [])
                     for p in unqual_list.params:
-                         pf.append(p.ctype.ctype_to_c(p._name))
-                    qual_list.append('(' + ", ".join(pf) + ')')
+                         pf.lsdata.append(p.ctype.ctype_to_c(p._name))
+                    qual_list.lsdata.append(fmt.block('(', ')', [pf]))
             if isinstance(unqual_list, nodes.PointerType):
-                qual_list.insert(0, "*")
+                qual_list.lsdata.insert(0, "*")
             if isinstance(unqual_list, nodes.QualType):
                 if unqual_list._qualifier != nodes.Qualifiers.AUTO:
                     if unqual_list.link() == None:
                         qualextern = unqual_list
                     else:
-                        qual_list.insert(0, nodes.Qualifiers.rmap[unqual_list._qualifier].lower())
+                        qual_list.lsdata.insert(0, nodes.Qualifiers.rmap[unqual_list._qualifier].lower())
             unqual_list = unqual_list.link()
-        flat(qual_list, decl_ls)
-    elif len(declarator) > 0:
-        decl_ls = declarator
+        # add qualified declarator
+        print("QUALS: %s" % str(qual_list))
+        return
+        decl_ls.lsdata.append(qual_list)
+    elif len(declarator.lsdata) > 0:
+        decl_ls.lsdata.append(declarator)
+    print("IIIDDDD")
     if hasattr(self, 'identifier'):
-        decl_ls.insert(0, self.identifier)
+        decl_ls.lsdata.insert(0, self.identifier)
     # specifier
     if self._specifier != nodes.Specifiers.AUTO:
         if self._specifier == nodes.Specifiers.LONGLONG:
-            decl_ls.insert(0, "long long")
+            decl_ls.lsdata.insert(0, "long long")
         else:
-            decl_ls.insert(0, nodes.Specifiers.rmap[self._specifier].lower())
+            decl_ls.lsdata.insert(0, nodes.Specifiers.rmap[self._specifier].lower())
     # sign
     if hasattr(self, '_sign') and self._sign != nodes.Signs.AUTO:
-        decl_ls.insert(0, nodes.Signs.rmap[self._sign].lower())
+        decl_ls.lsdata.insert(0, nodes.Signs.rmap[self._sign].lower())
     # qualifier externalized
     if qualextern != None:
-        decl_ls.insert(0, nodes.Qualifiers.rmap[qualextern._qualifier].lower())
+        decl_ls.lsdata.insert(0, nodes.Qualifiers.rmap[qualextern._qualifier].lower())
     # End by storage
     if self._storage != nodes.Storages.AUTO:
-        decl_ls.insert(0, nodes.Storages.rmap[self._storage].lower())
-    return catlist(decl_ls)
+        decl_ls.lsdata.insert(0, nodes.Storages.rmap[self._storage].lower())
+    print("DECLS: %s" % str(decl_ls))
+    return decl_ls
 
 @meta.add_method(nodes.Decl)
 def to_c(self):
-    if hasattr(self, 'body') and len(self.body) > 0:
+    if hasattr(self, 'body') and self.body != None:
         return fmt.sep("\n", [self.ctype.ctype_to_c(self._name), self.body.to_c()])
     else:
         return fmt.end(';\n', [self.ctype.ctype_to_c(self._name)])
@@ -108,7 +93,7 @@ def to_c(self):
 @meta.add_method(nodes.For)
 def to_c(self):
     lsfor = [
-                fmt.sep(" ", ["for", fmt.block('(', ')\n', 
+                fmt.sep(" ", ["for", fmt.block('(', ') ', 
                     [fmt.sep("; ",
                         [
                             self.init.to_c(),
@@ -116,26 +101,26 @@ def to_c(self):
                             self.increment.to_c()
                         ])
                     ])]),
-                fmt.tab([self.body.to_c()])
+                self.body.to_c()
             ]
-    return fmt.sep("", lsfor)
+    return fmt.end("", lsfor)
 
 @meta.add_method(nodes.If)
 def to_c(self):
     lsif = [
-                fmt.sep(" ", ["if", fmt.block('(', ')\n', [self.condition.to_c()])]),
-                fmt.tab([self.thencond.to_c()])
+                fmt.sep(" ", ["if", fmt.block('(', ') ', [self.condition.to_c()])]),
+                self.thencond.to_c()
             ]
     if self.elsecond != None:
-        lsif.append("else\n")
-        lsif.append(fmt.tab([self.elsecond.to_c()]))
-    return fmt.sep("", lsif)
+        lsif.append("else ")
+        lsif.append(self.elsecond.to_c())
+    return fmt.end("", lsif)
 
 @meta.add_method(nodes.While)
 def to_c(self):
     lswh = [
-                fmt.sep(" ", ["while", fmt.block('(', ')\n', [self.condition.to_c()])]),
-                fmt.tab([self.body.to_c()])
+                fmt.sep(" ", ["while", fmt.block('(', ') ', [self.condition.to_c()])]),
+                self.body.to_c()
             ]
     return fmt.sep("", lswh)
 
@@ -150,7 +135,7 @@ def to_c(self):
 @meta.add_method(nodes.Switch)
 def to_c(self):
     lswh = [
-                fmt.sep(" ", ["switch", fmt.block('(', ')\n', [self.condition.to_c()])]),
+                fmt.sep(" ", ["switch", fmt.block('(', ')', [self.condition.to_c()])]),
                 fmt.tab([self.body.to_c()])
             ]
     return fmt.sep("", lswh)
@@ -182,6 +167,7 @@ def to_c(self):
 def to_c(self):
     lsbody = []
     for e in self.body:
+        print("ROOT %s" % vars(e))
         lsbody.append(e.to_c())
     return fmt.sep("", lsbody)
 

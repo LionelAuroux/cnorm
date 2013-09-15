@@ -342,6 +342,7 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(str(res.to_c()) == "unsigned long long int a;\n", "Failed to pretty print correctly")
         # pointer type
         res = decl.parse("char *ptr;", "declaration")
+        print(str(res.to_c()))
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.Decl, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "char *ptr;\n", "Failed to pretty print correctly")
