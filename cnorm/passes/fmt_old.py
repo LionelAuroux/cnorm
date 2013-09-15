@@ -10,11 +10,17 @@ class   indentable:
 
     def __repr__(self):
         txt = str(type(self))
+        if hasattr(self, '_beginby'):
+            txt += repr(self._beginby)
+        if hasattr(self, '_endby'):
+            txt += repr(self._endby)
+        if hasattr(self, '_ch'):
+            txt += repr(self._ch)
         if len(self._lsdata) > 0:
-            txt += '('
+            txt += '(\n'
             for d in self._lsdata:
-                txt += ', ' + repr(d)
-            txt += ')'
+                txt += '     ' + repr(d) + "\n"
+            txt += ')\n'
         return txt
 
     @property
@@ -63,7 +69,7 @@ class   block(indentable):
                 if hasattr(self._lsdata[i], 'set_indent'):
                     self._lsdata[i].set_indent(self._indent)
                 content += str(self._lsdata[i])
-        return self._beginby + self.catend(content, self._endby)
+        return self.catend(self.catend(self._beginby, content), self._endby)
 
 class   sep(indentable):
     """
