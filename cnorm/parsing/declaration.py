@@ -50,16 +50,21 @@ class Declaration(Grammar, Statement):
                 init_declarator:_
             ]*
             [
+                ';'
+                |
                 Statement.compound_statement:b
                 #add_body(_, b)
-                | ';'
             ]
+            #end_decl(_)
         ;
 
         // overload of Statement
         line_of_code ::=
                 Declaration.declaration:_
-                | single_statement:_
+                #echo("NIANIA", _)
+                | 
+                #clean(_)
+                single_statement:_
         ;
 
         declaration_specifier ::=
@@ -127,7 +132,6 @@ class Declaration(Grammar, Statement):
             //[
             //    '=' initializer
             //]?
-            !![','|';'|'{'|'}'] 
         ;
 
         attribute_decl ::=
@@ -310,6 +314,15 @@ def new_decl_spec(self, i):
 @meta.hook(Declaration)
 def add_body(self, ast, body):
     ast.node.body = body.node
+    print("AJOUt:\n<<%s>>" % str(body.node.to_c()))
+    print("TYPE: %s" % body.node)
+    print("TYPE AST: %s" % ast.node)
+    return True
+
+@meta.hook(Declaration)
+def end_decl(self, ast):
+    self._current_block.append(ast.node)
+    print("finish %s" % ast.node)
     return True
 
 @meta.hook(Declaration)
@@ -335,8 +348,10 @@ def commit_declarator(self, ast):
     lspec = self.rulenodes['local_specifier']
     if not hasattr(ast, 'name_absdecl'):
         return False
-    ast.node = nodes.Decl(ast.name_absdecl, lspec.ctype)
-    self._current_block.append(ast.node)
+    if hasattr(ast, 'params'):
+        ast.node = nodes.Decl(ast._name, nodes.FuncType(ast._ident, ast._params))
+    else:
+        ast.node = nodes.Decl(ast.name_absdecl, lspec.ctype)
     return True
 
 @meta.hook(Declaration)
@@ -375,8 +390,11 @@ def p_fun(self, ast, metadata):
     lspec = self.rulenodes['local_specifier']
     # if a list of param exist, it's a function
     if hasattr(metadata, 'params'):
-        ast.node = nodes.Decl(ast.name_absdecl,
-            nodes.FuncType(lspec.ctype._identifier, metadata.params))
+        ast._name = ast.name_absdecl
+        ast._ident = lspec.ctype._identifier
+        ast._params = metadata.params
+        #ast.node = nodes.Decl(ast.name_absdecl,
+        #    nodes.FuncType(lspec.ctype._identifier, metadata.params))
     return True
 
 @meta.hook(Declaration)
@@ -393,3 +411,8 @@ def add_param(self, ast, param):
     ast.params.append(param.node)
     return True
 
+@meta.hook(Declaration)
+def clean(self, ast):
+    print("SINGLE STATE <")
+    print("%s >" % vars(ast))
+    return True
