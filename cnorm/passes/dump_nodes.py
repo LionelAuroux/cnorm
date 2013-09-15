@@ -1,79 +1,99 @@
 # This pass is for debug only
-from pyrser import meta
-from cnorm import nodes
+from pyrser import meta, fmt
+from pyrser.parsing import node
 
-@meta.add_method(nodes.Decl)
-def dump_nodes(self, idx=0):
-    idt = ' ' * (idx + 1)
-    txtdecl = ""
-    txtdecl += "{}name = {}\n".format(idt, self._name)
-    txtdecl += "{}storage = Storages.{}\n".format(idt, nodes.Storages.reverse_mapping[self._ctype._storage])
-    txttypes = ""
-    for t in self._ctype._decltypes:
-        if isinstance(t, nodes.DeclType):
-            txttypes += t.dump_nodes(idx + 2)
-    txtdecl += "{}DeclType :\n{}".format(idt, txttypes)
-    txtdecl += "{}Type :{}\n".format(idt, self._ctype._identifier)
-    txtdecl = "{}Decl :\n{}".format(' ' * idx, txtdecl)
-    return txtdecl
+scalar = {'bool': bool, 'int': int, 'float': float, 'str': str}
+composed = {'list': list, 'dict': dict, 'set': set}
 
-@meta.add_method(nodes.DeclType)
-def dump_nodes(self, idx=0):
-    txttypes = "{}{}\n".format(' ' * idx, type(self))
-    return txttypes
+@meta.add_method(node.Node)
+def to_yml(self):
+    pp = fmt.sep("", [])
+    to_yml_item(self, pp.lsdata, ".root")
+    return str(pp)
 
-@meta.add_method(nodes.PrimaryType)
-def dump_nodes(self, idx=0):
-    idt = ' ' * (idx + 1)
-    content = "{}identifier = {}\n".format(idt, self._identifier)
-    txttypes = "{}{} :\n{}".format(' ' * idx, type(self), content)
-    return txttypes
+def yml_attr(k, v):
+    return fmt.sep(" = ", [k, v])
 
-@meta.add_method(nodes.QualType)
-def dump_nodes(self, idx=0):
-    idt = ' ' * (idx + 1)
-    content = "{}qualifier = Qualifiers.{}\n".format(idt, nodes.Qualifiers.reverse_mapping[self._qualifier])
-    txttypes = "{}{} :\n{}".format(' ' * idx, type(self), content)
-    return txttypes
-
-## EXPR
-
-@meta.add_method(nodes.Func)
-def dump_nodes(self, idx=0):
-    idt = ' ' * idx
-    txtparams = ""
-    for p in self.params:
-        txtparams += p.dump_nodes(idx + 1)
-    return "{}Func:{} {}:\n{}".format(idt, type(self), self.call_expr.dump_nodes(), txtparams)
-
-@meta.add_method(nodes.Terminal)
-def dump_nodes(self, idx=0):
-    idt = ' ' * idx
-    return "{}Terminal:{}={}\n".format(idt, type(self), self.value)
-
-## STMT
-
-@meta.add_method(nodes.Stmt)
-def dump_nodes(self, idx=0):
-    idt = ' ' * idx
-    content = ""
-    if hasattr(self, 'init'):
-        content += idt + ' init:' + self.init.dump_nodes(idx + 1)
-    if hasattr(self, 'condition'):
-        content += idt + ' condition:' + self.condition.dump_nodes(idx + 1)
-    if hasattr(self, 'thencond'):
-        content += idt + ' thencond:' + self.thencond.dump_nodes(idx + 1)
-    if hasattr(self, 'elsecond'):
-        content += idt + ' elsecond:' + self.elsecond.dump_nodes(idx + 1)
-    if hasattr(self, 'increment'):
-        content += idt + ' increment:' + self.increment.dump_nodes(idx + 1)
-    if hasattr(self, 'body'):
-        content += idt + ' body:' + self.body.dump_nodes(idx + 1)
-    if hasattr(self, 'value'):
-        content += idt + ' value:' + self.value.dump_nodes(idx + 1)
-    if hasattr(self, 'block'):
-        for b in self.block:
-            content += idt + ' block:' + b.dump_nodes(idx + 1)
-    if hasattr(self, 'expr'):
-        content += idt + ' expr:' + self.expr.dump_nodes(idx + 1)
-    return "{}Statement:{} :\n{}\n".format(idt, type(self), content)
+def to_yml_item(item, pp, name):
+    global scalar
+    if type(item).__name__ in scalar:
+        tag = fmt.end('\n', [fmt.sep("", [name, " ", yml_attr(type(item).__name__, repr(item))])])
+        pp.append(tag)
+        return
+    if isinstance(item, bytes) or isinstance(item, bytearray):
+        inner = fmt.tab([])
+        tag = fmt.block(name + " " + str(yml_attr('type', 'bytes')) + '\n',
+                        '----' + name +'----\n', [inner])
+        inner.lsdata.append(fmt.sep(" ", []))
+        bindata = inner.lsdata[-1].lsdata
+        i = 0
+        for b in item:
+            bindata.append("%02X" % b)
+            i += 1
+            if i > 16:
+                bindata.append("\n")
+                i = 0
+        bindata.append("\n")
+        pp.append(tag)
+        return
+    if isinstance(item, object) and hasattr(item, '__dict__'):
+        inner = fmt.tab([])
+        tag = fmt.block(name + " " + str(yml_attr('type', 'object')) + '\n',
+                        '', [inner])
+        for attr in sorted(vars(item)):
+            to_yml_item(getattr(item, attr), inner.lsdata, attr)
+        if len(vars(item)) == 0:
+            inner.lsdata.append("\n")
+        pp.append(tag)
+        return
+    if isinstance(item, list):
+        inner = fmt.tab([])
+        tag = fmt.tab([fmt.block(name + " " + str(yml_attr('type', 'list')) + '\n',
+                        '', [inner])])
+        i = 0
+        for subitem in item:
+            idxname = str(fmt.sep(" ", ['[', i, ']']))
+            to_yml_item(subitem, inner.lsdata, idxname)
+            i += 1
+        if len(item) == 0:
+            inner.lsdata.append("\n")
+        pp.append(tag)
+        return
+    if isinstance(item, tuple):
+        inner = fmt.tab([])
+        tag = fmt.block(name + " " + str(yml_attr('type', 'tuple')) + '\n',
+                        '', [inner])
+        i = 0
+        for subitem in item:
+            idxname = str(fmt.sep(" ", ["[", i, "]"]))
+            to_yml_item(subitem, inner.lsdata, idxname)
+            i += 1
+        if len(item) == 0:
+            inner.lsdata.append("\n")
+        pp.append(tag)
+        return
+    if isinstance(item, dict):
+        inner = fmt.tab([])
+        tag = fmt.block(name + " " + str(yml_attr('type', 'dict')) + '\n',
+                        '', [inner])
+        for k in sorted(item.keys()):
+            idxname = str(fmt.sep(" ", ["[", repr(k), "]"]))
+            to_yml_item(item[k], inner.lsdata, idxname)
+        if len(item.keys()) == 0:
+            inner.lsdata.append("\n")
+        pp.append(tag)
+        return
+    if isinstance(item, set):
+        inner = fmt.tab([])
+        tag = fmt.block(name + " " + str(yml_attr('type', 'set')) + '\n',
+                        '', [inner])
+        for subitem in sorted(item):
+            inner.lsdata.append(fmt.sep(", "[repr(subitem)]))
+        if len(item) == 0:
+            inner.lsdata.append("\n")
+        pp.append(tag)
+        return
+    if item == None:
+        tag = fmt.end('\n', [name])
+        pp.append(tag)
+        return

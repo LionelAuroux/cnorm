@@ -40,13 +40,15 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = d.ctype
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        self.assertEqual(str(d.to_c()), "volatile int *a;\n",
+        print("qual: %s" % qual)
+        print("::%s" % vars(d.to_c()))
+        self.assertEqual(str(d.to_c()), "volatile int * a;\n",
             "Failed to convert to C")
         qual = d.ctype
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        self.assertEqual(str(d.to_c()), "volatile int *const a;\n",
+        self.assertEqual(str(d.to_c()), "volatile int * const a;\n",
             "Failed to convert to C")
         qual = d.ctype
         qual = qual.link(nodes.PointerType())
@@ -54,7 +56,7 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        self.assertEqual(str(d.to_c()), "volatile int *const(*a);\n",
+        self.assertEqual(str(d.to_c()), "volatile int * const (*a);\n",
             "Failed to convert to C")
         qual = d.ctype
         qual = qual.link(nodes.ArrayType())
