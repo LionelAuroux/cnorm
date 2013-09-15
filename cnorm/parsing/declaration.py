@@ -314,15 +314,15 @@ def new_decl_spec(self, i):
 @meta.hook(Declaration)
 def add_body(self, ast, body):
     ast.node.body = body.node
-    print("AJOUt:\n<<%s>>" % str(body.node.to_c()))
-    print("TYPE: %s" % body.node)
-    print("TYPE AST: %s" % ast.node)
+    #print("AJOUt:\n<<%s>>" % str(body.node.to_c()))
+    #print("TYPE: %s" % body.node)
+    #print("TYPE AST: %s" % ast.node)
     return True
 
 @meta.hook(Declaration)
 def end_decl(self, ast):
     self._current_block.append(ast.node)
-    print("finish %s" % ast.node)
+    #print("finish %s" % ast.node)
     return True
 
 @meta.hook(Declaration)
@@ -380,7 +380,7 @@ def add_ary(self, expr):
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int', lspec.ctype)
     if not hasattr(lspec.ctype, 'push'):
-        print("CAS A LA CON")
+        #print("CAS A LA CON")
         return False
     lspec.ctype.push(nodes.ArrayType(expr.node))
     return True
@@ -413,6 +413,6 @@ def add_param(self, ast, param):
 
 @meta.hook(Declaration)
 def clean(self, ast):
-    print("SINGLE STATE <")
-    print("%s >" % vars(ast))
+    #print("SINGLE STATE <")
+    #print("%s >" % vars(ast))
     return True

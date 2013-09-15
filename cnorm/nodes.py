@@ -94,12 +94,14 @@ class ArrayType(DeclType):
 class ParenType(DeclType):
     """For parenthesis in declaration"""
 
-    def __init__(self, params=[]):
+    def __init__(self, params=None):
         DeclType.__init__(self)
         # at creation the paren is open (temp==True)
         # we set it to close (temp==False) when we parse the ')'
         # it's used to know where to add_{in,out}
         self.temp = True
+        if params == None:
+            params = []
         self._params = params
 
     @property
@@ -219,7 +221,9 @@ def makeCType(declspecifier: str, ctype=None):
 class Decl(Expr):
     """For basic declaration"""
 
-    def __init__(self, name: str, ct=PrimaryType('int')):
+    def __init__(self, name: str, ct=None):
+        if ct == None:
+            ct = PrimaryType('int')
         Expr.__init__(self)
         self._name = name
         self._ctype = ct
@@ -302,6 +306,18 @@ class Goto(Branch):
 
     def __init__(self, expr: Expr):
         Branch.__init__(self, "goto", expr)
+
+class Break(Label):
+    """break statement"""
+
+    def __init__(self):
+        Label.__init__(self, "break")
+
+class Continue(Label):
+    """continue statement"""
+
+    def __init__(self):
+        Label.__init__(self, "continue")
 
 class Conditional(Stmt):
     """Conditional statement"""

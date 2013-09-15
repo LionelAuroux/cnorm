@@ -12,7 +12,7 @@ def to_yml(self):
     return str(pp)
 
 def yml_attr(k, v):
-    return fmt.sep(" = ", [k, v])
+    return fmt.sep("=", [k, v])
 
 def to_yml_item(item, pp, name):
     global scalar
@@ -22,7 +22,7 @@ def to_yml_item(item, pp, name):
         return
     if isinstance(item, bytes) or isinstance(item, bytearray):
         inner = fmt.tab([])
-        tag = fmt.block(name + " " + str(yml_attr('type', 'bytes')) + '\n',
+        tag = fmt.block(name + " " + str(yml_attr('type', 'bytes')) + ':\n',
                         '----' + name +'----\n', [inner])
         inner.lsdata.append(fmt.sep(" ", []))
         bindata = inner.lsdata[-1].lsdata
@@ -48,7 +48,7 @@ def to_yml_item(item, pp, name):
         return
     if isinstance(item, list):
         inner = fmt.tab([])
-        tag = fmt.tab([fmt.block(name + " " + str(yml_attr('type', 'list')) + '\n',
+        tag = fmt.tab([fmt.block(name + " " + str(yml_attr('type', 'list')) + ':\n',
                         '', [inner])])
         i = 0
         for subitem in item:
@@ -61,7 +61,7 @@ def to_yml_item(item, pp, name):
         return
     if isinstance(item, tuple):
         inner = fmt.tab([])
-        tag = fmt.block(name + " " + str(yml_attr('type', 'tuple')) + '\n',
+        tag = fmt.block(name + " " + str(yml_attr('type', 'tuple')) + ':\n',
                         '', [inner])
         i = 0
         for subitem in item:
@@ -74,7 +74,7 @@ def to_yml_item(item, pp, name):
         return
     if isinstance(item, dict):
         inner = fmt.tab([])
-        tag = fmt.block(name + " " + str(yml_attr('type', 'dict')) + '\n',
+        tag = fmt.block(name + " " + str(yml_attr('type', 'dict')) + ':\n',
                         '', [inner])
         for k in sorted(item.keys()):
             idxname = str(fmt.sep(" ", ["[", repr(k), "]"]))
@@ -85,7 +85,7 @@ def to_yml_item(item, pp, name):
         return
     if isinstance(item, set):
         inner = fmt.tab([])
-        tag = fmt.block(name + " " + str(yml_attr('type', 'set')) + '\n',
+        tag = fmt.block(name + " " + str(yml_attr('type', 'set')) + ':\n',
                         '', [inner])
         for subitem in sorted(item):
             inner.lsdata.append(fmt.sep(", "[repr(subitem)]))

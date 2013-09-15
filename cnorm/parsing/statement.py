@@ -50,6 +50,8 @@ class Statement(Grammar, Expression):
             | #check_stmt(id, "return") return_statement:_
             | #check_stmt(id, "goto") goto_statement:_
             | #check_stmt(id, "case") case_statement:_
+            | #check_stmt(id, "break") ';' #new_break(_)
+            | #check_stmt(id, "continue") ';' #new_continue(_)
             | ':' #new_label(_, id)
             ]
         ;
@@ -165,6 +167,16 @@ def new_goto(self, ast, expr):
 @meta.hook(Statement)
 def new_case(self, ast, expr):
     ast.node = nodes.Case(expr.node)
+    return True
+
+@meta.hook(Statement)
+def new_break(self, ast):
+    ast.node = nodes.Break()
+    return True
+
+@meta.hook(Statement)
+def new_continue(self, ast):
+    ast.node = nodes.Continue()
     return True
 
 @meta.hook(Statement)
