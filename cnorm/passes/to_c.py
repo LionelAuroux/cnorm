@@ -109,7 +109,6 @@ def to_c(self):
 def to_c(self):
     lsif = [
                 fmt.sep(" ", ["if", fmt.block('(', ') ', [self.condition.to_c()])]),
-                #fmt.tab([self.thencond.to_c()])
                 self.thencond.to_c()
             ]
     if self.elsecond != None:
