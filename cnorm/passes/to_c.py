@@ -1,5 +1,5 @@
 from pyrser import meta
-from cnorm.passes import fmt_old as fmt
+from pyrser import fmt
 from cnorm import nodes
 
 
@@ -86,7 +86,7 @@ def to_c(self):
     if hasattr(self, 'body') and self.body != None:
         return fmt.sep("\n", [self.ctype.ctype_to_c(self._name), self.body.to_c()])
     else:
-        return fmt.end(';\n', [self.ctype.ctype_to_c(self._name)])
+        return fmt.end(';\n', self.ctype.ctype_to_c(self._name))
 
 # STATEMENT
 
@@ -127,7 +127,7 @@ def to_c(self):
 @meta.add_method(nodes.Do)
 def to_c(self):
     lsdo = [
-                fmt.sep("\n", ["do", fmt.tab([self.body.to_c()])]),
+                fmt.sep("\n", ["do", self.body.to_c()]),
                 fmt.sep(" ", ["while", fmt.block('(', ');\n', [self.condition.to_c()])]),
            ]
     return fmt.sep("", lsdo)
@@ -136,7 +136,7 @@ def to_c(self):
 def to_c(self):
     lswh = [
                 fmt.sep(" ", ["switch", fmt.block('(', ')', [self.condition.to_c()])]),
-                fmt.tab([self.body.to_c()])
+                self.body.to_c()
             ]
     return fmt.sep("", lswh)
 
@@ -161,13 +161,12 @@ def to_c(self):
     lsbody = []
     for e in self.body:
         lsbody.append(e.to_c())
-    return fmt.block("{\n", "}\n", [fmt.tab(lsbody)])
+    return fmt.block("{\n", "}\n", fmt.tab(lsbody))
 
 @meta.add_method(nodes.RootBlockStmt)
 def to_c(self):
     lsbody = []
     for e in self.body:
-        #print("ROOT %s" % vars(e))
         lsbody.append(e.to_c())
     return fmt.sep("", lsbody)
 

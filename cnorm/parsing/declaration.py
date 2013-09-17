@@ -46,7 +46,7 @@ class Declaration(Grammar, Statement):
             init_declarator:_
             [
                 ',' "":local_specifier
-                #copy_decl
+                #copy_decl(local_specifier)
                 init_declarator:_
             ]*
             [
@@ -61,15 +61,13 @@ class Declaration(Grammar, Statement):
         // overload of Statement
         line_of_code ::=
                 Declaration.declaration:_
-                #echo("NIANIA", _)
                 | 
-                #clean(_)
                 single_statement:_
         ;
 
         declaration_specifier ::=
             Base.id:i
-            #new_decl_spec(i)
+            #new_decl_spec(local_specifier, i)
             //[
                 //composed_type_specifier
                 //| enum_specifier
@@ -82,7 +80,7 @@ class Declaration(Grammar, Statement):
 
         type_qualifier ::=
             Base.id:i !';'
-            #add_qual(i)
+            #add_qual(top_level_declarator, i)
             //| attribute_decl
         ;
 
@@ -117,7 +115,7 @@ class Declaration(Grammar, Statement):
         typeof_expr ::=
             '('
                 [
-                    type_name !!')'
+                    type_name
                     | expression
                 ]
             ')'
@@ -145,12 +143,15 @@ class Declaration(Grammar, Statement):
             | "__extension__"
         ;
 
-        declarator ::= "":top_level_declarator
+        declarator ::=
+            "":top_level_declarator
+            #clear(local_specifier)
             [
-                "*" #first_pointer declarator_recurs:_
+                "*" #first_pointer(top_level_declarator) 
+                declarator_recurs:_
                 | absolute_declarator:_
             ]
-            #commit_declarator(_)
+            #commit_declarator(_, top_level_declarator)
         ;
 
         declarator_recurs ::=
@@ -159,7 +160,7 @@ class Declaration(Grammar, Statement):
 
         pointer ::=
             [
-                "*" #add_pointer
+                "*" #add_pointer(top_level_declarator)
                 | type_qualifier
             ]*
         ;
@@ -167,7 +168,7 @@ class Declaration(Grammar, Statement):
         function_or_variable_identifier ::= identifier;
         absolute_declarator ::=
                 [
-                    '(' #add_paren
+                    '(' #add_paren(top_level_declarator)
                         type_qualifier?
                         declarator_recurs:_
                     ')'
@@ -175,7 +176,8 @@ class Declaration(Grammar, Statement):
                     function_or_variable_identifier?:name
                     #name_absdecl(_, name)
                 ]
-                direct_absolute_declarator?:pfunc_ary #p_fun(_, pfunc_ary)
+                direct_absolute_declarator?:pfunc_ary
+                #p_fun(_, pfunc_ary, top_level_declarator)
         ;
 
         direct_absolute_declarator ::=
@@ -188,7 +190,7 @@ class Declaration(Grammar, Statement):
                         assignement_expression:e
                         | '*':star #new_raw(e, star)
                     ]?:e
-                    #add_ary(e)
+                    #add_ary(top_level_declarator, e)
                 ']'
             ]+
             | '(' 
@@ -297,15 +299,13 @@ def clear(self, lspec):
     return True
 
 @meta.hook(Declaration)
-def copy_decl(self):
-    lspec = self.rulenodes['local_specifier']
+def copy_decl(self, lspec):
     lspec.ctype = self._current_block[-1].ctype.copy()
     return True
 
 
 @meta.hook(Declaration)
-def new_decl_spec(self, i):
-    lspec = self.rulenodes['local_specifier']
+def new_decl_spec(self, lspec, i):
     if i.value in Idset:
         lspec.ctype = nodes.makeCType(i.value, lspec.ctype)
         return True
@@ -326,8 +326,7 @@ def end_decl(self, ast):
     return True
 
 @meta.hook(Declaration)
-def add_qual(self, qualspec):
-    lspec = self.rulenodes['local_specifier']
+def add_qual(self, lspec, qualspec):
     dspec = qualspec.value
     if dspec in Idset and Idset[dspec] == "qualifier":
         cleantxt = dspec.strip("_")
@@ -336,27 +335,27 @@ def add_qual(self, qualspec):
     return False
 
 @meta.hook(Declaration)
-def first_pointer(self):
-    lspec = self.rulenodes['local_specifier']
+def first_pointer(self, lspec):
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int', lspec.ctype)
     lspec.ctype.push(nodes.PointerType())
     return True
 
 @meta.hook(Declaration)
-def commit_declarator(self, ast):
-    lspec = self.rulenodes['local_specifier']
+def commit_declarator(self, ast, lspec):
     if not hasattr(ast, 'name_absdecl'):
         return False
-    if hasattr(ast, 'params'):
+    if hasattr(ast, '_params'):
         ast.node = nodes.Decl(ast._name, nodes.FuncType(ast._ident, ast._params))
     else:
-        ast.node = nodes.Decl(ast.name_absdecl, lspec.ctype)
+        ctype = None
+        if hasattr(lspec, 'ctype'):
+            ctype = lspec.ctype
+        ast.node = nodes.Decl(ast.name_absdecl, ctype)
     return True
 
 @meta.hook(Declaration)
-def add_pointer(self):
-    lspec = self.rulenodes['local_specifier']
+def add_pointer(self, lspec):
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int', lspec.ctype)
     if not hasattr(lspec.ctype, 'push'):
@@ -365,36 +364,29 @@ def add_pointer(self):
     return True
 
 @meta.hook(Declaration)
-def add_paren(self):
-    lspec = self.rulenodes['local_specifier']
+def add_paren(self, lspec):
     if not hasattr(lspec, 'ctype'):
-        lspec.ctype = nodes.makeCType('int', lspec.ctype)
-    if not hasattr(lspec.ctype, 'push'):
-        return False
+        lspec.ctype = nodes.makeCType('int')
     lspec.ctype.push(nodes.ParenType())
     return True
 
 @meta.hook(Declaration)
-def add_ary(self, expr):
-    lspec = self.rulenodes['local_specifier']
+def add_ary(self, lspec, expr):
     if not hasattr(lspec, 'ctype'):
-        lspec.ctype = nodes.makeCType('int', lspec.ctype)
-    if not hasattr(lspec.ctype, 'push'):
-        #print("CAS A LA CON")
-        return False
+        lspec.ctype = nodes.makeCType('int')
     lspec.ctype.push(nodes.ArrayType(expr.node))
     return True
 
 @meta.hook(Declaration)
-def p_fun(self, ast, metadata):
-    lspec = self.rulenodes['local_specifier']
+def p_fun(self, ast, metadata, lspec):
     # if a list of param exist, it's a function
     if hasattr(metadata, 'params'):
         ast._name = ast.name_absdecl
-        ast._ident = lspec.ctype._identifier
+        ident = ""
+        if hasattr(lspec, "ctype"):
+            ident = lspec.ctype._identifier
+        ast._ident = ident
         ast._params = metadata.params
-        #ast.node = nodes.Decl(ast.name_absdecl,
-        #    nodes.FuncType(lspec.ctype._identifier, metadata.params))
     return True
 
 @meta.hook(Declaration)
@@ -405,14 +397,7 @@ def name_absdecl(self, ast, ident):
 
 @meta.hook(Declaration)
 def add_param(self, ast, param):
-    lspec = self.rulenodes['local_specifier']
     if not hasattr(ast, 'params'):
         ast.params = []
     ast.params.append(param.node)
-    return True
-
-@meta.hook(Declaration)
-def clean(self, ast):
-    #print("SINGLE STATE <")
-    #print("%s >" % vars(ast))
     return True

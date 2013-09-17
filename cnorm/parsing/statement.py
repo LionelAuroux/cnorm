@@ -1,8 +1,9 @@
 from pyrser import meta, directives
+from pyrser.grammar import Grammar
 from pyrser.hooks import copy, echo
 from pyrser.parsing.node import Node
+from pyrser.directives import ignore
 from cnorm import nodes
-from pyrser.grammar import Grammar
 from cnorm.parsing.expression import Expression
 
 class Statement(Grammar, Expression):
@@ -25,7 +26,8 @@ class Statement(Grammar, Expression):
             | expression_statement:_
         ;
 
-        compound_statement ::=
+        compound_statement ::= @ignore("C/C++")
+            [
             '{'
                 [
                     line_of_code:lc
@@ -33,6 +35,7 @@ class Statement(Grammar, Expression):
                 ]*:l
                 #new_blockstmt(_, l)
             '}'
+            ]
         ;
 
         line_of_code ::=

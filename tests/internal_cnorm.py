@@ -6,32 +6,6 @@ from cnorm.passes import to_c
 
 class InternalCnorm_Test(unittest.TestCase):
 
-    # TODO: to put in pyrser
-    def test_00(self):
-        """Test pprint functions"""
-        data = fmt.block("{", "}", ['a', 'b', 'c'])
-        self.assertEqual(str(data), "{abc}", "Failed to format block")
-        data = fmt.sep(",", ['a', 'b', 'c'])
-        self.assertEqual(str(data), "a,b,c", "Failed to format sep")
-        data = fmt.block("{", "}", [fmt.sep(",", ['a', 'b', 'c'])])
-        self.assertEqual(str(data), "{a,b,c}", "Failed to format block/sep")
-        data = fmt.sep(",", [fmt.block("{", "}", ['a', 'b']), fmt.block("{", "}", ['c', 'd'])])
-        self.assertEqual(str(data), "{ab},{cd}", "Failed to format sep/block")
-        data = fmt.end(";\n", ['a', 'b', 'c'])
-        self.assertEqual(str(data), "a;\nb;\nc;\n", "Failed to format a list end by ';\n'")
-        data = fmt.tab([fmt.tab([fmt.block("{\n", "}\n", [fmt.tab(['a\n', 'b\n', 'c\n'])])])])
-        self.assertEqual(str(data), "%s{\n%sa\n%sb\n%sc\n%s}\n" %
-            (" " * 4, " " * 8, " " * 8, " " * 8, " " * 4),
-            "Failed to indent")
-        data = fmt.block("{\n", "}\n", [fmt.tab(['a\n', fmt.block("{\n", "}\n", [fmt.tab(['d\n', 'e\n', 'f\n'])]), 'c\n'])])
-        self.assertEqual(str(data), "{\n%sa\n%s{\n%sd\n%se\n%sf\n%s}\n%sc\n}\n" %
-            (" " * 4, " " * 4, " " * 8, " " * 8, " " * 8, " " * 4, " " * 4),
-            "Failed to indent")
-        data = fmt.block("{\n", "}\n", [fmt.tab([fmt.block("{\n", "}\n", [fmt.tab([fmt.end(";\n", ["a", "b", "c"])])])])])
-        self.assertEqual("%s" % data, "{\n%s{\n%sa;\n%sb;\n%sc;\n%s}\n}\n" %
-                         (" " * 4, " " * 8, " " * 8, " " * 8, " " * 4),
-                         "Failed to auto indent")
-
     def test_01_basicdecl(self):
         """Test cnorm nodes construction"""
         d = nodes.Decl('a')
@@ -40,7 +14,7 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = d.ctype
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        print("qual: %s" % qual)
+        print("decl: %s" % vars(d))
         print("::%s" % vars(d.to_c()))
         self.assertEqual(str(d.to_c()), "volatile int * a;\n",
             "Failed to convert to C")
