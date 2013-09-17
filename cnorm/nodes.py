@@ -177,10 +177,6 @@ class FuncType(PrimaryType):
         #self.body = BlockStmt([])
 
     @property
-    def return_type(self):
-        return self._return_type
-
-    @property
     def params(self):
         return self._params
 
