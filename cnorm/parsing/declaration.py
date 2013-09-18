@@ -1,4 +1,5 @@
 from pyrser import meta, directives
+from pyrser.passes import to_yml
 from pyrser.hooks import copy, echo
 from pyrser.parsing.node import Node
 from cnorm import nodes
@@ -15,8 +16,15 @@ class Declaration(Grammar, Statement):
     grammar = """
 
         translation_unit ::=
-            #new_root(_)
-            [declaration]*
+            @ignore("C/C++")
+            [
+                #new_root(_)
+                [
+                    "":current_block
+                    #begin_decl(current_block, _)
+                    declaration
+                ]*
+            ]
             Base.eof
         ;
 
@@ -41,29 +49,34 @@ class Declaration(Grammar, Statement):
 
         c_decl ::=
             "":local_specifier
-            #clear(local_specifier)
+            #create_ctype(local_specifier)
             declaration_specifier*
-            init_declarator:_
+            init_declarator:decl
+            #end_decl(current_block, decl)
             [
-                ',' "":local_specifier
-                #copy_decl(local_specifier)
-                init_declarator:_
+                ',' 
+                #copy_ctype(local_specifier, decl)
+                init_declarator:decl
+                #end_decl(current_block, decl)
             ]*
             [
                 ';'
                 |
                 Statement.compound_statement:b
-                #add_body(_, b)
+                #add_body(decl, b)
             ]
-            #end_decl(_)
         ;
 
         // overload of Statement
+        /*
         line_of_code ::=
-                Declaration.declaration:_
+                "":current_block
+                #begin_decl(current_block, _)
+                declaration:_
                 | 
                 single_statement:_
         ;
+        */
 
         declaration_specifier ::=
             Base.id:i
@@ -79,8 +92,8 @@ class Declaration(Grammar, Statement):
         ;
 
         type_qualifier ::=
-            Base.id:i !';'
-            #add_qual(top_level_declarator, i)
+            Base.id:i
+            #add_qual(local_specifier, i)
             //| attribute_decl
         ;
 
@@ -144,14 +157,14 @@ class Declaration(Grammar, Statement):
         ;
 
         declarator ::=
-            "":top_level_declarator
-            #clear(local_specifier)
             [
-                "*" #first_pointer(top_level_declarator) 
+                "*"
+                #first_pointer(local_specifier) 
                 declarator_recurs:_
-                | absolute_declarator:_
+                | 
+                absolute_declarator:_
             ]
-            #commit_declarator(_, top_level_declarator)
+            #commit_declarator(_, local_specifier)
         ;
 
         declarator_recurs ::=
@@ -160,24 +173,25 @@ class Declaration(Grammar, Statement):
 
         pointer ::=
             [
-                "*" #add_pointer(top_level_declarator)
+                "*" #add_pointer(local_specifier)
                 | type_qualifier
             ]*
         ;
 
-        function_or_variable_identifier ::= identifier;
+        f_or_v_id ::= identifier;
         absolute_declarator ::=
                 [
-                    '(' #add_paren(top_level_declarator)
+                    '('
+                        #add_paren(local_specifier)
                         type_qualifier?
                         declarator_recurs:_
+                        #close_paren(local_specifier)
                     ')'
                     | 
-                    function_or_variable_identifier?:name
-                    #name_absdecl(_, name)
+                    f_or_v_id:name
+                    #name_absdecl(local_specifier, name)
                 ]
-                direct_absolute_declarator?:pfunc_ary
-                #p_fun(_, pfunc_ary, top_level_declarator)
+                direct_absolute_declarator?
         ;
 
         direct_absolute_declarator ::=
@@ -190,16 +204,18 @@ class Declaration(Grammar, Statement):
                         assignement_expression:e
                         | '*':star #new_raw(e, star)
                     ]?:e
-                    #add_ary(top_level_declarator, e)
+                    #add_ary(local_specifier, e)
                 ']'
             ]+
-            | '(' 
+            |
+                '('
+                #open_params(local_specifier)
                 [
                     //kr_parameter_type_list
                     //| 
                     parameter_type_list:_
                 ]?
-               ')'
+                ')'
             /*
             [ // K&R STYLE
                 !![';'|','|'{'|'('|')']
@@ -221,13 +237,17 @@ class Declaration(Grammar, Statement):
         ;
 
         parameter_list ::=
-            parameter_declaration:p #add_param(_, p)
-            [',' parameter_declaration:p #add_param(_, p) ]*
+            parameter_declaration:p
+            #add_param(local_specifier, p)
+            [','
+                parameter_declaration:p
+                #add_param(local_specifier, p)
+            ]*
         ;
 
         parameter_declaration ::=
             "":local_specifier
-            #clear(local_specifier)
+            #create_ctype(local_specifier)
             type_name:_
         ;
 
@@ -277,12 +297,7 @@ class Declaration(Grammar, Statement):
     """
 
     def parse(self, source, entry=None):
-        self._current_block = [None]
         res = Grammar.parse(self, source, entry)
-        if hasattr(self, '_current_ctype'):
-            delattr(self, '_current_ctype')
-        if hasattr(self, '_current_block'):
-            delattr(self, '_current_block')
         if hasattr(res, 'node'):
             return res.node
         return res
@@ -290,17 +305,21 @@ class Declaration(Grammar, Statement):
 @meta.hook(Declaration)
 def new_root(self, ast):
     ast.node = nodes.RootBlockStmt([])
-    self._current_block = ast.node.body
     return True
 
 @meta.hook(Declaration)
-def clear(self, lspec):
+def begin_decl(self, current_block, ast):
+    current_block.node = ast.node.body
+    return True
+
+@meta.hook(Declaration)
+def create_ctype(self, lspec):
     lspec.ctype = None
     return True
 
 @meta.hook(Declaration)
-def copy_decl(self, lspec):
-    lspec.ctype = self._current_block[-1].ctype.copy()
+def copy_ctype(self, lspec, previous):
+    lspec.ctype = previous.node.ctype.copy()
     return True
 
 
@@ -314,15 +333,11 @@ def new_decl_spec(self, lspec, i):
 @meta.hook(Declaration)
 def add_body(self, ast, body):
     ast.node.body = body.node
-    #print("AJOUt:\n<<%s>>" % str(body.node.to_c()))
-    #print("TYPE: %s" % body.node)
-    #print("TYPE AST: %s" % ast.node)
     return True
 
 @meta.hook(Declaration)
-def end_decl(self, ast):
-    self._current_block.append(ast.node)
-    #print("finish %s" % ast.node)
+def end_decl(self, current_block, ast):
+    current_block.node.append(ast.node)
     return True
 
 @meta.hook(Declaration)
@@ -343,15 +358,38 @@ def first_pointer(self, lspec):
 
 @meta.hook(Declaration)
 def commit_declarator(self, ast, lspec):
-    if not hasattr(ast, 'name_absdecl'):
-        return False
-    if hasattr(ast, '_params'):
-        ast.node = nodes.Decl(ast._name, nodes.FuncType(ast._ident, ast._params))
+    if hasattr(lspec, 'list_of_params'):
+        iter_param = iter(lspec.list_of_params)
+        if not hasattr(lspec, '_is_fpointer'):
+            first = next(iter_param)
+            # special case for the first
+            if first._params:
+                lspec.ctype._params = first._params
+        else:
+            delattr(lspec, '_is_fpointer')
+        # other are in ParenType
+        well_done = False
+        try:
+            theparams = next(iter_param)
+            decltype = lspec.ctype.link()
+            while decltype != None:
+                if isinstance(decltype, nodes.ParenType):
+                    # attach parameter
+                    decltype._params = theparams._params
+                    theparams = next(iter_param)
+                decltype = decltype.link()
+        except StopIteration:
+            well_done = True
+    if hasattr(lspec.ctype, '_params'):
+        ctype = lspec.ctype
+        if isinstance(ctype, nodes.PrimaryType):
+            ctype = ctype.link()
+        ast.node = nodes.Decl(lspec._name, nodes.FuncType(lspec.ctype._identifier, lspec.ctype._params, ctype))
     else:
         ctype = None
         if hasattr(lspec, 'ctype'):
             ctype = lspec.ctype
-        ast.node = nodes.Decl(ast.name_absdecl, ctype)
+        ast.node = nodes.Decl(lspec._name, ctype)
     return True
 
 @meta.hook(Declaration)
@@ -374,30 +412,52 @@ def add_paren(self, lspec):
 def add_ary(self, lspec, expr):
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int')
-    lspec.ctype.push(nodes.ArrayType(expr.node))
-    return True
-
-@meta.hook(Declaration)
-def p_fun(self, ast, metadata, lspec):
-    # if a list of param exist, it's a function
-    if hasattr(metadata, 'params'):
-        ast._name = ast.name_absdecl
-        ident = ""
-        if hasattr(lspec, "ctype"):
-            ident = lspec.ctype._identifier
-        ast._ident = ident
-        ast._params = metadata.params
+    decltype = lspec.ctype
+    at_end = False
+    end_tail = None
+    if hasattr(lspec, '_is_fpointer'):
+        while decltype != None:
+            if decltype.link() == None:
+                at_end = True
+            elif not isinstance(decltype, nodes.ArrayType):
+                end_tail = decltype
+                first_ary = None
+            decltype = decltype.link()
+    if at_end:
+        # ary in inverse order
+        if isinstance(end_tail.link(), nodes.ArrayType):
+            end_tail.push(nodes.ArrayType(expr.node))
+        else:
+            end_tail.link().link(nodes.ArrayType(expr.node))
+    else:
+        lspec.ctype.push(nodes.ArrayType(expr.node))
     return True
 
 @meta.hook(Declaration)
 def name_absdecl(self, ast, ident):
     if ident.value != "":
-        ast.name_absdecl = ident.value
+        ast._name = ident.value
+        ast._could_be_fpointer = True
     return True
 
 @meta.hook(Declaration)
-def add_param(self, ast, param):
-    if not hasattr(ast, 'params'):
-        ast.params = []
-    ast.params.append(param.node)
+def close_paren(self, ast):
+    if hasattr(ast, '_could_be_fpointer'):
+        delattr(ast, '_could_be_fpointer')
+        ast._is_fpointer = True
+    return True
+
+@meta.hook(Declaration)
+def open_params(self, lspec):
+    if hasattr(lspec, '_could_be_fpointer'):
+        delattr(lspec, '_could_be_fpointer')
+    if not hasattr(lspec, 'list_of_params'):
+        lspec.list_of_params = []
+    lspec.list_of_params.append(Node())
+    lspec.list_of_params[-1]._params = []
+    return True
+
+@meta.hook(Declaration)
+def add_param(self, lspec, param):
+    lspec.list_of_params[-1]._params.append(param.node)
     return True

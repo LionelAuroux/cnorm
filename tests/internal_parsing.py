@@ -1,6 +1,7 @@
 import unittest
 from pyrser import meta
 from pyrser import error
+from pyrser.passes import to_yml
 from pyrser import grammar
 from cnorm import nodes
 from cnorm.parsing import literal, expression, statement, declaration
@@ -323,52 +324,45 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "int a;\n", "Failed to pretty print correctly")
         # basic decl
-        res = decl.parse("unsigned int a;", "declaration")
-        self.assertTrue(res, "Failed to parse a cdecl")
-        self.assertTrue(type(res) is nodes.Decl, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "unsigned int a;\n", "Failed to pretty print correctly")
-        res = decl.parse("const int a;", "declaration")
-        self.assertTrue(res, "Failed to parse a cdecl")
-        self.assertTrue(type(res) is nodes.Decl, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "const int a;\n", "Failed to pretty print correctly")
-        res = decl.parse("extern int a;", "declaration")
-        self.assertTrue(res, "Failed to parse a cdecl")
-        self.assertTrue(type(res) is nodes.Decl, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "extern int a;\n", "Failed to pretty print correctly")
-        # normalize type
-        res = decl.parse("unsigned long long a;", "declaration")
-        self.assertTrue(res, "Failed to parse a cdecl")
-        self.assertTrue(type(res) is nodes.Decl, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "unsigned long long int a;\n", "Failed to pretty print correctly")
-        # pointer type
-        res = decl.parse("char *ptr;", "declaration")
-        print(str(res.to_c()))
-        self.assertTrue(res, "Failed to parse a cdecl")
-        self.assertTrue(type(res) is nodes.Decl, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "char *ptr;\n", "Failed to pretty print correctly")
-        res = decl.parse("char * const     ptr2;", "declaration")
-        #print(repr(res))
-        print("char *const ptr; = %s" % str(res.to_c()))
-        self.assertTrue(res, "Failed to parse a cdecl")
-        self.assertTrue(type(res) is nodes.Decl, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "char *const ptr2;\n", "Failed to pretty print correctly")
-        
-        res = decl.parse("const char * ptr;", "declaration")
-        #print(repr(res))
-        #print("const char * ptr; ?? %s" % str(res.to_c()))
-        self.assertTrue(res, "Failed to parse a cdecl")
-        self.assertTrue(type(res) is nodes.Decl, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "const char *ptr;\n", "Failed to pretty print correctly")
-        # copy decl and pointer type
-        res = decl.parse("char a, *ptr, b;")
+        res = decl.parse("unsigned int a;")
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "char a;\nchar *ptr;\nchar b;\n",
+        self.assertTrue(str(res.to_c()) == "unsigned int a;\n", "Failed to pretty print correctly")
+        res = decl.parse("const int a;")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "const int a;\n", "Failed to pretty print correctly")
+        res = decl.parse("extern int a;")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "extern int a;\n", "Failed to pretty print correctly")
+        # normalize type
+        res = decl.parse("unsigned long long a;")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "unsigned long long int a;\n", "Failed to pretty print correctly")
+        # pointer type
+        res = decl.parse("char *ptr;")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "char *ptr;\n", "Failed to pretty print correctly")
+        res = decl.parse("char * const     ptr2;")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "char *const ptr2;\n", "Failed to pretty print correctly")
+        res = decl.parse("const char * ptr;")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "const char *ptr;\n", "Failed to pretty print correctly")
+
+        # copy decl and pointer type
+        res = decl.parse("char a, *ptr, (* const b), (*z);")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "char a;\nchar *ptr;\nchar (*const b);\nchar (*z);\n",
                 "Failed to pretty print correctly")
         # array type
         res = decl.parse("char ptr[20];")
-        print("%s" % str(res.to_c()))
-        print("%s" % str(res))
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "char ptr[20];\n", "Failed to pretty print correctly")
@@ -378,10 +372,9 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(str(res.to_c()) == "char ptr[*];\n", "Failed to pretty print correctly")
         # func type
         res = decl.parse("char ptr(int a, double v);")
-        print(str(res.to_c()))
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "char ptr(int a);\n", "Failed to pretty print correctly")
+        self.assertTrue(str(res.to_c()) == "char ptr(int a, double v);\n", "Failed to pretty print correctly")
         res = decl.parse("char ptr(int z, double const c);")
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
@@ -389,20 +382,31 @@ class InternalParsing_Test(unittest.TestCase):
                 "Failed to pretty print correctly")
         # paren type
         res = decl.parse("char (t);")
-        #print(repr(res))
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "char(t);\n",
+        self.assertTrue(str(res.to_c()) == "char (t);\n",
                 "Failed to pretty print correctly")
         res = decl.parse("char (*t);")
-        #print(repr(res))
-        #print(str(res.to_c()))
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "char(*t);\n",
+        self.assertTrue(str(res.to_c()) == "char (*t);\n",
+                "Failed to pretty print correctly")
+        res = decl.parse("char t[20];")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "char t[20];\n",
+                "Failed to pretty print correctly")
+        res = decl.parse("char t[20][6];")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "char t[20][6];\n",
+                "Failed to pretty print correctly")
+        res = decl.parse("char t[20][6][42];")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "char t[20][6][42];\n",
                 "Failed to pretty print correctly")
         res = decl.parse("char *t[20];")
-        #print(repr(res))
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "char *t[20];\n",
@@ -412,10 +416,23 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
         self.assertTrue(str(res.to_c()) == "char *(t[20]);\n",
                 "Failed to pretty print correctly")
+        res = decl.parse("char (*t)(int a);")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "char (*t)(int a);\n",
+                "Failed to pretty print correctly")
+        res = decl.parse("char (*f(int b, double c))(int a);")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "char (*f(int b, double c))(int a);\n",
+                "Failed to pretty print correctly")
         res = decl.parse("char (*t)[20];")
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
-        self.assertTrue(str(res.to_c()) == "char(*t)[20];\n",
+        self.assertTrue(str(res.to_c()) == "char (*t)[20];\n",
                 "Failed to pretty print correctly")
-
-
+        res = decl.parse("char (*t)[20][6];")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertTrue(str(res.to_c()) == "char (*t)[20][6];\n",
+                "Failed to pretty print correctly")

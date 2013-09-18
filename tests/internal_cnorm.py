@@ -1,7 +1,6 @@
 import unittest
-from pyrser import fmt
+from pyrser.passes import to_yml
 from cnorm import nodes
-from cnorm.passes import dump_nodes
 from cnorm.passes import to_c
 
 class InternalCnorm_Test(unittest.TestCase):
@@ -11,27 +10,29 @@ class InternalCnorm_Test(unittest.TestCase):
         d = nodes.Decl('a')
         self.assertEqual(str(d.to_c()), "int a;\n",
             "Failed to convert to C")
+        vars(d)["_name"] = 'b'
         qual = d.ctype
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        print("decl: %s" % vars(d))
-        print("::%s" % vars(d.to_c()))
-        self.assertEqual(str(d.to_c()), "volatile int * a;\n",
+        self.assertEqual(str(d.to_c()), "volatile int *b;\n",
             "Failed to convert to C")
+        vars(d)["_name"] = 'c'
         qual = d.ctype
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        self.assertEqual(str(d.to_c()), "volatile int * const a;\n",
+        self.assertEqual(str(d.to_c()), "volatile int *const c;\n",
             "Failed to convert to C")
+        vars(d)["_name"] = 'd'
         qual = d.ctype
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.ParenType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        self.assertEqual(str(d.to_c()), "volatile int * const (*a);\n",
+        self.assertEqual(str(d.to_c()), "volatile int *const (*d);\n",
             "Failed to convert to C")
+        vars(d)["_name"] = 'e'
         qual = d.ctype
         qual = qual.link(nodes.ArrayType())
         qual = qual.link(nodes.ArrayType())
@@ -40,7 +41,7 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.QualType(nodes.Qualifiers.VOLATILE))
-        self.assertEqual(str(d.to_c()), "volatile int *const(*a[][]);\n",
+        self.assertEqual(str(d.to_c()), "volatile int *const (*e[][]);\n",
             "Failed to convert to C")
         d = nodes.Decl('tf', nodes.PrimaryType('double'))
         qual = d.ctype
@@ -48,7 +49,8 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
         self.assertEqual(str(d.to_c()), "const double tf[];\n",
             "Failed to convert to C")
-        ft = nodes.FuncType('double', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
+        ft = nodes.FuncType('double', [nodes.Decl('a', nodes.PrimaryType('size_t')),
+                            nodes.Decl('b', nodes.PrimaryType('int'))])
         f = nodes.Decl('f', ft)
         self.assertEqual(str(f.to_c()), "double f(size_t a, int b);\n",
             "Failed to convert to C")
@@ -56,15 +58,15 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = f.ctype
         qual = qual.link(nodes.PointerType())
         qual = qual.link(nodes.ParenType([nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))]))
-        self.assertEqual(str(f.to_c()), "double(*f)(size_t a, int b);\n",
+        self.assertEqual(str(f.to_c()), "double (*f)(size_t a, int b);\n",
             "Failed to convert to C")
         ft2 = nodes.FuncType('double', [nodes.Decl('p', nodes.PrimaryType('ext_func'))])
         f2 = nodes.Decl('f2', ft2)
         qual = f2.ctype
         qual = qual.link(nodes.PointerType())
-        qual = qual.link(nodes.ParenType([nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))]))
-        ## NOT OK
-        self.assertEqual(str(f2.to_c()), "double(*f2(ext_func p))(size_t a, int b);\n",
+        qual = qual.link(nodes.ParenType([nodes.Decl('a', nodes.PrimaryType('size_t')),
+                nodes.Decl('b', nodes.PrimaryType('int'))]))
+        self.assertEqual(str(f2.to_c()), "double (*f2(ext_func p))(size_t a, int b);\n",
             "Failed to convert to C")
         ## test CTYPE construction
         ctype = nodes.makeCType('int')
@@ -90,21 +92,13 @@ class InternalCnorm_Test(unittest.TestCase):
         qual = qual.link(nodes.ArrayType(nodes.Literal("12")))
         qual = qual.link(nodes.ParenType())
         qual = qual.link(nodes.ArrayType(nodes.Literal("66")))
+        self.assertEqual(str(d.to_c()), "XXX ((*const GG)[12])[66];\n",
+            "Failed to convert to C")
 
         ft = nodes.FuncType('HHHHH', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
         d = nodes.Decl('func', ft)
-        qual = d.ctype
-        qual = qual.link(nodes.QualType(nodes.Qualifiers.CONST))
-        qual = qual.link(nodes.PointerType())
-        qual = qual.link(nodes.ParenType())
-        qual = qual.link(nodes.ArrayType(nodes.Literal("12")))
-        qual = qual.link(nodes.ParenType())
-        qual = qual.link(nodes.ArrayType(nodes.Literal("66")))
-        ft = nodes.FuncType('double', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
-        f = nodes.Decl('f', ft)
-        ft = nodes.FuncType('double', [nodes.Decl('a', nodes.PrimaryType('size_t')), nodes.Decl('b', nodes.PrimaryType('int'))])
-        ft.link(nodes.PointerType())
-        f = nodes.Decl('f', ft)
+        self.assertEqual(str(d.to_c()), "HHHHH func(size_t a, int b);\n",
+            "Failed to convert to C")
 
     def test_02_basicexpr(self):
         """Test cnorm expression nodes"""
@@ -138,15 +132,16 @@ class InternalCnorm_Test(unittest.TestCase):
         thencond = nodes.ExprStmt(nodes.Binary(nodes.Raw('='), [nodes.Id('b'), nodes.Literal('1')]))
         elsecond = nodes.ExprStmt(nodes.Binary(nodes.Raw('='), [nodes.Id('c'), nodes.Literal('2')]))
         s = nodes.If(c, thencond, elsecond)
-        self.assertEqual(str(s.to_c()), "if (a < 12)\n%sb = 1;\nelse\n%sc = 2;\n" % (" " * 4, " " * 4), "Failed to convert to C")
+        self.assertEqual(str(s.to_c()), "if (a < 12)\n{tab}b = 1;\nelse\n{tab}c = 2;\n".format(tab=" " * 4),
+                "Failed to convert to C")
         s = nodes.RootBlockStmt([thencond, nodes.BlockStmt([thencond, elsecond]), elsecond])
-        print("<< %s >>" % str(s.to_c()))
-        self.assertEqual(str(s.to_c()), "b = 1;\n{\n%sb = 1;\n%sc = 2;\n}\nc = 2;\n" % (" " * 4, " " * 4), "Failed to convert to C")
+        self.assertEqual(str(s.to_c()), "b = 1;\n{{\n{tab}b = 1;\n{tab}c = 2;\n}}\nc = 2;\n".format(tab=" " * 4),
+                "Failed to convert to C")
         s = nodes.While(c, thencond)
-        self.assertEqual(str(s.to_c()), "while (a < 12)\n%sb = 1;\n" % (" " * 4),
+        self.assertEqual(str(s.to_c()), "while (a < 12)\n{tab}b = 1;\n".format(tab=" " * 4),
                          "Failed to convert to C")
         s = nodes.Do(c, thencond)
-        self.assertEqual(str(s.to_c()), "do\n%sb = 1;\nwhile (a < 12);\n" % (" " * 4),
+        self.assertEqual(str(s.to_c()), "do\n{tab}b = 1;\nwhile (a < 12);\n".format(tab=" " * 4),
                          "Failed to convert to C")
         s = nodes.Return(c)
         self.assertEqual(str(s.to_c()), "return a < 12;\n",
@@ -161,11 +156,11 @@ class InternalCnorm_Test(unittest.TestCase):
         self.assertEqual(str(s.to_c()), "Cool:\n",
                          "Failed to convert to C")
         s = nodes.Switch(c, thencond)
-        self.assertEqual(str(s.to_c()), "switch (a < 12)\n%sb = 1;\n" % (" " * 4),
+        self.assertEqual(str(s.to_c()), "switch (a < 12)\n{tab}b = 1;\n".format(tab=" " * 4),
                          "Failed to convert to C")
         init = nodes.Binary(nodes.Raw('='), [nodes.Id('b'), nodes.Literal('0')])
         inc = nodes.Binary(nodes.Raw('+='), [nodes.Id('b'), nodes.Literal('1')])
         s = nodes.For(init, c, inc, thencond)
-        self.assertEqual(str(s.to_c()), "for (b = 0; a < 12; b += 1)\n%sb = 1;\n" % (" " * 4),
+        self.assertEqual(str(s.to_c()), "for (b = 0; a < 12; b += 1)\n{tab}b = 1;\n".format(tab=" " * 4),
                          "Failed to convert to C")
 
