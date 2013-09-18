@@ -1,5 +1,6 @@
 from pyrser import meta
 from pyrser import fmt
+from pyrser.passes import to_yml
 from cnorm import nodes
 
 
@@ -8,7 +9,7 @@ from cnorm import nodes
 @meta.add_method(nodes.CType)
 def ctype_to_c(self, func_var_name=""):
     # our global declarator
-    declarator = fmt.sep(' ', [])
+    declarator = fmt.sep('', [])
     # typename or full decl
     if func_var_name != "":
         declarator.lsdata.append(func_var_name)
@@ -18,14 +19,16 @@ def ctype_to_c(self, func_var_name=""):
         pf = fmt.sep(", ", [])
         for p in self.params:
             if p.ctype != None:
-                if hasattr(p.ctype, 'ctype_to_c'):
+                if isinstance(p.ctype, nodes.CType):
                     pf.lsdata.append(p.ctype.ctype_to_c(p._name))
-        declarator.lsdata.append(fmt.block('(', ')',  [pf]))
+        if len(pf.lsdata) > 0:
+            declarator.lsdata.append(fmt.block('(', ')',  pf))
     # for externalize the last qualifier
     qualextern = None
     # final output
     decl_ls = fmt.sep(" ", [])
     if self.link() != None:
+        # add all qualifiers
         if len(declarator.lsdata) > 0:
             qual_list = declarator
         else:
@@ -33,18 +36,15 @@ def ctype_to_c(self, func_var_name=""):
         unqual_list = self.link()
         # qualification of declaration
         while unqual_list != None:
-            if isinstance(unqual_list, nodes.ArrayType):
-                if unqual_list.expr != None:
-                    qual_list.lsdata.append(fmt.block("[", "]", [unqual_list.expr.to_c()]))
-                else:
-                    qual_list.lsdata.append("[]")
             if isinstance(unqual_list, nodes.ParenType):
-                qual_list.lsdata.append(fmt.block("(", ")", [qual_list]))
+                # surround previous defs by ()
+                qual_list = fmt.sep("", [fmt.block("(", ")", [qual_list])])
+                # () provide param for function pointers
                 if len(unqual_list.params) > 0:
                     pf = fmt.sep(", ", [])
                     for p in unqual_list.params:
                          pf.lsdata.append(p.ctype.ctype_to_c(p._name))
-                    qual_list.lsdata.append(fmt.block('(', ')', [pf]))
+                    qual_list.lsdata.append(fmt.block('(', ')', pf))
             if isinstance(unqual_list, nodes.PointerType):
                 qual_list.lsdata.insert(0, "*")
             if isinstance(unqual_list, nodes.QualType):
@@ -52,15 +52,30 @@ def ctype_to_c(self, func_var_name=""):
                     if unqual_list.link() == None:
                         qualextern = unqual_list
                     else:
-                        qual_list.lsdata.insert(0, nodes.Qualifiers.rmap[unqual_list._qualifier].lower())
+                        qual_list.lsdata.insert(0, nodes.Qualifiers.rmap[unqual_list._qualifier].lower() + " ")
+            if isinstance(unqual_list, nodes.ArrayType):
+                # collect all consecutive array
+                consec_ary = []
+                consec_ary.append(unqual_list)
+                unqual_list = unqual_list.link()
+                while unqual_list != None and isinstance(unqual_list, nodes.ArrayType):
+                    consec_ary.append(unqual_list)
+                    unqual_list = unqual_list.link()
+                reordered = []
+                for ary in consec_ary:
+                    if ary.expr != None:
+                        reordered.insert(0, fmt.block("[", "]", [ary.expr.to_c()]))
+                    else:
+                        reordered.insert(0, "[]")
+                qual_list.lsdata.extend(reordered)
+                # rewind one for last sentence
+                unqual_list = consec_ary[-1]
             unqual_list = unqual_list.link()
         # add qualified declarator
-        #print("QUALS: %s" % str(qual_list))
-        return
         decl_ls.lsdata.append(qual_list)
     elif len(declarator.lsdata) > 0:
+        # no qualifiers just the name
         decl_ls.lsdata.append(declarator)
-    #print("IIIDDDD")
     if hasattr(self, 'identifier'):
         decl_ls.lsdata.insert(0, self.identifier)
     # specifier
@@ -78,7 +93,6 @@ def ctype_to_c(self, func_var_name=""):
     # End by storage
     if self._storage != nodes.Storages.AUTO:
         decl_ls.lsdata.insert(0, nodes.Storages.rmap[self._storage].lower())
-    #print("DECLS: %s" % str(decl_ls))
     return decl_ls
 
 @meta.add_method(nodes.Decl)
@@ -93,7 +107,7 @@ def to_c(self):
 @meta.add_method(nodes.For)
 def to_c(self):
     lsfor = [
-                fmt.sep(" ", ["for", fmt.block('(', ') ', 
+                fmt.sep(" ", ["for", fmt.block('(', ')\n', 
                     [fmt.sep("; ",
                         [
                             self.init.to_c(),
@@ -101,33 +115,33 @@ def to_c(self):
                             self.increment.to_c()
                         ])
                     ])]),
-                self.body.to_c()
+                fmt.tab(self.body.to_c())
             ]
     return fmt.end("", lsfor)
 
 @meta.add_method(nodes.If)
 def to_c(self):
     lsif = [
-                fmt.sep(" ", ["if", fmt.block('(', ') ', [self.condition.to_c()])]),
-                self.thencond.to_c()
+                fmt.sep(" ", ["if", fmt.block('(', ')\n', [self.condition.to_c()])]),
+                fmt.tab(self.thencond.to_c())
             ]
     if self.elsecond != None:
-        lsif.append("else ")
-        lsif.append(self.elsecond.to_c())
+        lsif.append("else\n")
+        lsif.append(fmt.tab(self.elsecond.to_c()))
     return fmt.end("", lsif)
 
 @meta.add_method(nodes.While)
 def to_c(self):
     lswh = [
-                fmt.sep(" ", ["while", fmt.block('(', ') ', [self.condition.to_c()])]),
-                self.body.to_c()
+                fmt.sep(" ", ["while", fmt.block('(', ')\n', [self.condition.to_c()])]),
+                fmt.tab(self.body.to_c())
             ]
     return fmt.sep("", lswh)
 
 @meta.add_method(nodes.Do)
 def to_c(self):
     lsdo = [
-                fmt.sep("\n", ["do", self.body.to_c()]),
+                fmt.sep("\n", ["do", fmt.tab(self.body.to_c())]),
                 fmt.sep(" ", ["while", fmt.block('(', ');\n', [self.condition.to_c()])]),
            ]
     return fmt.sep("", lsdo)
@@ -135,8 +149,8 @@ def to_c(self):
 @meta.add_method(nodes.Switch)
 def to_c(self):
     lswh = [
-                fmt.sep(" ", ["switch", fmt.block('(', ')', [self.condition.to_c()])]),
-                self.body.to_c()
+                fmt.sep(" ", ["switch", fmt.block('(', ')\n', [self.condition.to_c()])]),
+                fmt.tab(self.body.to_c())
             ]
     return fmt.sep("", lswh)
 

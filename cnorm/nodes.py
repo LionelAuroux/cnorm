@@ -75,6 +75,15 @@ class DeclType(parsing.Node):
             self._decltype = t
         return self._decltype
 
+    def push(self, t: 'DeclType'=None):
+        if t != None:
+            if not isinstance(t, DeclType):
+                raise Exception("add only C type declarator")
+            old = self._decltype
+            self._decltype = t
+            self._decltype.link(old)
+        return self._decltype
+
 
 class PointerType(DeclType):
     """For pointer in declaration"""
@@ -96,10 +105,6 @@ class ParenType(DeclType):
 
     def __init__(self, params=None):
         DeclType.__init__(self)
-        # at creation the paren is open (temp==True)
-        # we set it to close (temp==False) when we parse the ')'
-        # it's used to know where to add_{in,out}
-        self.temp = True
         if params == None:
             params = []
         self._params = params
@@ -171,8 +176,11 @@ class PrimaryType(CType):
 class FuncType(PrimaryType):
     """For function in declaration"""
 
-    def __init__(self, identifier: str, params=[]):
+    def __init__(self, identifier: str, params=[], decltype=None):
         PrimaryType.__init__(self, identifier)
+        self.opened = True
+        if decltype != None:
+            self._decltype = decltype
         self._params = params
         #self.body = BlockStmt([])
 
