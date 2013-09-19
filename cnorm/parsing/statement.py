@@ -26,20 +26,21 @@ class Statement(Grammar, Expression):
             | expression_statement:_
         ;
 
-        compound_statement ::= @ignore("C/C++")
+        compound_statement ::=
             [
-            '{'
+            '{' 
+                "":current_block
+                #new_blockstmt(_, current_block)
                 [
-                    line_of_code:lc
-                    #add_list(l, lc)
-                ]*:l
-                #new_blockstmt(_, l)
+                    line_of_code
+                ]*
             '}'
             ]
         ;
 
         line_of_code ::=
-            single_statement:_
+            single_statement:line
+            #end_loc(current_block, line)
         ;
 
         labeled_statement ::=
@@ -188,18 +189,15 @@ def new_label(self, ast, ident):
     return True
 
 @meta.hook(Statement)
-def new_blockstmt(self, ast, lsblock):
-    if not hasattr(lsblock, 'node'):
-        ast.node = nodes.BlockStmt([])
-    else:
-        ast.node = nodes.BlockStmt(lsblock.node)
+def new_blockstmt(self, ast, current_block):
+    ast.node = nodes.BlockStmt([])
+    current_block.node = ast.node.body
     return True
 
 @meta.hook(Statement)
-def add_list(self, lst, item):
-    if not hasattr(lst, 'node'):
-        lst.node = []
-    lst.node.append(item.node)
+def end_loc(self, current_block, ast):
+    print("?<%s>" % vars(ast))
+    current_block.node.append(ast.node)
     return True
 
 @meta.hook(Statement)
