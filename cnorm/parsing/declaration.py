@@ -18,10 +18,9 @@ class Declaration(Grammar, Statement):
         translation_unit ::=
             @ignore("C/C++")
             [
-                #new_root(_)
+                "":current_block
+                #new_root(_, current_block)
                 [
-                    "":current_block
-                    #begin_decl(current_block, _)
                     declaration
                 ]*
             ]
@@ -32,6 +31,13 @@ class Declaration(Grammar, Statement):
             //asm_decl
             //| 
             c_decl:_
+            | preproc_decl:_
+        ;
+
+        preproc_decl ::=
+            ['#' preproc_directive ]:decl
+            #raw_decl(decl)
+            #end_decl(current_block, decl)
         ;
 
         asm_decl ::=
@@ -68,15 +74,12 @@ class Declaration(Grammar, Statement):
         ;
 
         // overload of Statement
-        /*
         line_of_code ::=
-                "":current_block
-                #begin_decl(current_block, _)
-                declaration:_
-                | 
-                single_statement:_
+                    declaration
+                |   
+                    single_statement:line
+                    #end_loc(current_block, line)
         ;
-        */
 
         declaration_specifier ::=
             Base.id:i
@@ -136,13 +139,13 @@ class Declaration(Grammar, Statement):
 
         init_declarator ::=
             declarator:_
-            //[
-            //    ':' constant_expression
-            //]?
+            [
+                ':' constant_expression
+            ]?
             //attribute_decl*
-            //[
-            //    '=' initializer
-            //]?
+            [
+                '=' initializer
+            ]?
         ;
 
         attribute_decl ::=
@@ -296,20 +299,26 @@ class Declaration(Grammar, Statement):
 
     """
 
-    def parse(self, source, entry=None):
-        res = Grammar.parse(self, source, entry)
-        if hasattr(res, 'node'):
-            return res.node
-        return res
+    def after_parse(self, res):
+        return res.node
 
 @meta.hook(Declaration)
-def new_root(self, ast):
+def new_root(self, ast, current_block):
     ast.node = nodes.RootBlockStmt([])
+    current_block.node = ast.node.body
     return True
 
+@meta.rule(Declaration, "preproc_directive")
+def preproc_directive(self) -> bool:
+    """Consume a preproc directive."""
+    self._stream.save_context()
+    if self.read_until("\n", '\\'):
+        return self._stream.validate_context()
+    return self._stream.restore_context()
+
 @meta.hook(Declaration)
-def begin_decl(self, current_block, ast):
-    current_block.node = ast.node.body
+def raw_decl(self, decl):
+    decl.node = nodes.Raw(decl.value)
     return True
 
 @meta.hook(Declaration)
