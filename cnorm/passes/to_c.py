@@ -253,9 +253,20 @@ def to_c(self):
         return fmt.sep(str(self.call_expr.to_c()) + ' ', lsparams)
     return fmt.sep(' ' + str(self.call_expr.to_c()) + ' ', lsparams)
 
+@meta.add_method(nodes.Cast)
+def to_c(self):
+    return fmt.sep(" ", [fmt.block("(", ")", self.params[0].ctype_to_c()), self.params[1].to_c()])
+
 @meta.add_method(nodes.Unary)
 def to_c(self):
     return fmt.sep("", [self.call_expr.to_c(), self.params[0].to_c()])
+
+@meta.add_method(nodes.Sizeof)
+def to_c(self):
+    if isinstance(self.params[0], nodes.CType):
+        return fmt.sep(" ", [self.call_expr.to_c(), fmt.block("(", ")", self.params[0].ctype_to_c())])
+    else:
+        return fmt.sep(" ", [self.call_expr.to_c(), self.params[0].to_c()])
 
 @meta.add_method(nodes.Dot)
 def to_c(self):
