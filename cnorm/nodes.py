@@ -19,6 +19,12 @@ class Func(Expr):
         self.call_expr = call_expr
         self.params = params
 
+class BlockExpr(Expr):
+    """Initializer Block Expression"""
+
+    def __init__(self, body: [Expr]):
+        self.body = body
+
 class Unary(Func):
     """For unary operator"""
 
@@ -61,6 +67,13 @@ class Raw(Terminal):
 
 
 # DECLARATION PART
+
+class Enumerator(parsing.Node):
+    """Enumerator A=x in enums"""
+
+    def __init__(self, ident: str, expr: Expr):
+        self.ident = ident
+        self.expr = expr
 
 class DeclType(parsing.Node):
     """For type in declaration"""
@@ -172,6 +185,22 @@ class PrimaryType(CType):
     def identifier(self):
         return self._identifier
 
+class ComposedType(CType):
+    """For composed type in declaration"""
+
+    def __init__(self, identifier: str):
+        CType.__init__(self)
+        # identifier (name of the struct/union/enum)
+        self._identifier = identifier
+        # if struct
+        #self.fields = []
+        # if enum
+        #self.enums = []
+
+    @property
+    def identifier(self):
+        return self._identifier
+
 
 class FuncType(PrimaryType):
     """For function in declaration"""
@@ -182,6 +211,7 @@ class FuncType(PrimaryType):
         if decltype != None:
             self._decltype = decltype
         self._params = params
+        # when defined
         #self.body = BlockStmt([])
 
     @property
@@ -211,6 +241,12 @@ def makeCType(declspecifier: str, ctype=None):
     if Idset[declspecifier] == "sign_signed":
         cleantxt = declspecifier.strip("_")
         ctype._sign = Signs.map[cleantxt.upper()]
+    if Idset[declspecifier] == "specifier_block":
+        cleantxt = declspecifier.strip("_")
+        ctype._specifier = Specifiers.map[cleantxt.upper()]
+    if Idset[declspecifier] == "specifier_enum":
+        cleantxt = declspecifier.strip("_")
+        ctype._specifier = Specifiers.map[cleantxt.upper()]
     if Idset[declspecifier] == "specifier_size":
         cleantxt = declspecifier.strip("_")
         ctype._specifier = Specifiers.map[cleantxt.upper()]
@@ -235,6 +271,20 @@ class Decl(Expr):
     @property
     def ctype(self) -> CType:
         return self._ctype
+
+    def assign_expr(self, expr=None):
+        if not hasattr(self, '_assign_expr'):
+            self._assign_expr = None
+        if expr != None:
+            self._assign_expr = expr
+        return self._assign_expr
+
+    def colon_expr(self, expr=None):
+        if not hasattr(self, '_colon_expr'):
+            self._colon_expr = None
+        if expr != None:
+            self._colon_expr = expr
+        return self._colon_expr
 
 # STATEMENT PART
 
@@ -278,6 +328,7 @@ class RootBlockStmt(BlockStmt):
 
     def __init__(self, body: [ExprStmt]):
         BlockStmt.__init__(self, body)
+
 
 class Label(Stmt):
     """Label statement"""

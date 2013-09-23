@@ -1,6 +1,7 @@
 C Expression
 =============
 
-.. automodule:: pyrser.expression
-    :members:
-    :undoc-members:
+.. include:: ../../cnorm/parsing/expression.py
+    :code: antlr
+    :start-after: grammar = """
+    :end-before: """

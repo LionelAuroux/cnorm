@@ -2,6 +2,6 @@ Pretty printing
 ===============
 
 
-.. automodule:: pyrser.parsing.to_c
+.. automodule:: cnorm.passes.to_c
     :members:
     :undoc-members:

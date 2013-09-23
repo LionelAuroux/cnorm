@@ -1,6 +1,7 @@
 C Literal
 =============
 
-.. automodule:: pyrser.literal
-    :members:
-    :undoc-members:
+.. include:: ../../cnorm/parsing/literal.py
+    :code: antlr
+    :start-after: grammar = """
+    :end-before: """
