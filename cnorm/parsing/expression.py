@@ -70,10 +70,6 @@ Idset = {
             "__complex"             : "type",
             "__complex__"           : "type",
             "_Imaginary"            : "type",
-            "__imag"                : "type",
-            "__imag__"              : "type",
-            "__real"                : "type",
-            "__real__"              : "type",
             "_Bool"                 : "type",
             "__label__"             : "type",
             "__builtin_va_list"     : "type",
@@ -291,7 +287,6 @@ class Expression(Grammar, Literal):
         unary_expression ::=
             postfix_expression:_
             | unary_op:op unary_expression:expr #new_unary(_, op, expr)
-            // | sizeof
         ;
 
         postfix_expression ::=

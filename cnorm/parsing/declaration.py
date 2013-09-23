@@ -77,17 +77,9 @@ class Declaration(Grammar, Statement):
             ]
         ;
 
-        // overload of Statement
-        line_of_code ::=
-                    declaration
-                |
-                    single_statement:line
-                    #end_loc(current_block, line)
-        ;
-
         declaration_specifier ::=
             Base.id:i
-            #new_decl_spec(local_specifier, i)
+            #new_decl_spec(local_specifier, i, current_block)
             [
                 #is_composed(local_specifier)
                 composed_type_specifier
@@ -96,7 +88,6 @@ class Declaration(Grammar, Statement):
                 //| typeof_expr
                 //| asm_decl_follow
                 //| attr_decl_follow
-                //| typedef_name
             ]?
         ;
 
@@ -319,6 +310,34 @@ class Declaration(Grammar, Statement):
             declaration_specifier+ declarator:_
         ;
 
+        ///////// OVERLOAD OF STATEMENT
+        // add declaration in block
+        line_of_code ::=
+                    declaration
+                |
+                    single_statement:line
+                    #end_loc(current_block, line)
+        ;
+
+        ///////// OVERLOAD OF EXPRESSION
+        // add cast / sizeof
+        unary_expression ::=
+            Expression.unary_expression:_
+            | // CAST
+            '('
+            type_name:t
+            ')'
+            unary_expression:_
+            #to_cast(_, t)
+            | // SIZEOF
+            Base.id:i #sizeof(i)
+            [
+                Expression.unary_expression:n
+                | '(' type_name:n ')'
+            ]:n
+            #new_sizeof(_, i, n)
+        ;
+
     """
 
     def after_parse(self, res):
@@ -355,9 +374,13 @@ def copy_ctype(self, lspec, previous):
 
 
 @meta.hook(Declaration)
-def new_decl_spec(self, lspec, i):
+def new_decl_spec(self, lspec, i, current_block):
     if i.value in Idset:
         lspec.ctype = nodes.makeCType(i.value, lspec.ctype)
+        return True
+    if hasattr(current_block.node, 'types') \
+        and i.value in current_block.node.types:
+        lspec.ctype = nodes.PrimaryType(i.value)
         return True
     return False
 
@@ -369,6 +392,10 @@ def add_body(self, ast, body):
 @meta.hook(Declaration)
 def end_decl(self, current_block, ast):
     current_block.node.body.append(ast.node)
+    if hasattr(ast.node, 'ctype') and ast.node._name != "" and \
+        ast.node.ctype._storage == nodes.Storages.TYPEDEF:
+        from weakref import ref
+        current_block.node.types[ast.node._name] = ref(ast.node)
     return True
 
 @meta.hook(Declaration)
@@ -581,4 +608,23 @@ def add_init(self, ast, expr, designation):
     ast.node.body.append(expr.node)
     if designation.value != "":
         ast.node.body[-1].designation = designation.value
+    return True
+
+@meta.hook(Declaration)
+def to_cast(self, ast, typename):
+    ast.node = nodes.Cast(nodes.Raw('()'), [typename.node.ctype, ast.node])
+    return True
+
+@meta.hook(Declaration)
+def sizeof(self, ident):
+    if ident.value in Idset and Idset[ident.value] == "sizeof":
+        return True
+    return False
+
+@meta.hook(Declaration)
+def new_sizeof(self, ast, i, n):
+    thing = n.node
+    if isinstance(thing, nodes.Decl):
+        thing = n.node.ctype
+    ast.node = nodes.Sizeof(nodes.Raw(i.value), [thing])
     return True

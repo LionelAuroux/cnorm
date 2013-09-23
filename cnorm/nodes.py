@@ -43,8 +43,14 @@ class Arrow(Unary):
 class Post(Unary):
     """For post{inc,dec} expression"""
 
+class Sizeof(Unary):
+    """For sizeof expr/type expression"""
+
 class Binary(Func):
     """For binary operator"""
+
+class Cast(Binary):
+    """For cast operator"""
 
 class Ternary(Func):
     """For ternary operator"""
@@ -328,6 +334,8 @@ class RootBlockStmt(BlockStmt):
 
     def __init__(self, body: [ExprStmt]):
         BlockStmt.__init__(self, body)
+        from collections import ChainMap
+        self.types = ChainMap()
 
 
 class Label(Stmt):

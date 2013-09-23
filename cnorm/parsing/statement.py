@@ -192,6 +192,9 @@ def new_label(self, ast, ident):
 def new_blockstmt(self, ast, current_block):
     ast.node = nodes.BlockStmt([])
     current_block.node = ast.node
+    parent = self.rulenodes.parents
+    if 'current_block' in parent:
+        current_block.node.types = parent['current_block'].node.types.new_child()
     return True
 
 @meta.hook(Statement)
