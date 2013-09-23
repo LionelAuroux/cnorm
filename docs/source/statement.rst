@@ -1,6 +1,7 @@
 C Statement
 =============
 
-.. automodule:: pyrser.statement
-    :members:
-    :undoc-members:
+.. include:: ../../cnorm/parsing/statement.py
+    :code: antlr
+    :start-after: grammar = """
+    :end-before: """

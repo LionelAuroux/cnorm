@@ -318,10 +318,13 @@ class Expression(Grammar, Literal):
             | '(' expression:expr ')' #new_paren(_, expr)
         ;
 
-        identifier ::= @ignore('null')
-            rootidentifier:id
-            #check_is_id(id)
-            #new_id(_, id)
+        identifier ::=
+            @ignore('null') 
+            [
+                rootidentifier:id
+                #check_is_id(id)
+                #new_id(_, id)
+            ]
         ;
 
         rootidentifier ::= Base.id:_

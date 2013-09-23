@@ -191,13 +191,12 @@ def new_label(self, ast, ident):
 @meta.hook(Statement)
 def new_blockstmt(self, ast, current_block):
     ast.node = nodes.BlockStmt([])
-    current_block.node = ast.node.body
+    current_block.node = ast.node
     return True
 
 @meta.hook(Statement)
 def end_loc(self, current_block, ast):
-    print("?<%s>" % vars(ast))
-    current_block.node.append(ast.node)
+    current_block.node.body.append(ast.node)
     return True
 
 @meta.hook(Statement)

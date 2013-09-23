@@ -12,7 +12,10 @@ class Declaration(Grammar, Statement):
         interaction with other CNORM PART:
 
     """
+    #: entry point for C programming language
     entry = "translation_unit"
+
+    #: complete C declaration grammar
     grammar = """
 
         translation_unit ::=
@@ -30,8 +33,8 @@ class Declaration(Grammar, Statement):
         declaration ::=
             //asm_decl
             //| 
-            c_decl:_
-            | preproc_decl:_
+            c_decl
+            | preproc_decl
         ;
 
         preproc_decl ::=
@@ -56,8 +59,9 @@ class Declaration(Grammar, Statement):
         c_decl ::=
             "":local_specifier
             #create_ctype(local_specifier)
-            declaration_specifier*
+            declaration_specifier*:dsp
             init_declarator:decl
+            #not_empty(current_block, dsp)
             #end_decl(current_block, decl)
             [
                 ',' 
@@ -76,7 +80,7 @@ class Declaration(Grammar, Statement):
         // overload of Statement
         line_of_code ::=
                     declaration
-                |   
+                |
                     single_statement:line
                     #end_loc(current_block, line)
         ;
@@ -84,14 +88,16 @@ class Declaration(Grammar, Statement):
         declaration_specifier ::=
             Base.id:i
             #new_decl_spec(local_specifier, i)
-            //[
-                //composed_type_specifier
-                //| enum_specifier
+            [
+                #is_composed(local_specifier)
+                composed_type_specifier
+                | #is_enum(local_specifier)
+                enum_specifier
                 //| typeof_expr
                 //| asm_decl_follow
                 //| attr_decl_follow
                 //| typedef_name
-            //]?
+            ]?
         ;
 
         type_qualifier ::=
@@ -102,30 +108,42 @@ class Declaration(Grammar, Statement):
 
         name_of_composed_type ::= Base.id ;
         composed_type_specifier ::=
-            attribute_decl?
-            name_of_composed_type?
-            composed_fields?
+            //attribute_decl?
+            name_of_composed_type?:n
+            composed_fields?:body
+            #add_composed(local_specifier, n, body)
         ;
 
         composed_fields ::=
             '{'
+                "":current_block
+                #new_composed(_, current_block)
                 declaration*
             '}'
-            
         ;
 
         enum_name ::= Base.id ;
         enum_specifier ::=
-            enum_name?
-            [ '{' enumerator_list '}' ]?
+            enum_name?:n
+            enumerator_list?:body
+            #add_enum(local_specifier, n, body)
         ;
 
         enumerator_list ::=
-            enumerator [',' enumerator?]*
+            '{'
+                enumerator:e
+                #add_enumerator(_, e)
+                [
+                    ',' enumerator:e
+                    #add_enumerator(_, e)
+                ]*
+                ','? // trailing comma
+            '}'
         ;
 
         enumerator ::=
-            identifier ['=' constant_expression]?
+            identifier:i ['=' constant_expression:c]?:c
+            #new_enumerator(_, i, c)
         ;
 
         typeof_expr ::=
@@ -140,12 +158,17 @@ class Declaration(Grammar, Statement):
         init_declarator ::=
             declarator:_
             [
-                ':' constant_expression
+                ':'
+                constant_expression:cexpr
+                #colon_expr(_, cexpr)
             ]?
             //attribute_decl*
             [
-                '=' initializer
+                '='
+                initializer:aexpr
+                #assign_expr(_, aexpr)
             ]?
+            !![','|';'|'{']
         ;
 
         attribute_decl ::=
@@ -191,7 +214,7 @@ class Declaration(Grammar, Statement):
                         #close_paren(local_specifier)
                     ')'
                     | 
-                    f_or_v_id:name
+                    f_or_v_id?:name
                     #name_absdecl(local_specifier, name)
                 ]
                 direct_absolute_declarator?
@@ -200,6 +223,7 @@ class Declaration(Grammar, Statement):
         direct_absolute_declarator ::=
             [
                 '['
+                    // TODO: handle c99 qual for trees
                     "static"?
                     ["const"|"volatile"]?
                     "static"?
@@ -232,7 +256,7 @@ class Declaration(Grammar, Statement):
         ;
 
         parameter_type_list ::=
-            //[forward_decl ';']*
+            [type_name ';']*
             [
                 parameter_list:_
                 | ','? "..."
@@ -249,27 +273,27 @@ class Declaration(Grammar, Statement):
         ;
 
         parameter_declaration ::=
-            "":local_specifier
-            #create_ctype(local_specifier)
             type_name:_
         ;
 
         initializer ::=
             '{'
-                initializer_list?
-                ','?
+                [initializer_list:_]?
+                ','? // trailing comma
             '}'
-            | assignement_expression
+            | assignement_expression:expr
+            #copy(_, expr)
         ;
 
         initializer_list ::=
-            designation?
-            initializer
+            designation?:dsign
+            initializer:init
+            #add_init(_, init, dsign)
             [
-                ',' !'}'
-                designation?
-                initializer
-                
+                ','
+                designation?:dsign
+                initializer:init
+                #add_init(_, init, dsign)
             ]*
         ;
 
@@ -290,10 +314,8 @@ class Declaration(Grammar, Statement):
         ;
 
         type_name ::=
-            declaration_specifier+ declarator:_
-        ;
-
-        forward_decl ::=
+            "":local_specifier
+            #create_ctype(local_specifier)
             declaration_specifier+ declarator:_
         ;
 
@@ -305,7 +327,7 @@ class Declaration(Grammar, Statement):
 @meta.hook(Declaration)
 def new_root(self, ast, current_block):
     ast.node = nodes.RootBlockStmt([])
-    current_block.node = ast.node.body
+    current_block.node = ast.node
     return True
 
 @meta.rule(Declaration, "preproc_directive")
@@ -346,8 +368,38 @@ def add_body(self, ast, body):
 
 @meta.hook(Declaration)
 def end_decl(self, current_block, ast):
-    current_block.node.append(ast.node)
+    current_block.node.body.append(ast.node)
     return True
+
+@meta.hook(Declaration)
+def not_empty(self, current_block, dsp):
+    # empty declspec only in global scope
+    if type(current_block.node) is nodes.BlockStmt and dsp.value == "":
+        return False
+    return True
+
+@meta.hook(Declaration)
+def colon_expr(self, ast, expr):
+    ast.node.colon_expr(expr.node)
+    return True
+
+@meta.hook(Declaration)
+def assign_expr(self, ast, expr):
+    ast.node.assign_expr(expr.node)
+    return True
+
+@meta.hook(Declaration)
+def is_composed(self, lspec):
+    if lspec.ctype._specifier == nodes.Specifiers.STRUCT or\
+        lspec.ctype._specifier == nodes.Specifiers.UNION:
+            return True
+    return False
+
+@meta.hook(Declaration)
+def is_enum(self, lspec):
+    if lspec.ctype._specifier == nodes.Specifiers.ENUM:
+        return True
+    return False
 
 @meta.hook(Declaration)
 def add_qual(self, lspec, qualspec):
@@ -357,6 +409,49 @@ def add_qual(self, lspec, qualspec):
         lspec.ctype.push(nodes.QualType(nodes.Qualifiers.map[cleantxt.upper()]))
         return True
     return False
+
+@meta.hook(Declaration)
+def add_composed(self, lspec, n, block):
+    ctype = nodes.ComposedType(n.value)
+    if lspec.ctype != None:
+        ctype._storage = lspec.ctype._storage
+        ctype._specifier = lspec.ctype._specifier
+    lspec.ctype = ctype
+    if hasattr(block, 'node'):
+        lspec.ctype.fields = block.node.body
+    return True
+
+@meta.hook(Declaration)
+def add_enum(self, lspec, n, block):
+    ctype = nodes.ComposedType(n.value)
+    if lspec.ctype != None:
+        ctype._storage = lspec.ctype._storage
+        ctype._specifier = lspec.ctype._specifier
+    lspec.ctype = ctype
+    if hasattr(block, 'node'):
+        lspec.ctype.enums = block.node
+    return True
+
+@meta.hook(Declaration)
+def add_enumerator(self, ast, enum):
+    if not hasattr(ast, 'node'):
+        ast.node = []
+    ast.node.append(enum.node)
+    return True
+
+@meta.hook(Declaration)
+def new_enumerator(self, ast, ident, constexpr):
+    expr = None
+    if hasattr(constexpr, 'node'):
+        expr = constexpr.node
+    ast.node = nodes.Enumerator(ident.value, expr)
+    return True
+
+@meta.hook(Declaration)
+def new_composed(self, ast, current_block):
+    ast.node = nodes.BlockStmt([])
+    current_block.node = ast.node
+    return True
 
 @meta.hook(Declaration)
 def first_pointer(self, lspec):
@@ -373,6 +468,8 @@ def commit_declarator(self, ast, lspec):
             first = next(iter_param)
             # special case for the first
             if first._params:
+                if lspec.ctype == None:
+                    lspec.ctype = nodes.makeCType('int')
                 lspec.ctype._params = first._params
         else:
             delattr(lspec, '_is_fpointer')
@@ -398,7 +495,10 @@ def commit_declarator(self, ast, lspec):
         ctype = None
         if hasattr(lspec, 'ctype'):
             ctype = lspec.ctype
-        ast.node = nodes.Decl(lspec._name, ctype)
+        name = ""
+        if hasattr(lspec, '_name'):
+            name = lspec._name
+        ast.node = nodes.Decl(name, ctype)
     return True
 
 @meta.hook(Declaration)
@@ -424,6 +524,9 @@ def add_ary(self, lspec, expr):
     decltype = lspec.ctype
     at_end = False
     end_tail = None
+    aryexpr = None
+    if hasattr(expr, 'node'):
+        aryexpr = expr.node
     if hasattr(lspec, '_is_fpointer'):
         while decltype != None:
             if decltype.link() == None:
@@ -435,11 +538,11 @@ def add_ary(self, lspec, expr):
     if at_end:
         # ary in inverse order
         if isinstance(end_tail.link(), nodes.ArrayType):
-            end_tail.push(nodes.ArrayType(expr.node))
+            end_tail.push(nodes.ArrayType(aryexpr))
         else:
-            end_tail.link().link(nodes.ArrayType(expr.node))
+            end_tail.link().link(nodes.ArrayType(aryexpr))
     else:
-        lspec.ctype.push(nodes.ArrayType(expr.node))
+        lspec.ctype.push(nodes.ArrayType(aryexpr))
     return True
 
 @meta.hook(Declaration)
@@ -469,4 +572,13 @@ def open_params(self, lspec):
 @meta.hook(Declaration)
 def add_param(self, lspec, param):
     lspec.list_of_params[-1]._params.append(param.node)
+    return True
+
+@meta.hook(Declaration)
+def add_init(self, ast, expr, designation):
+    if not hasattr(ast, 'node'):
+        ast.node = nodes.BlockExpr([])
+    ast.node.body.append(expr.node)
+    if designation.value != "":
+        ast.node.body[-1].designation = designation.value
     return True
