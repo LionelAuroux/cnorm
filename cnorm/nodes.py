@@ -140,6 +140,13 @@ class QualType(DeclType):
         # qualifier in (auto, const, volatile, restrict)
         self._qualifier = qualifier
 
+class AttrType(DeclType):
+    """For attribute specifier in declaration"""
+
+    def __init__(self, raw: str):
+        DeclType.__init__(self)
+        self._attr = raw
+
 
 class CType(parsing.Node):
     """Base for primary/func

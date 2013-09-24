@@ -31,10 +31,11 @@ class Declaration(Grammar, Statement):
         ;
 
         declaration ::=
-            //asm_decl
-            //| 
             c_decl
-            | preproc_decl
+            |
+            preproc_decl
+            |
+            asm_decl
         ;
 
         preproc_decl ::=
@@ -44,16 +45,32 @@ class Declaration(Grammar, Statement):
         ;
 
         asm_decl ::=
-            Base.id
             [
-                // TODO: asm qualifier
-                Base.id
+            Base.id:i
+            #check_asm(i)
+            [
+                Base.id:i
+                #check_quali(i)
             ]?
+            attr_asm_decl_follow
+            ';'?
+            ]:decl
+            #raw_decl(decl)
+            #end_decl(current_block, decl)
+        ;
+
+        attr_asm_decl ::=
             [
-                '(' dummy_with_paren ')' 
-                | '{' dummy_with_brace '}'
-            ]
-            ';'//?
+            Base.id:i
+            #check_asmattr(i)
+            attr_asm_decl_follow
+            ]:_
+        ;
+
+        attr_asm_decl_follow ::=
+            '(' dummy_with_paren* ')' 
+            | '{' dummy_with_brace* '}'
+            | '__extension__'
         ;
 
         c_decl ::=
@@ -86,21 +103,24 @@ class Declaration(Grammar, Statement):
                 | #is_enum(local_specifier)
                 enum_specifier
                 //| typeof_expr
-                //| asm_decl_follow
-                //| attr_decl_follow
             ]?
         ;
 
         type_qualifier ::=
             Base.id:i
             #add_qual(local_specifier, i)
-            //| attribute_decl
+            |
+            attr_asm_decl:attr
+            #add_attr_specifier(local_specifier, attr)
         ;
 
         name_of_composed_type ::= Base.id ;
         composed_type_specifier ::=
-            //attribute_decl?
             name_of_composed_type?:n
+            [
+                attr_asm_decl:attr
+                #add_attr_composed(local_specifier, attr)
+            ]?
             composed_fields?:body
             #add_composed(local_specifier, n, body)
         ;
@@ -153,24 +173,16 @@ class Declaration(Grammar, Statement):
                 constant_expression:cexpr
                 #colon_expr(_, cexpr)
             ]?
-            //attribute_decl*
+            [
+                attr_asm_decl:attr
+                #add_attr_decl(_, attr)
+            ]*
             [
                 '='
                 initializer:aexpr
                 #assign_expr(_, aexpr)
             ]?
             !![','|';'|'{']
-        ;
-
-        attribute_decl ::=
-            Base.id '(' dummy_with_paren ')'
-            // TODO: attr
-            | Base.id // TODO: asm
-            [
-                '(' dummy_with_paren ')'
-                | '{' dummy_with_paren '}'
-            ]
-            | "__extension__"
         ;
 
         declarator ::=
@@ -344,6 +356,25 @@ class Declaration(Grammar, Statement):
         return res.node
 
 @meta.hook(Declaration)
+def check_asm(self, ident):
+    if ident.value in Idset and Idset[ident.value] == "asm":
+        return True
+    return False
+
+@meta.hook(Declaration)
+def check_quali(self, ident):
+    if ident.value in Idset and Idset[ident.value] == "qualifier":
+        return True
+    return False
+
+@meta.hook(Declaration)
+def check_asmattr(self, ident):
+    if ident.value in Idset and (Idset[ident.value] == "asm" or \
+        Idset[ident.value] == "attribute"):
+        return True
+    return False
+
+@meta.hook(Declaration)
 def new_root(self, ast, current_block):
     ast.node = nodes.RootBlockStmt([])
     current_block.node = ast.node
@@ -375,12 +406,20 @@ def copy_ctype(self, lspec, previous):
 
 @meta.hook(Declaration)
 def new_decl_spec(self, lspec, i, current_block):
-    if i.value in Idset:
+    # not for asm or attribute
+    if i.value in Idset and Idset[i.value][0] != 'a':
         lspec.ctype = nodes.makeCType(i.value, lspec.ctype)
         return True
     if hasattr(current_block.node, 'types') \
         and i.value in current_block.node.types:
+        st = 0
+        sp = 0
+        if lspec.ctype != None:
+            st = lspec.ctype._storage
+            sp = lspec.ctype._specifier
         lspec.ctype = nodes.PrimaryType(i.value)
+        lspec.ctype._storage = st
+        lspec.ctype._specifier = sp
         return True
     return False
 
@@ -438,11 +477,32 @@ def add_qual(self, lspec, qualspec):
     return False
 
 @meta.hook(Declaration)
+def add_attr_specifier(self, lspec, attrspec):
+    lspec.ctype.push(nodes.AttrType(attrspec.value))
+    return True
+
+@meta.hook(Declaration)
+def add_attr_composed(self, lspec, attrspec):
+    if not hasattr(lspec.ctype, '_attr_composed'):
+        lspec.ctype._attr_composed = []
+    lspec.ctype._attr_composed.append(attrspec.value)
+    return True
+
+@meta.hook(Declaration)
+def add_attr_decl(self, lspec, attrspec):
+    if not hasattr(lspec.node, '_attr_decl'):
+        lspec.node._attr_decl = []
+    lspec.node._attr_decl.append(attrspec.value)
+    return True
+
+@meta.hook(Declaration)
 def add_composed(self, lspec, n, block):
     ctype = nodes.ComposedType(n.value)
     if lspec.ctype != None:
         ctype._storage = lspec.ctype._storage
         ctype._specifier = lspec.ctype._specifier
+        if hasattr(lspec.ctype, '_attr_composed'):
+            ctype._attr_composed = lspec.ctype._attr_composed
     lspec.ctype = ctype
     if hasattr(block, 'node'):
         lspec.ctype.fields = block.node.body
