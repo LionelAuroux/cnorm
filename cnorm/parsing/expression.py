@@ -286,7 +286,13 @@ class Expression(Grammar, Literal):
         ;
         unary_expression ::=
             postfix_expression:_
-            | unary_op:op unary_expression:expr #new_unary(_, op, expr)
+            |
+            [   unary_op:op
+            |   Base.id:i
+                #is_unary(op, i)
+            ]:op
+            unary_expression:expr
+            #new_unary(_, op, expr)
         ;
 
         postfix_expression ::=
@@ -342,6 +348,13 @@ def new_ternary(self, ast, then_expr, else_expr):
 def new_binary(self, ast, op, param):
     ast.node = nodes.Binary(op.node, [ast.node, param.node])
     return True
+
+@meta.hook(Expression)
+def is_unary(self, op, ident):
+    if ident.value in Idset and Idset[ident.value] == "unary":
+        op.node = nodes.Raw(ident.value + " ")
+        return True
+    return False
 
 @meta.hook(Expression)
 def new_unary(self, ast, op, param):

@@ -91,6 +91,9 @@ def ctype_to_c(self, func_var_name=""):
         for field in self.fields:
             fields.append(field.to_c())
         decl_ls.lsdata.insert(0, fmt.tab(fmt.block("{\n", "}", fields)))
+    # attributes composed
+    if hasattr(self, '_attr_composed'):
+        decl_ls.lsdata.insert(0, fmt.sep(" ", self._attr_composed))
     if hasattr(self, 'identifier'):
         decl_ls.lsdata.insert(0, self.identifier)
     #: specifier
@@ -120,6 +123,9 @@ def to_c(self):
         if hasattr(self, '_colon_expr'):
             decl_ls.lsdata.append(":")
             decl_ls.lsdata.append(self._colon_expr.to_c())
+        # attributes decl
+        if hasattr(self, '_attr_decl'):
+            decl_ls.lsdata.extend(self._attr_decl)
         # add initializers
         if hasattr(self, '_assign_expr'):
             decl_ls.lsdata.append("=")
