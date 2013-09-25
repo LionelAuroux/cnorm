@@ -149,7 +149,7 @@ def new_for(self, ast, init, cond, inc, body):
 @meta.hook(Statement)
 def new_while(self, ast, cond, body):
     thebody = None
-    if hasattr(thebody, 'node'):
+    if hasattr(body, 'node'):
         thebody = body.node
     ast.node = nodes.While(cond.node, thebody)
     return True
@@ -157,7 +157,7 @@ def new_while(self, ast, cond, body):
 @meta.hook(Statement)
 def new_switch(self, ast, cond, body):
     thebody = None
-    if hasattr(thebody, 'node'):
+    if hasattr(body, 'node'):
         thebody = body.node
     ast.node = nodes.Switch(cond.node, thebody)
     return True
@@ -165,7 +165,7 @@ def new_switch(self, ast, cond, body):
 @meta.hook(Statement)
 def new_do(self, ast, cond, body):
     thebody = None
-    if hasattr(thebody, 'node'):
+    if hasattr(body, 'node'):
         thebody = body.node
     ast.node = nodes.Do(cond.node, thebody)
     return True
