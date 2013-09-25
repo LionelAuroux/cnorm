@@ -526,3 +526,8 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
         self.assertEqual(str(res.to_c()), """struct s __attribute__((vector_size (16))) foo;\n""", "Failed to pretty print correctly")
+        decl = declaration.Declaration()
+        res = decl.parse("""char *__attribute__((aligned(8))) *f;\n""")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertEqual(str(res.to_c()), """char *__attribute__((aligned(8)))*f;\n""", "Failed to pretty print correctly")
