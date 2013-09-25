@@ -21,6 +21,8 @@ def ctype_to_c(self, func_var_name=""):
             if p.ctype != None:
                 if isinstance(p.ctype, nodes.CType):
                     pf.lsdata.append(p.ctype.ctype_to_c(p._name))
+        if hasattr(self, '_ellipsis'):
+            pf.lsdata.append('...')
         if len(pf.lsdata) > 0:
             declarator.lsdata.append(fmt.block('(', ')',  pf))
         else:
@@ -46,6 +48,8 @@ def ctype_to_c(self, func_var_name=""):
                     pf = fmt.sep(", ", [])
                     for p in unqual_list.params:
                          pf.lsdata.append(p.ctype.ctype_to_c(p._name))
+                    if hasattr(unqual_list, '_ellipsis'):
+                        pf.lsdata.append('...')
                     qual_list.lsdata.append(fmt.block('(', ')', pf))
             if isinstance(unqual_list, nodes.PointerType):
                 qual_list.lsdata.insert(0, "*")

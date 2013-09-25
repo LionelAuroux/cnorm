@@ -314,9 +314,9 @@ class Expression(Grammar, Literal):
         ;
 
         primary_expression ::=
-            [Literal.literal
+            '(' constant_expression:expr ')' #new_paren(_, expr)
+            | [Literal.literal
             | identifier]:_
-            | '(' expression:expr ')' #new_paren(_, expr)
         ;
 
         identifier ::=
