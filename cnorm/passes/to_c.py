@@ -47,6 +47,8 @@ def ctype_to_c(self, func_var_name=""):
                     qual_list.lsdata.append(fmt.block('(', ')', pf))
             if isinstance(unqual_list, nodes.PointerType):
                 qual_list.lsdata.insert(0, "*")
+            if isinstance(unqual_list, nodes.AttrType):
+                qual_list.lsdata.insert(0, unqual_list._attr)
             if isinstance(unqual_list, nodes.QualType):
                 if unqual_list._qualifier != nodes.Qualifiers.AUTO:
                     if unqual_list.link() == None:
