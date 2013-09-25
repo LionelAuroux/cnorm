@@ -23,6 +23,8 @@ def ctype_to_c(self, func_var_name=""):
                     pf.lsdata.append(p.ctype.ctype_to_c(p._name))
         if len(pf.lsdata) > 0:
             declarator.lsdata.append(fmt.block('(', ')',  pf))
+        else:
+            declarator.lsdata.append('()')
     #: for externalize the last qualifier
     qualextern = None
     #: final output

@@ -6,6 +6,7 @@ from cnorm import nodes
 from pyrser.grammar import Grammar
 from cnorm.parsing.statement import Statement
 from cnorm.parsing.expression import Idset
+from weakref import ref
 
 class Declaration(Grammar, Statement):
     """
@@ -194,6 +195,7 @@ class Declaration(Grammar, Statement):
                 absolute_declarator:_
             ]
             #commit_declarator(_, local_specifier)
+            #echo("commit!")
         ;
 
         declarator_recurs ::=
@@ -240,12 +242,14 @@ class Declaration(Grammar, Statement):
             |
                 '('
                 #open_params(local_specifier)
+                #echo("PARAM?")
                 [
                     //kr_parameter_type_list
                     //| 
                     parameter_type_list:_
                 ]?
                 ')'
+                #echo("PARAM!")
             /*
             [ // K&R STYLE
                 !![';'|','|'{'|'('|')']
@@ -433,7 +437,6 @@ def end_decl(self, current_block, ast):
     current_block.node.body.append(ast.node)
     if hasattr(ast.node, 'ctype') and ast.node._name != "" and \
         ast.node.ctype._storage == nodes.Storages.TYPEDEF:
-        from weakref import ref
         current_block.node.types[ast.node._name] = ref(ast.node)
     return True
 
@@ -549,30 +552,30 @@ def first_pointer(self, lspec):
 
 @meta.hook(Declaration)
 def commit_declarator(self, ast, lspec):
-    if hasattr(lspec, 'list_of_params'):
-        iter_param = iter(lspec.list_of_params)
-        if not hasattr(lspec, '_is_fpointer'):
-            first = next(iter_param)
-            # special case for the first
-            if first._params:
-                if lspec.ctype == None:
-                    lspec.ctype = nodes.makeCType('int')
-                lspec.ctype._params = first._params
-        else:
-            delattr(lspec, '_is_fpointer')
-        # other are in ParenType
-        well_done = False
-        try:
-            theparams = next(iter_param)
-            decltype = lspec.ctype.link()
-            while decltype != None:
-                if isinstance(decltype, nodes.ParenType):
-                    # attach parameter
-                    decltype._params = theparams._params
-                    theparams = next(iter_param)
-                decltype = decltype.link()
-        except StopIteration:
-            well_done = True
+#    if hasattr(lspec, 'list_of_params'):
+#        iter_param = iter(lspec.list_of_params)
+#        if not hasattr(lspec, '_is_fpointer'):
+#            first = next(iter_param)
+#            # special case for the first
+#            if first._params:
+#                if lspec.ctype == None:
+#                    lspec.ctype = nodes.makeCType('int')
+#                lspec.ctype._params = first._params
+#        else:
+#            delattr(lspec, '_is_fpointer')
+#        # other are in ParenType
+#        well_done = False
+#        try:
+#            theparams = next(iter_param)
+#            decltype = lspec.ctype.link()
+#            while decltype != None:
+#                if isinstance(decltype, nodes.ParenType):
+#                    # attach parameter
+#                    decltype._params = theparams._params
+#                    theparams = next(iter_param)
+#                decltype = decltype.link()
+#        except StopIteration:
+#            well_done = True
     if hasattr(lspec.ctype, '_params'):
         ctype = lspec.ctype
         if isinstance(ctype, nodes.PrimaryType):
@@ -601,35 +604,46 @@ def add_pointer(self, lspec):
 def add_paren(self, lspec):
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int')
-    lspec.ctype.push(nodes.ParenType())
+    paren = nodes.ParenType()
+    if not hasattr(lspec, 'cur_paren'):
+        lspec.cur_paren = []
+        lspec.cur_paren.append(ref(lspec.ctype))
+    last = lspec.cur_paren.pop()
+    lspec.cur_paren.append(ref(paren))
+    lspec.cur_paren.append(last)
+    lspec.ctype.push(paren)
     return True
 
 @meta.hook(Declaration)
 def add_ary(self, lspec, expr):
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int')
-    decltype = lspec.ctype
-    at_end = False
-    end_tail = None
+#    decltype = lspec.ctype
+#    at_end = False
+#    end_tail = None
     aryexpr = None
     if hasattr(expr, 'node'):
         aryexpr = expr.node
-    if hasattr(lspec, '_is_fpointer'):
-        while decltype != None:
-            if decltype.link() == None:
-                at_end = True
-            elif not isinstance(decltype, nodes.ArrayType):
-                end_tail = decltype
-                first_ary = None
-            decltype = decltype.link()
-    if at_end:
-        # ary in inverse order
-        if isinstance(end_tail.link(), nodes.ArrayType):
-            end_tail.push(nodes.ArrayType(aryexpr))
-        else:
-            end_tail.link().link(nodes.ArrayType(aryexpr))
-    else:
-        lspec.ctype.push(nodes.ArrayType(aryexpr))
+#    if hasattr(lspec, '_is_fpointer'):
+#        while decltype != None:
+#            if decltype.link() == None:
+#                at_end = True
+#            elif not isinstance(decltype, nodes.ArrayType):
+#                end_tail = decltype
+#                first_ary = None
+#            decltype = decltype.link()
+#    if at_end:
+#        # ary in inverse order
+#        if isinstance(end_tail.link(), nodes.ArrayType):
+#            end_tail.push(nodes.ArrayType(aryexpr))
+#        else:
+#            end_tail.link().link(nodes.ArrayType(aryexpr))
+#    else:
+#        lspec.ctype.push(nodes.ArrayType(aryexpr))
+    if not hasattr(lspec, 'cur_paren'):
+        lspec.cur_paren = []
+        lspec.cur_paren.append(ref(lspec.ctype))
+    lspec.cur_paren[-1]().push(nodes.ArrayType(aryexpr))
     return True
 
 @meta.hook(Declaration)
@@ -640,25 +654,33 @@ def name_absdecl(self, ast, ident):
     return True
 
 @meta.hook(Declaration)
-def close_paren(self, ast):
-    if hasattr(ast, '_could_be_fpointer'):
-        delattr(ast, '_could_be_fpointer')
-        ast._is_fpointer = True
+def close_paren(self, lspec):
+    if hasattr(lspec, '_could_be_fpointer'):
+        delattr(lspec, '_could_be_fpointer')
+        lspec._is_fpointer = True
+    lspec.cur_paren.pop()
     return True
 
 @meta.hook(Declaration)
 def open_params(self, lspec):
     if hasattr(lspec, '_could_be_fpointer'):
         delattr(lspec, '_could_be_fpointer')
-    if not hasattr(lspec, 'list_of_params'):
-        lspec.list_of_params = []
-    lspec.list_of_params.append(Node())
-    lspec.list_of_params[-1]._params = []
+#    if not hasattr(lspec, 'list_of_params'):
+#        lspec.list_of_params = []
+#    lspec.list_of_params.append(Node())
+#    lspec.list_of_params[-1]._params = []
+    if not hasattr(lspec, 'cur_paren'):
+        lspec.cur_paren = []
+        lspec.cur_paren.append(ref(lspec.ctype))
+    print("premier %s" % repr(lspec.cur_paren[-1]))
+    if not hasattr(lspec.cur_paren[-1](), '_params'):
+        lspec.cur_paren[-1]()._params = []
     return True
 
 @meta.hook(Declaration)
 def add_param(self, lspec, param):
-    lspec.list_of_params[-1]._params.append(param.node)
+#    lspec.list_of_params[-1]._params.append(param.node)
+    lspec.cur_paren[-1]()._params.append(param.node)
     return True
 
 @meta.hook(Declaration)
