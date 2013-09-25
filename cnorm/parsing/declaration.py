@@ -124,11 +124,11 @@ class Declaration(Grammar, Statement):
 
         name_of_composed_type ::= Base.id ;
         composed_type_specifier ::=
-            name_of_composed_type?:n
             [
                 attr_asm_decl:attr
                 #add_attr_composed(local_specifier, attr)
             ]?
+            name_of_composed_type?:n
             composed_fields?:body
             #add_composed(local_specifier, n, body)
         ;
@@ -415,8 +415,14 @@ def copy_ctype(self, lspec, previous):
 
 @meta.hook(Declaration)
 def new_decl_spec(self, lspec, i, current_block):
+    idsetval = ""
+    if i.value in Idset:
+        idsetval = Idset[i.value]
+    # don't fuck with reserved keywords
+    if idsetval == "reserved":
+        return False
     # not for asm or attribute
-    if i.value in Idset and Idset[i.value][0] != 'a':
+    if idsetval != "" and idsetval[0] != 'a':
         lspec.ctype = nodes.makeCType(i.value, lspec.ctype)
         return True
     if hasattr(current_block.node, 'types') \

@@ -51,6 +51,9 @@ class   Literal(Grammar):
 
         hexadecimal_const_int ::=
             hexadecimal_prefix [hexadecimal_digit]+
+            unsigned_suffix?
+            long_suffix?
+            long_suffix?
         ;
 
         octal_digit ::= '0'..'7'

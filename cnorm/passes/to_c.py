@@ -99,24 +99,25 @@ def ctype_to_c(self, func_var_name=""):
         for field in self.fields:
             fields.append(field.to_c())
         decl_ls.lsdata.insert(0, fmt.tab(fmt.block("{\n", "}", fields)))
+    # just the type name
+    if hasattr(self, 'identifier'):
+        decl_ls.lsdata.insert(0, self.identifier)
     # attributes composed
     if hasattr(self, '_attr_composed'):
         decl_ls.lsdata.insert(0, fmt.sep(" ", self._attr_composed))
-    if hasattr(self, 'identifier'):
-        decl_ls.lsdata.insert(0, self.identifier)
-    #: specifier
+    # specifier
     if self._specifier != nodes.Specifiers.AUTO:
         if self._specifier == nodes.Specifiers.LONGLONG:
             decl_ls.lsdata.insert(0, "long long")
         else:
             decl_ls.lsdata.insert(0, nodes.Specifiers.rmap[self._specifier].lower())
-    #: sign
+    # sign
     if hasattr(self, '_sign') and self._sign != nodes.Signs.AUTO:
         decl_ls.lsdata.insert(0, nodes.Signs.rmap[self._sign].lower())
-    #: qualifier externalized
+    # qualifier externalized
     if qualextern != None:
         decl_ls.lsdata.insert(0, nodes.Qualifiers.rmap[qualextern._qualifier].lower())
-    #: End by storage
+    # End by storage
     if self._storage != nodes.Storages.AUTO:
         decl_ls.lsdata.insert(0, nodes.Storages.rmap[self._storage].lower())
     return decl_ls
@@ -159,9 +160,12 @@ def to_c(self):
 
 @meta.add_method(nodes.If)
 def to_c(self):
+    thenbody = ';\n'
+    if self.thencond != None:
+        thenbody = fmt.tab(self.thencond.to_c())
     lsif = [
                 fmt.sep(" ", ["if", fmt.block('(', ')\n', [self.condition.to_c()])]),
-                fmt.tab(self.thencond.to_c())
+                thenbody
             ]
     if self.elsecond != None:
         lsif.append("else\n")
@@ -170,25 +174,34 @@ def to_c(self):
 
 @meta.add_method(nodes.While)
 def to_c(self):
+    body = ';\n'
+    if self.body != None:
+        body = fmt.tab(self.body.to_c())
     lswh = [
                 fmt.sep(" ", ["while", fmt.block('(', ')\n', [self.condition.to_c()])]),
-                fmt.tab(self.body.to_c())
+                body
             ]
     return fmt.sep("", lswh)
 
 @meta.add_method(nodes.Do)
 def to_c(self):
+    body = ';\n'
+    if self.body != None:
+        body = fmt.tab(self.body.to_c())
     lsdo = [
-                fmt.sep("\n", ["do", fmt.tab(self.body.to_c())]),
+                fmt.sep("\n", ["do", body]),
                 fmt.sep(" ", ["while", fmt.block('(', ');\n', [self.condition.to_c()])]),
            ]
     return fmt.sep("", lsdo)
 
 @meta.add_method(nodes.Switch)
 def to_c(self):
+    body = ';\n'
+    if self.body != None:
+        body = fmt.tab(self.body.to_c())
     lswh = [
                 fmt.sep(" ", ["switch", fmt.block('(', ')\n', [self.condition.to_c()])]),
-                fmt.tab(self.body.to_c())
+                body
             ]
     return fmt.sep("", lswh)
 
@@ -196,9 +209,16 @@ def to_c(self):
 def to_c(self):
     return fmt.end(":\n", [self.value])
 
+@meta.add_method(nodes.LoopControl)
+def to_c(self):
+    return fmt.end(";\n", [self.value])
+
 @meta.add_method(nodes.Branch)
 def to_c(self):
-    return fmt.end(";\n", [fmt.sep(" ", [self.value, self.expr.to_c()])])
+    body = ';\n'
+    if self.expr != None:
+        body = self.expr.to_c()
+    return fmt.end(";\n", [fmt.sep(" ", [self.value, body])])
 
 @meta.add_method(nodes.Case)
 def to_c(self):
@@ -212,7 +232,8 @@ def to_c(self):
 def to_c(self):
     lsbody = []
     for e in self.body:
-        lsbody.append(e.to_c())
+        if e != None:
+            lsbody.append(e.to_c())
     return fmt.block("{\n", "}\n", fmt.tab(lsbody))
 
 @meta.add_method(nodes.RootBlockStmt)
