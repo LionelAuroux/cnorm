@@ -8,6 +8,10 @@ from cnorm.parsing.statement import Statement
 from cnorm.parsing.expression import Idset
 from weakref import ref
 
+import sys
+
+sys.setrecursionlimit(10000)
+
 class Declaration(Grammar, Statement):
     """
         interaction with other CNORM PART:
@@ -105,6 +109,9 @@ class Declaration(Grammar, Statement):
                 enum_specifier
                 //| typeof_expr
             ]?
+            |
+            attr_asm_decl:attr
+            #add_attr_specifier(local_specifier, attr)
         ;
 
         type_qualifier ::=
@@ -195,7 +202,6 @@ class Declaration(Grammar, Statement):
                 absolute_declarator:_
             ]
             #commit_declarator(_, local_specifier)
-            #echo("commit!")
         ;
 
         declarator_recurs ::=
@@ -242,14 +248,12 @@ class Declaration(Grammar, Statement):
             |
                 '('
                 #open_params(local_specifier)
-                #echo("PARAM?")
                 [
                     //kr_parameter_type_list
                     //| 
-                    parameter_type_list:_
+                    parameter_type_list
                 ]?
                 ')'
-                #echo("PARAM!")
             /*
             [ // K&R STYLE
                 !![';'|','|'{'|'('|')']
@@ -265,9 +269,10 @@ class Declaration(Grammar, Statement):
         parameter_type_list ::=
             [type_name ';']*
             [
-                parameter_list:_
-                | ','? "..."
+                parameter_list
             ]?
+            ','?
+            ["..." #add_ellipsis(local_specifier)]?
         ;
 
         parameter_list ::=
@@ -338,8 +343,7 @@ class Declaration(Grammar, Statement):
         ///////// OVERLOAD OF EXPRESSION
         // add cast / sizeof
         unary_expression ::=
-            Expression.unary_expression:_
-            | // CAST
+            // CAST
             '('
             type_name:t
             ')'
@@ -348,10 +352,11 @@ class Declaration(Grammar, Statement):
             | // SIZEOF
             Base.id:i #sizeof(i)
             [
-                Expression.unary_expression:n
-                | '(' type_name:n ')'
+                '(' type_name:n ')'
+                | Expression.unary_expression:n
             ]:n
             #new_sizeof(_, i, n)
+            | Expression.unary_expression:_
         ;
 
     """
@@ -416,14 +421,12 @@ def new_decl_spec(self, lspec, i, current_block):
         return True
     if hasattr(current_block.node, 'types') \
         and i.value in current_block.node.types:
-        st = 0
-        sp = 0
-        if lspec.ctype != None:
-            st = lspec.ctype._storage
-            sp = lspec.ctype._specifier
-        lspec.ctype = nodes.PrimaryType(i.value)
-        lspec.ctype._storage = st
-        lspec.ctype._specifier = sp
+        if lspec.ctype == None:
+            lspec.ctype = nodes.PrimaryType(i.value)
+        else:
+            lspec.ctype._identifier = i.value
+        lspec.ctype._identifier = i.value
+        #print("type found <%s> %d" % (i.value, lspec.ctype._storage))
         return True
     return False
 
@@ -437,6 +440,7 @@ def end_decl(self, current_block, ast):
     current_block.node.body.append(ast.node)
     if hasattr(ast.node, 'ctype') and ast.node._name != "" and \
         ast.node.ctype._storage == nodes.Storages.TYPEDEF:
+        #print("new type %s" % ast.node._name)
         current_block.node.types[ast.node._name] = ref(ast.node)
     return True
 
@@ -481,6 +485,8 @@ def add_qual(self, lspec, qualspec):
 
 @meta.hook(Declaration)
 def add_attr_specifier(self, lspec, attrspec):
+    if lspec.ctype == None:
+        lspec.ctype = nodes.makeCType('int', lspec.ctype)
     lspec.ctype.push(nodes.AttrType(attrspec.value))
     return True
 
@@ -503,6 +509,7 @@ def add_composed(self, lspec, n, block):
     ctype = nodes.ComposedType(n.value)
     if lspec.ctype != None:
         ctype._storage = lspec.ctype._storage
+        #print("STORAGE %d" % ctype._storage)
         ctype._specifier = lspec.ctype._specifier
         if hasattr(lspec.ctype, '_attr_composed'):
             ctype._attr_composed = lspec.ctype._attr_composed
@@ -541,54 +548,26 @@ def new_enumerator(self, ast, ident, constexpr):
 def new_composed(self, ast, current_block):
     ast.node = nodes.BlockStmt([])
     current_block.node = ast.node
+    parent = self.rulenodes.parents
+    if 'current_block' in parent:
+        current_block.node.types = parent['current_block'].node.types.new_child()
     return True
 
 @meta.hook(Declaration)
 def first_pointer(self, lspec):
-    if not hasattr(lspec, 'ctype'):
+    if not hasattr(lspec, 'ctype') or lspec.ctype == None:
         lspec.ctype = nodes.makeCType('int', lspec.ctype)
     lspec.ctype.push(nodes.PointerType())
     return True
 
 @meta.hook(Declaration)
 def commit_declarator(self, ast, lspec):
-#    if hasattr(lspec, 'list_of_params'):
-#        iter_param = iter(lspec.list_of_params)
-#        if not hasattr(lspec, '_is_fpointer'):
-#            first = next(iter_param)
-#            # special case for the first
-#            if first._params:
-#                if lspec.ctype == None:
-#                    lspec.ctype = nodes.makeCType('int')
-#                lspec.ctype._params = first._params
-#        else:
-#            delattr(lspec, '_is_fpointer')
-#        # other are in ParenType
-#        well_done = False
-#        try:
-#            theparams = next(iter_param)
-#            decltype = lspec.ctype.link()
-#            while decltype != None:
-#                if isinstance(decltype, nodes.ParenType):
-#                    # attach parameter
-#                    decltype._params = theparams._params
-#                    theparams = next(iter_param)
-#                decltype = decltype.link()
-#        except StopIteration:
-#            well_done = True
     if hasattr(lspec.ctype, '_params'):
-        ctype = lspec.ctype
-        if isinstance(ctype, nodes.PrimaryType):
-            ctype = ctype.link()
-        ast.node = nodes.Decl(lspec._name, nodes.FuncType(lspec.ctype._identifier, lspec.ctype._params, ctype))
-    else:
-        ctype = None
-        if hasattr(lspec, 'ctype'):
-            ctype = lspec.ctype
-        name = ""
-        if hasattr(lspec, '_name'):
-            name = lspec._name
-        ast.node = nodes.Decl(name, ctype)
+        lspec.ctype.__class__ = nodes.FuncType
+    name = ""
+    if hasattr(lspec, '_name'):
+        name = lspec._name
+    ast.node = nodes.Decl(name, lspec.ctype)
     return True
 
 @meta.hook(Declaration)
@@ -602,7 +581,7 @@ def add_pointer(self, lspec):
 
 @meta.hook(Declaration)
 def add_paren(self, lspec):
-    if not hasattr(lspec, 'ctype'):
+    if not hasattr(lspec, 'ctype') or lspec.ctype == None:
         lspec.ctype = nodes.makeCType('int')
     paren = nodes.ParenType()
     if not hasattr(lspec, 'cur_paren'):
@@ -618,28 +597,9 @@ def add_paren(self, lspec):
 def add_ary(self, lspec, expr):
     if not hasattr(lspec, 'ctype'):
         lspec.ctype = nodes.makeCType('int')
-#    decltype = lspec.ctype
-#    at_end = False
-#    end_tail = None
     aryexpr = None
     if hasattr(expr, 'node'):
         aryexpr = expr.node
-#    if hasattr(lspec, '_is_fpointer'):
-#        while decltype != None:
-#            if decltype.link() == None:
-#                at_end = True
-#            elif not isinstance(decltype, nodes.ArrayType):
-#                end_tail = decltype
-#                first_ary = None
-#            decltype = decltype.link()
-#    if at_end:
-#        # ary in inverse order
-#        if isinstance(end_tail.link(), nodes.ArrayType):
-#            end_tail.push(nodes.ArrayType(aryexpr))
-#        else:
-#            end_tail.link().link(nodes.ArrayType(aryexpr))
-#    else:
-#        lspec.ctype.push(nodes.ArrayType(aryexpr))
     if not hasattr(lspec, 'cur_paren'):
         lspec.cur_paren = []
         lspec.cur_paren.append(ref(lspec.ctype))
@@ -655,32 +615,28 @@ def name_absdecl(self, ast, ident):
 
 @meta.hook(Declaration)
 def close_paren(self, lspec):
-    if hasattr(lspec, '_could_be_fpointer'):
-        delattr(lspec, '_could_be_fpointer')
-        lspec._is_fpointer = True
     lspec.cur_paren.pop()
     return True
 
 @meta.hook(Declaration)
 def open_params(self, lspec):
-    if hasattr(lspec, '_could_be_fpointer'):
-        delattr(lspec, '_could_be_fpointer')
-#    if not hasattr(lspec, 'list_of_params'):
-#        lspec.list_of_params = []
-#    lspec.list_of_params.append(Node())
-#    lspec.list_of_params[-1]._params = []
+    if lspec.ctype == None:
+        lspec.ctype = nodes.makeCType('int')
     if not hasattr(lspec, 'cur_paren'):
         lspec.cur_paren = []
         lspec.cur_paren.append(ref(lspec.ctype))
-    print("premier %s" % repr(lspec.cur_paren[-1]))
     if not hasattr(lspec.cur_paren[-1](), '_params'):
         lspec.cur_paren[-1]()._params = []
     return True
 
 @meta.hook(Declaration)
 def add_param(self, lspec, param):
-#    lspec.list_of_params[-1]._params.append(param.node)
     lspec.cur_paren[-1]()._params.append(param.node)
+    return True
+
+@meta.hook(Declaration)
+def add_ellipsis(self, lspec):
+    lspec.cur_paren[-1]()._ellipsis = True
     return True
 
 @meta.hook(Declaration)

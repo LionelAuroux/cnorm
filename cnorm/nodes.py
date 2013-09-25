@@ -1,7 +1,7 @@
 from pyrser import parsing, meta
 
-Storages = meta.enum('AUTO', 'REGISTER', 'TYPEDEF', 'STATIC', 'EXTERN', 'INLINE', 'VIRTUAL', 'EXPLICIT')
-Qualifiers = meta.enum('AUTO', 'CONST', 'VOLATILE', 'RESTRICT')
+Storages = meta.enum('AUTO', 'REGISTER', 'TYPEDEF', 'STATIC', 'EXTERN', 'INLINE', 'VIRTUAL', 'EXPLICIT', 'FORCEINLINE', 'THREAD')
+Qualifiers = meta.enum('AUTO', 'CONST', 'VOLATILE', 'RESTRICT', 'W64', 'STDCALL', 'CDECL', 'PTR32', 'PTR64', 'FASTCALL')
 Specifiers = meta.enum('AUTO', 'STRUCT', 'UNION', 'ENUM', 'LONG',
                        'LONGLONG', 'SHORT')
 Signs = meta.enum('AUTO', 'SIGNED', 'UNSIGNED')
