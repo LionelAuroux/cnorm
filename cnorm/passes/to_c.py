@@ -8,14 +8,14 @@ from cnorm import nodes
 
 @meta.add_method(nodes.CType)
 def ctype_to_c(self, func_var_name=""):
-    #: our global declarator
-    declarator = fmt.sep('', [])
-    #: typename or full decl
+    # our global declarator
+    declarator = fmt.sep("", [])
+    # typename or full decl
     if func_var_name != "":
         declarator.lsdata.append(func_var_name)
-    #: intern prototype
+    # intern prototype
     if hasattr(self, 'params'):
-        #: param list
+        # param list
         pf = fmt.sep(", ", [])
         for p in self.params:
             if p.ctype != None:
@@ -27,23 +27,23 @@ def ctype_to_c(self, func_var_name=""):
             declarator.lsdata.append(fmt.block('(', ')',  pf))
         else:
             declarator.lsdata.append('()')
-    #: for externalize the last qualifier
+    # for externalize the last qualifier
     qualextern = None
-    #: final output
+    # final output
     decl_ls = fmt.sep(" ", [])
     if self.link() != None:
-        #: add all qualifiers
+        # add all qualifiers
         if len(declarator.lsdata) > 0:
             qual_list = declarator
         else:
-            qual_list = fmt.sep("", [])
+            qual_list = fmt.sep(" ", [])
         unqual_list = self.link()
-        #: qualification of declaration
+        # qualification of declaration
         while unqual_list != None:
             if isinstance(unqual_list, nodes.ParenType):
-                #: surround previous defs by ()
+                # surround previous defs by ()
                 qual_list = fmt.sep("", [fmt.block("(", ")", [qual_list])])
-                #: () provide param for function pointers
+                # () provide param for function pointers
                 if len(unqual_list.params) > 0:
                     pf = fmt.sep(", ", [])
                     for p in unqual_list.params:
@@ -54,7 +54,7 @@ def ctype_to_c(self, func_var_name=""):
             if isinstance(unqual_list, nodes.PointerType):
                 qual_list.lsdata.insert(0, "*")
             if isinstance(unqual_list, nodes.AttrType):
-                qual_list.lsdata.insert(0, unqual_list._attr)
+                qual_list.lsdata.insert(0, unqual_list._attr + " ")
             if isinstance(unqual_list, nodes.QualType):
                 if unqual_list._qualifier != nodes.Qualifiers.AUTO:
                     if unqual_list.link() == None:
@@ -62,7 +62,7 @@ def ctype_to_c(self, func_var_name=""):
                     else:
                         qual_list.lsdata.insert(0, nodes.Qualifiers.rmap[unqual_list._qualifier].lower() + " ")
             if isinstance(unqual_list, nodes.ArrayType):
-                #: collect all consecutive array
+                # collect all consecutive array
                 consec_ary = []
                 consec_ary.append(unqual_list)
                 unqual_list = unqual_list.link()
@@ -76,13 +76,13 @@ def ctype_to_c(self, func_var_name=""):
                     else:
                         reordered.insert(0, "[]")
                 qual_list.lsdata.extend(reordered)
-                #: rewind one for last sentence
+                # rewind one for last sentence
                 unqual_list = consec_ary[-1]
             unqual_list = unqual_list.link()
-        #: add qualified declarator
+        # add qualified declarator
         decl_ls.lsdata.append(qual_list)
     elif len(declarator.lsdata) > 0:
-        #: no qualifiers just the name
+        # no qualifiers just the name
         decl_ls.lsdata.append(declarator)
     # for enum
     if hasattr(self, 'enums'):

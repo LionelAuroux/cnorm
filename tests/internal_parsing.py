@@ -261,7 +261,7 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(type(res) is nodes.ExprStmt, "Failed to set the correct type node")
         self.assertEqual(str(res.to_c()), "a = 4 * 5 + 12;\n", "Failed to get the correct node value")
         # while statement
-        res = stmt.parse("while (a == 42)\n\tc = 52;\n", "labeled_statement")
+        res = stmt.parse("while (a == 42)\n c = 52;\n", "labeled_statement")
         self.assertTrue(res, "Failed to parse a labeled_statement")
         self.assertTrue(type(res) is nodes.While, "Failed to set the correct type node")
         self.assertEqual(str(res.to_c()), "while (a == 42)\n    c = 52;\n", "Failed to get the correct node value")
@@ -530,4 +530,4 @@ class InternalParsing_Test(unittest.TestCase):
         res = decl.parse("""char *__attribute__((aligned(8))) *f;\n""")
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
-        self.assertEqual(str(res.to_c()), """char *__attribute__((aligned(8)))*f;\n""", "Failed to pretty print correctly")
+        self.assertEqual(str(res.to_c()), """char *__attribute__((aligned(8))) *f;\n""", "Failed to pretty print correctly")
