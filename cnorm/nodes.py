@@ -377,13 +377,16 @@ class Goto(Branch):
     def __init__(self, expr: Expr):
         Branch.__init__(self, "goto", expr)
 
-class Break(Label):
+class LoopControl(Label):
+    """loop control statement"""
+
+class Break(LoopControl):
     """break statement"""
 
     def __init__(self):
         Label.__init__(self, "break")
 
-class Continue(Label):
+class Continue(LoopControl):
     """continue statement"""
 
     def __init__(self):

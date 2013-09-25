@@ -165,9 +165,9 @@ class Expression(Grammar, Literal):
             logical_or_expression:_
             [
                 '?'
-                expression:then
+                expression?:then
                 ':'
-                assignement_expression:else
+                assignement_expression?:else
                 #new_ternary(_, then, else)
             ]?
         ;
@@ -314,7 +314,7 @@ class Expression(Grammar, Literal):
         ;
 
         primary_expression ::=
-            '(' constant_expression:expr ')' #new_paren(_, expr)
+            '(' expression:expr ')' #new_paren(_, expr)
             | [Literal.literal
             | identifier]:_
         ;

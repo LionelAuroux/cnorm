@@ -88,7 +88,7 @@ class Statement(Grammar, Expression):
 
         switch_statement ::=
             '(' expression:cond ')'
-            compound_statement:body
+            single_statement:body
             #new_switch(_, cond, body)
         ;
 
@@ -104,7 +104,7 @@ class Statement(Grammar, Expression):
         ;
 
         goto_statement ::=
-            [expression:e ]?:e ';'
+            expression:e ';'
             #new_goto(_, e)
         ;
 
@@ -132,10 +132,13 @@ def new_expr(self, ast, expr):
 
 @meta.hook(Statement)
 def new_if(self, ast, cond_expr, then_expr, else_expr):
+    thenbody = None
+    if hasattr(then_expr, 'node'):
+        thenbody = then_expr.node
     if hasattr(else_expr, 'node'):
-        ast.node = nodes.If(cond_expr.node, then_expr.node, else_expr.node)
+        ast.node = nodes.If(cond_expr.node, thenbody, else_expr.node)
     else:
-        ast.node = nodes.If(cond_expr.node, then_expr.node)
+        ast.node = nodes.If(cond_expr.node, thenbody)
     return True
 
 @meta.hook(Statement)
@@ -145,22 +148,34 @@ def new_for(self, ast, init, cond, inc, body):
 
 @meta.hook(Statement)
 def new_while(self, ast, cond, body):
-    ast.node = nodes.While(cond.node, body.node)
+    thebody = None
+    if hasattr(thebody, 'node'):
+        thebody = body.node
+    ast.node = nodes.While(cond.node, thebody)
     return True
 
 @meta.hook(Statement)
 def new_switch(self, ast, cond, body):
-    ast.node = nodes.Switch(cond.node, body.node)
+    thebody = None
+    if hasattr(thebody, 'node'):
+        thebody = body.node
+    ast.node = nodes.Switch(cond.node, thebody)
     return True
 
 @meta.hook(Statement)
 def new_do(self, ast, cond, body):
-    ast.node = nodes.Do(cond.node, body.node)
+    thebody = None
+    if hasattr(thebody, 'node'):
+        thebody = body.node
+    ast.node = nodes.Do(cond.node, thebody)
     return True
 
 @meta.hook(Statement)
 def new_return(self, ast, expr):
-    ast.node = nodes.Return(expr.node)
+    theexpr = None
+    if hasattr(expr, 'node'):
+        theexpr = expr.node
+    ast.node = nodes.Return(theexpr)
     return True
 
 @meta.hook(Statement)
@@ -199,7 +214,10 @@ def new_blockstmt(self, ast, current_block):
 
 @meta.hook(Statement)
 def end_loc(self, current_block, ast):
-    current_block.node.body.append(ast.node)
+    line = None
+    if hasattr(ast, 'node'):
+        line = ast.node
+    current_block.node.body.append(line)
     return True
 
 @meta.hook(Statement)
