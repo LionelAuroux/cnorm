@@ -397,9 +397,9 @@ class Declaration(Grammar, Statement):
                 ]*
             "})"
             | // TODO: create special node for that
-                ["__builtin_offsetof"
-                '(' type_name ',' postfix_expression ')']:bo
-                #new_raw(_, bo)
+                "__builtin_offsetof"
+                '(' [type_name ',' postfix_expression]:bof ')'
+                #new_builtoffset(_, bof)
             |
             Expression.primary_expression:_
         ;
@@ -756,4 +756,9 @@ def new_sizeof(self, ast, i, n):
     if isinstance(thing, nodes.Decl):
         thing = n.node.ctype
     ast.node = nodes.Sizeof(nodes.Raw(i.value), [thing])
+    return True
+
+@meta.hook(Declaration)
+def new_builtoffset(self, ast, bof):
+    ast.node = nodes.Raw("__builtin_offsetof(" + bof.value + ")")
     return True
