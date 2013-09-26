@@ -10,12 +10,13 @@ if parent_dir not in sys.path:
 
 from tests.internal_cnorm import InternalCnorm_Test
 from tests.internal_parsing import InternalParsing_Test
-
+from tests.samples import Samples_Test
 
 # Test cases in order
 test_cases = (
     InternalCnorm_Test,
     InternalParsing_Test,
+    Samples_Test,
 )
 
 

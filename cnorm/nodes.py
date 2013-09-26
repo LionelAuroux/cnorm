@@ -19,8 +19,14 @@ class Func(Expr):
         self.call_expr = call_expr
         self.params = params
 
-class BlockExpr(Expr):
+class BlockInit(Expr):
     """Initializer Block Expression"""
+
+    def __init__(self, body: [Expr]):
+        self.body = body
+
+class BlockExpr(Expr):
+    """Compound Block Expression"""
 
     def __init__(self, body: [Expr]):
         self.body = body
@@ -51,6 +57,9 @@ class Binary(Func):
 
 class Cast(Binary):
     """For cast operator"""
+
+class Range(Binary):
+    """For range expression"""
 
 class Ternary(Func):
     """For ternary operator"""

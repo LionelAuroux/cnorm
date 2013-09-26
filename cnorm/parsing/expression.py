@@ -341,7 +341,13 @@ class Expression(Grammar, Literal):
 
 @meta.hook(Expression)
 def new_ternary(self, ast, then_expr, else_expr):
-    ast.node = nodes.Ternary([], [ast.node, then_expr.node, else_expr.node])
+    then_body = None
+    if hasattr(then_expr, 'node'):
+        then_body = then_expr.node
+    else_body = None
+    if hasattr(else_expr, 'node'):
+        else_body = else_expr.node
+    ast.node = nodes.Ternary([], [ast.node, then_body, else_body])
     return True
 
 @meta.hook(Expression)

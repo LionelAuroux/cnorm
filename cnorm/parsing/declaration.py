@@ -36,6 +36,8 @@ class Declaration(Grammar, Statement):
         ;
 
         declaration ::=
+            ';' // garbage single comma
+            |
             c_decl
             |
             preproc_decl
@@ -83,7 +85,7 @@ class Declaration(Grammar, Statement):
             #create_ctype(local_specifier)
             declaration_specifier*:dsp
             init_declarator:decl
-            #not_empty(current_block, dsp)
+            #not_empty(current_block, dsp, decl)
             #end_decl(current_block, decl)
             [
                 ',' 
@@ -105,9 +107,12 @@ class Declaration(Grammar, Statement):
             [
                 #is_composed(local_specifier)
                 composed_type_specifier
-                | #is_enum(local_specifier)
+                |
+                #is_enum(local_specifier)
                 enum_specifier
-                //| typeof_expr
+                |
+                #is_typeof(i)
+                typeof_expr
             ]?
             |
             attr_asm_decl:attr
@@ -166,12 +171,14 @@ class Declaration(Grammar, Statement):
         ;
 
         typeof_expr ::=
-            '('
+            // TODO: split inside typeof
+            ['('
                 [
-                    type_name
+                    type_name !!')'
                     | expression
                 ]
-            ')'
+            ')']:tof
+            #add_typeof(local_specifier, tof)
         ;
 
         init_declarator ::=
@@ -289,28 +296,34 @@ class Declaration(Grammar, Statement):
         ;
 
         initializer ::=
+            initializer_block:_
+            | assignement_expression:_
+        ;
+        
+        initializer_block ::=
             '{'
-                [initializer_list:_]?
+                "":init_list
+                #new_blockinit(init_list)
+                [initializer_list]?
                 ','? // trailing comma
+                #copy(_, init_list)
             '}'
-            | assignement_expression:expr
-            #copy(_, expr)
         ;
 
         initializer_list ::=
             designation?:dsign
             initializer:init
-            #add_init(_, init, dsign)
+            #add_init(init_list, init, dsign)
             [
                 ','
                 designation?:dsign
                 initializer:init
-                #add_init(_, init, dsign)
+                #add_init(init_list, init, dsign)
             ]*
         ;
 
         designation ::=
-            designation_list+ '='
+            designation_list+ '='?
             | identifier ':'
         ;
 
@@ -319,10 +332,6 @@ class Declaration(Grammar, Statement):
                 range_expression
             ']'
             | dot identifier
-        ;
-
-        range_expression ::=
-            constant_expression:_ ["..." constant_expression]?
         ;
 
         type_name ::=
@@ -340,14 +349,33 @@ class Declaration(Grammar, Statement):
                     #end_loc(current_block, line)
         ;
 
+        for_statement ::=
+            '('
+                [
+                    "":current_block
+                    #for_decl_begin(current_block)
+                    declaration
+                    #for_decl_end(init, current_block)
+                |expression_statement:init]:init
+                expression_statement:cond
+                expression?:inc
+            ')'
+            single_statement:body
+            #new_for(_, init, cond, inc, body)
+        ;
+
         ///////// OVERLOAD OF EXPRESSION
         // add cast / sizeof
         unary_expression ::=
             // CAST
-            '('
-            type_name:t
-            ')'
-            unary_expression:_
+            '(' type_name:t ')'
+            [
+                // simple cast
+                unary_expression:_
+                |
+                // compound literal
+                initializer_block:_
+            ]
             #to_cast(_, t)
             | // SIZEOF
             Base.id:i #sizeof(i)
@@ -357,6 +385,23 @@ class Declaration(Grammar, Statement):
             ]:n
             #new_sizeof(_, i, n)
             | Expression.unary_expression:_
+        ;
+
+        // ({}) and __builtin_offsetof
+        primary_expression ::=
+            "({"
+                "":current_block
+                #new_blockexpr(_, current_block)
+                [
+                    line_of_code
+                ]*
+            "})"
+            | // TODO: create special node for that
+                ["__builtin_offsetof"
+                '(' type_name ',' postfix_expression ')']:bo
+                #new_raw(_, bo)
+            |
+            Expression.primary_expression:_
         ;
 
     """
@@ -451,7 +496,7 @@ def end_decl(self, current_block, ast):
     return True
 
 @meta.hook(Declaration)
-def not_empty(self, current_block, dsp):
+def not_empty(self, current_block, dsp, decl):
     # empty declspec only in global scope
     if type(current_block.node) is nodes.BlockStmt and dsp.value == "":
         return False
@@ -479,6 +524,17 @@ def is_enum(self, lspec):
     if lspec.ctype._specifier == nodes.Specifiers.ENUM:
         return True
     return False
+
+@meta.hook(Declaration)
+def is_typeof(self, i):
+    if i.value in Idset and Idset[i.value] == "typeof":
+        return True
+    return False
+
+@meta.hook(Declaration)
+def add_typeof(self, lspec, tof):
+    lspec.ctype = nodes.PrimaryType("typeof" + tof.value)
+    return True
 
 @meta.hook(Declaration)
 def add_qual(self, lspec, qualspec):
@@ -601,7 +657,7 @@ def add_paren(self, lspec):
 
 @meta.hook(Declaration)
 def add_ary(self, lspec, expr):
-    if not hasattr(lspec, 'ctype'):
+    if not hasattr(lspec, 'ctype') or lspec.ctype == None:
         lspec.ctype = nodes.makeCType('int')
     aryexpr = None
     if hasattr(expr, 'node'):
@@ -646,12 +702,41 @@ def add_ellipsis(self, lspec):
     return True
 
 @meta.hook(Declaration)
+def new_blockinit(self, init_list):
+    init_list.node = nodes.BlockInit([])
+    return True
+
+@meta.hook(Declaration)
+def new_blockexpr(self, ast, current_block):
+    ast.node = nodes.BlockExpr([])
+    current_block.node = ast.node
+    parent = self.rulenodes.parents
+    if 'current_block' in parent:
+        current_block.node.types = parent['current_block'].node.types.new_child()
+    return True
+
+@meta.hook(Declaration)
 def add_init(self, ast, expr, designation):
-    if not hasattr(ast, 'node'):
-        ast.node = nodes.BlockExpr([])
     ast.node.body.append(expr.node)
     if designation.value != "":
         ast.node.body[-1].designation = designation.value
+    return True
+
+@meta.hook(Declaration)
+def for_decl_begin(self, current_block):
+    current_block.node = Node()
+    current_block.node.body = []
+    # new to link this fake body to other block
+    parent = self.rulenodes.parents
+    if 'current_block' in parent:
+        current_block.node.types = parent['current_block'].node.types.new_child()
+    return True
+
+@meta.hook(Declaration)
+def for_decl_end(self, init, current_block):
+    init.node = None
+    if len(current_block.node.body) > 0:
+        init.node = current_block.node.body[0]
     return True
 
 @meta.hook(Declaration)
