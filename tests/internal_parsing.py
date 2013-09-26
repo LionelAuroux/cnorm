@@ -1,9 +1,8 @@
 import unittest
-from pyrser import meta
 from pyrser import error
 from pyrser.passes import to_yml
-from pyrser import grammar
 from cnorm import nodes
+from cnorm.passes import to_c
 from cnorm.parsing import literal, expression, statement, declaration
 
 class InternalParsing_Test(unittest.TestCase):
@@ -531,3 +530,30 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
         self.assertEqual(str(res.to_c()), """char *__attribute__((aligned(8))) *f;\n""", "Failed to pretty print correctly")
+        # compound literal
+        decl = declaration.Declaration()
+        res = decl.parse("""struct x a[] = (struct x*) {1, 2, 3};\n""")
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertEqual(str(res.to_c()), """struct x a[] = (struct x *) { 1, 2, 3 };\n""", "Failed to pretty print correctly")
+        # compound expression
+        decl = declaration.Declaration()
+        res = decl.parse("""struct x a[] = ({\n    int z = 42;\n    z += 5;\n    });\n""")
+        print(res.to_c())
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertEqual(str(res.to_c()), """struct x a[] = ({\n    int z = 42;\n    z += 5;\n    });\n""", "Failed to pretty print correctly")
+        # typeof
+        decl = declaration.Declaration()
+        res = decl.parse("""typeof(z) g;\n""")
+        print(res.to_c())
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertEqual(str(res.to_c()), """typeof(z) g;\n""", "Failed to pretty print correctly")
+        # __builtin_offsetof
+        decl = declaration.Declaration()
+        res = decl.parse("""int a = __builtin_offsetof(struct bla, field1);\n""")
+        print(res.to_c())
+        self.assertTrue(res, "Failed to parse a cdecl")
+        self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
+        self.assertEqual(str(res.to_c()), """int a = __builtin_offsetof(struct bla, field1);\n""", "Failed to pretty print correctly")

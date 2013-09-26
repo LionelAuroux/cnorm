@@ -122,36 +122,50 @@ def ctype_to_c(self, func_var_name=""):
         decl_ls.lsdata.insert(0, nodes.Storages.rmap[self._storage].lower())
     return decl_ls
 
+def decl_to_c(self):
+    decl_ls = self.ctype.ctype_to_c(self._name)
+    # add bitfield
+    if hasattr(self, '_colon_expr'):
+        decl_ls.lsdata.append(":")
+        decl_ls.lsdata.append(self._colon_expr.to_c())
+    # attributes decl
+    if hasattr(self, '_attr_decl'):
+        decl_ls.lsdata.extend(self._attr_decl)
+    # add initializers
+    if hasattr(self, '_assign_expr'):
+        decl_ls.lsdata.append("=")
+        decl_ls.lsdata.append(self._assign_expr.to_c())
+    return decl_ls
+
 @meta.add_method(nodes.Decl)
 def to_c(self):
     if hasattr(self, 'body') and self.body != None:
         return fmt.sep("\n", [self.ctype.ctype_to_c(self._name), self.body.to_c()])
     else:
-        decl_ls = self.ctype.ctype_to_c(self._name)
-        # add bitfield
-        if hasattr(self, '_colon_expr'):
-            decl_ls.lsdata.append(":")
-            decl_ls.lsdata.append(self._colon_expr.to_c())
-        # attributes decl
-        if hasattr(self, '_attr_decl'):
-            decl_ls.lsdata.extend(self._attr_decl)
-        # add initializers
-        if hasattr(self, '_assign_expr'):
-            decl_ls.lsdata.append("=")
-            decl_ls.lsdata.append(self._assign_expr.to_c())
-        return fmt.end(';\n', decl_ls)
+        return fmt.end(';\n', decl_to_c(self))
 
 # STATEMENT
 
 @meta.add_method(nodes.For)
 def to_c(self):
+    init_body = None
+    if type(self.init) is nodes.Decl:
+        init_body = decl_to_c(self.init)
+    elif self.init != None:
+        init_body = self.init.expr.to_c()
+    cond_body = None
+    if self.condition != None:
+        cond_body = self.condition.expr.to_c()
+    inc_body = None
+    if self.increment != None:
+        inc_body = self.increment.to_c()
     lsfor = [
                 fmt.sep(" ", ["for", fmt.block('(', ')\n', 
                     [fmt.sep("; ",
                         [
-                            self.init.to_c(),
-                            self.condition.to_c(),
-                            self.increment.to_c()
+                            init_body,
+                            cond_body,
+                            inc_body
                         ])
                     ])]),
                 fmt.tab(self.body.to_c())
@@ -236,6 +250,14 @@ def to_c(self):
             lsbody.append(e.to_c())
     return fmt.block("{\n", "}\n", fmt.tab(lsbody))
 
+@meta.add_method(nodes.BlockExpr)
+def to_c(self):
+    lsbody = []
+    for e in self.body:
+        if e != None:
+            lsbody.append(e.to_c())
+    return fmt.block("({\n", "})", fmt.tab(lsbody))
+
 @meta.add_method(nodes.RootBlockStmt)
 def to_c(self):
     lsbody = []
@@ -253,7 +275,7 @@ def to_c(self):
         lsparams.append(p.to_c())
     return fmt.sep("", [self.call_expr.to_c(), fmt.block('(', ')', [fmt.sep(', ', lsparams)])])
 
-@meta.add_method(nodes.BlockExpr)
+@meta.add_method(nodes.BlockInit)
 def to_c(self):
     lsbody = []
     i = 0
@@ -273,10 +295,19 @@ def to_c(self):
 
 @meta.add_method(nodes.Ternary)
 def to_c(self):
-    content = fmt.sep("", [self.params[0].to_c(), ' ? ', self.params[1].to_c()])
+    condexpr = None
+    if self.params[0] != None:
+        condexpr = self.params[0].to_c()
+    thenexpr = None
+    if self.params[1] != None:
+        thenexpr = self.params[1].to_c()
+    content = fmt.sep("", [condexpr, ' ? ', thenexpr])
     if len(self.params) > 2:
+        elseexpr = None
+        if self.params[2] != None:
+            elseexpr = self.params[2].to_c()
         content.lsdata.append(' : ')
-        content.lsdata.append(self.params[2].to_c())
+        content.lsdata.append(elseexpr)
     return content
 
 @meta.add_method(nodes.Binary)

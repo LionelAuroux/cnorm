@@ -71,10 +71,10 @@ class Statement(Grammar, Expression):
         ;
 
         for_statement ::=
-            '(' // TODO: optionals
-                expression:init ';'
-                expression:cond ';'
-                expression:inc
+            '('
+                expression_statement:init
+                expression_statement:cond
+                expression?:inc
             ')'
             single_statement:body
             #new_for(_, init, cond, inc, body)
@@ -99,7 +99,7 @@ class Statement(Grammar, Expression):
         ;
 
         return_statement ::=
-            [expression:e ]?:e ';'
+            expression?:e ';'
             #new_return(_, e)
         ;
 
@@ -108,13 +108,18 @@ class Statement(Grammar, Expression):
             #new_goto(_, e)
         ;
 
+        range_expression ::=
+            constant_expression:_ ["..." constant_expression:r #new_range(_, r) ]?
+        ;
+
         case_statement ::=
-            [expression:e ]?:e ':'
-            #new_case(_, e)
+            range_expression:e #new_case(_, e)
+            ':'
         ;
 
         expression_statement ::=
-            [expression:e #new_expr(_, e) ]? ';'
+            [expression:e #new_expr(_, e)]?
+            ';'
         ;
 
     """
@@ -143,7 +148,19 @@ def new_if(self, ast, cond_expr, then_expr, else_expr):
 
 @meta.hook(Statement)
 def new_for(self, ast, init, cond, inc, body):
-    ast.node = nodes.For(init.node, cond.node, inc.node, body.node)
+    init_body = None
+    if hasattr(init, 'node'):
+        init_body = init.node
+    cond_body = None
+    if hasattr(cond, 'node'):
+        cond_body = cond.node
+    inc_body = None
+    if hasattr(inc, 'node'):
+        inc_body = inc.node
+    body_body = None
+    if hasattr(body, 'node'):
+        body_body = body.node
+    ast.node = nodes.For(init_body, cond_body, inc_body, body_body)
     return True
 
 @meta.hook(Statement)
@@ -181,6 +198,11 @@ def new_return(self, ast, expr):
 @meta.hook(Statement)
 def new_goto(self, ast, expr):
     ast.node = nodes.Goto(expr.node)
+    return True
+
+@meta.hook(Statement)
+def new_range(self, ast, expr):
+    ast.node = nodes.Range(nodes.Raw('...'), [ast.node, expr.node])
     return True
 
 @meta.hook(Statement)

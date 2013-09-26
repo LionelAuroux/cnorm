@@ -74,12 +74,15 @@ class   Literal(Grammar):
             complex_suffix?
         ;
 
+        encoding_prefix ::= "u8" | 'u' | 'U' | 'L'
+        ;
+
         string_const ::=
-            ['L']? Base.string
+            encoding_prefix? Base.string @ignore("C/C++") Base.string*
         ;
 
         char_const ::=
-            Base.char
+            encoding_prefix? Base.char
         ;
 
         literal ::= @ignore('null')
