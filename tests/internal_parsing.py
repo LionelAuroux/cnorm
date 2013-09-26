@@ -539,21 +539,18 @@ class InternalParsing_Test(unittest.TestCase):
         # compound expression
         decl = declaration.Declaration()
         res = decl.parse("""struct x a[] = ({\n    int z = 42;\n    z += 5;\n    });\n""")
-        print(res.to_c())
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
-        self.assertEqual(str(res.to_c()), """struct x a[] = ({\n    int z = 42;\n    z += 5;\n    });\n""", "Failed to pretty print correctly")
+        self.assertEqual(str(res.to_c()), """struct x a[] = ({\n    int z = 42;\n    z += 5;\n});\n""", "Failed to pretty print correctly")
         # typeof
         decl = declaration.Declaration()
         res = decl.parse("""typeof(z) g;\n""")
-        print(res.to_c())
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
         self.assertEqual(str(res.to_c()), """typeof(z) g;\n""", "Failed to pretty print correctly")
         # __builtin_offsetof
         decl = declaration.Declaration()
         res = decl.parse("""int a = __builtin_offsetof(struct bla, field1);\n""")
-        print(res.to_c())
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt, "Failed to set the correct type node")
         self.assertEqual(str(res.to_c()), """int a = __builtin_offsetof(struct bla, field1);\n""", "Failed to pretty print correctly")
