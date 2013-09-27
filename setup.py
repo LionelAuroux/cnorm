@@ -1,15 +1,18 @@
+#!/usr/bin/env python3.3
 import setuptools
 
 
 setuptools.setup(
     name='cnorm',
-    version='4.0.1a',
+    version='4.0.1',
     url='https://code.google.com/p/cnorm/',
     license='GPLv3',
     author='Lionel Auroux',
     author_email='lionel.auroux@gmail.com',
+    description='CNORM a C Front-end in Python',
+    keywords=['parsing', 'grammar', 'C'],
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Programming Language :: Python :: 3.3',

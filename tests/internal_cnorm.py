@@ -158,9 +158,10 @@ class InternalCnorm_Test(unittest.TestCase):
         s = nodes.Switch(c, thencond)
         self.assertEqual(str(s.to_c()), "switch (a < 12)\n{tab}b = 1;\n".format(tab=" " * 4),
                          "Failed to convert to C")
-        init = nodes.Binary(nodes.Raw('='), [nodes.Id('b'), nodes.Literal('0')])
+        init = nodes.ExprStmt(nodes.Binary(nodes.Raw('='), [nodes.Id('b'), nodes.Literal('0')]))
+        cond = nodes.ExprStmt(c)
         inc = nodes.Binary(nodes.Raw('+='), [nodes.Id('b'), nodes.Literal('1')])
-        s = nodes.For(init, c, inc, thencond)
+        s = nodes.For(init, cond, inc, thencond)
         self.assertEqual(str(s.to_c()), "for (b = 0; a < 12; b += 1)\n{tab}b = 1;\n".format(tab=" " * 4),
                          "Failed to convert to C")
 

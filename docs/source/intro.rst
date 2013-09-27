@@ -13,6 +13,6 @@ Using mostly Pyrser (http://pypi.python.org/pypi/pyrser), it come with:
     * A normalized AST
     * Module to transform the AST
 
-Cnorm was originally developed for an EPITECH (http://www.epitech.eu) student's project called KOOC.
+Cnorm was originally developed for an EPITECH (http://www.epitech.eu) student's project called KOOC (http://lse.epita.fr/teaching/courses.html).
 
 Now, it's provided to the internet community.
