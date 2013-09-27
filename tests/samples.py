@@ -12,7 +12,7 @@ class Samples_Test(unittest.TestCase):
         sample_path = path.join(path.dirname(__file__), 'samples')
         print("\nTest samples:")
         for f in sorted(os.listdir(sample_path)):
-            if not f.endswith("_out"):
+            if f.endswith(".c"):
                 fpath = path.join(sample_path, f)
                 fpout = fpath + "_out"
                 print("- read: %s" % fpath)

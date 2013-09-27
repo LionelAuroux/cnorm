@@ -158,11 +158,7 @@ class AttrType(DeclType):
 
 
 class CType(parsing.Node):
-    """Base for primary/func
-        
-        TODO: 
-            - add a function that iter decltypes and delete unnecessary parenthesis
-    """
+    """Base for primary/func"""
 
     def __init__(self):
         parsing.Node.__init__(self)
@@ -281,7 +277,17 @@ def makeCType(declspecifier: str, ctype=None):
     return ctype
 
 class Decl(Expr):
-    """For basic declaration"""
+    """For basic declaration
+    
+        A declaration contains the following attributes:
+
+        * _name: name of the declaration
+        * _ctype: the CType describing the type of the declaration
+        * _assign_expr: when the declaration have a value
+        * _colon_expr: When it's a bitfield
+        * body: when it's function definition
+
+    """
 
     def __init__(self, name: str, ct=None):
         if ct == None:
