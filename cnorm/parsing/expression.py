@@ -287,10 +287,11 @@ class Expression(Grammar, Literal):
         unary_expression ::=
             postfix_expression:_
             |
-            [   unary_op:op
-            |   Base.id:i
-                #is_unary(op, i)
-            ]:op
+                __scope__:op
+                [   unary_op:op
+                |   Base.id:i
+                    #is_unary(op, i)
+                ]
             unary_expression:expr
             #new_unary(_, op, expr)
         ;
@@ -357,8 +358,9 @@ def new_binary(self, ast, op, param):
 
 @meta.hook(Expression)
 def is_unary(self, op, ident):
-    if ident.value in Idset and Idset[ident.value] == "unary":
-        op.node = nodes.Raw(ident.value + " ")
+    ident_value = self.textnode(ident)
+    if ident_value in Idset and Idset[ident_value] == "unary":
+        op.node = nodes.Raw(ident_value + " ")
         return True
     return False
 
@@ -409,22 +411,24 @@ def new_func_call(self, ast, call, args):
 
 @meta.hook(Expression)
 def new_raw(self, ast, data):
-    ast.node = nodes.Raw(data.value)
+    ast.node = nodes.Raw(self.textnode(data))
     return True
 
 @meta.hook(Expression)
 def new_id(self, ast, identifier):
-    ast.node = nodes.Id(identifier.value)
+    ast.node = nodes.Id(self.textnode(identifier))
     return True
 
 @meta.hook(Expression)
 def check_not_brace(self, c):
-    return c.value != "{" and c.value != "}" and c.value != "'" and c.value != '"'
+    c_value = self.textnode(c)
+    return c_value != "{" and c_value != "}" and c_value != "'" and c_value != '"'
 
 @meta.hook(Expression)
 def check_not_paren(self, c):
-    return c.value != "(" and c.value != ")" and c.value != "'" and c.value != '"'
+    c_value = self.textnode(c)
+    return c_value != "(" and c_value != ")" and c_value != "'" and c_value != '"'
 
 @meta.hook(Expression)
 def check_is_id(self, identifier):
-    return identifier.value not in Idset
+    return self.textnode(identifier) not in Idset
