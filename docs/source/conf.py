@@ -53,7 +53,8 @@ def process_signature(app, what, name, obj, options, signature, return_annotatio
 
 def process_skip_member(app, what, name, obj, skip, options):
     if name == "__dict__" or name == "__doc__" or name == "__qualname__" or name == "__module__" \
-        or name == "__weakref__" or name == "_source" or name == "_hooks" or name == "_rules":
+        or name == "__weakref__" or name == "_source" or name == "_hooks" or name == "_rules" \
+        or name == "grammar":
         return True
     return False
 

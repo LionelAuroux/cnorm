@@ -106,5 +106,5 @@ class   Literal(Grammar):
 
 @meta.hook(Literal)
 def new_literal(self, ast, val):
-    ast.node = nodes.Literal(val.value)
+    ast.node = nodes.Literal(self.textnode(val))
     return True

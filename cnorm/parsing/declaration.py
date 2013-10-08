@@ -8,8 +8,9 @@ from cnorm.parsing.statement import Statement
 from cnorm.parsing.expression import Idset
 from weakref import ref
 
-import sys
 
+# TODO: see if a better solution
+import sys
 sys.setrecursionlimit(10000)
 
 class Declaration(Grammar, Statement):
@@ -26,7 +27,7 @@ class Declaration(Grammar, Statement):
         translation_unit ::=
             @ignore("C/C++")
             [
-                "":current_block
+                __scope__:current_block
                 #new_root(_, current_block)
                 [
                     declaration
@@ -81,7 +82,7 @@ class Declaration(Grammar, Statement):
         ;
 
         c_decl ::=
-            "":local_specifier
+            __scope__:local_specifier
             #create_ctype(local_specifier)
             declaration_specifier*:dsp
             init_declarator:decl
@@ -140,7 +141,7 @@ class Declaration(Grammar, Statement):
 
         composed_fields ::=
             '{'
-                "":current_block
+                __scope__:current_block
                 #new_composed(_, current_block)
                 declaration*
             '}'
@@ -166,7 +167,9 @@ class Declaration(Grammar, Statement):
         ;
 
         enumerator ::=
-            identifier:i ['=' constant_expression:c]?:c
+            identifier:i
+            __scope__:c
+            ['=' constant_expression:c]?
             #new_enumerator(_, i, c)
         ;
 
@@ -245,11 +248,12 @@ class Declaration(Grammar, Statement):
                     "static"?
                     ["const"|"volatile"]?
                     "static"?
+                    __scope__:expr
                     [
-                        assignement_expression:e
-                        | '*':star #new_raw(e, star)
-                    ]?:e
-                    #add_ary(local_specifier, e)
+                        assignement_expression:expr
+                        | '*':star #new_raw(expr, star)
+                    ]?
+                    #add_ary(local_specifier, expr)
                 ']'
             ]+
             |
@@ -302,7 +306,7 @@ class Declaration(Grammar, Statement):
         
         initializer_block ::=
             '{'
-                "":init_list
+                __scope__:init_list
                 #new_blockinit(init_list)
                 [initializer_list]?
                 ','? // trailing comma
@@ -335,7 +339,7 @@ class Declaration(Grammar, Statement):
         ;
 
         type_name ::=
-            "":local_specifier
+            __scope__:local_specifier
             #create_ctype(local_specifier)
             declaration_specifier+ declarator:_
         ;
@@ -352,7 +356,7 @@ class Declaration(Grammar, Statement):
         for_statement ::=
             '('
                 [
-                    "":current_block
+                    __scope__:current_block
                     #for_decl_begin(current_block)
                     declaration
                     #for_decl_end(init, current_block)
@@ -379,10 +383,11 @@ class Declaration(Grammar, Statement):
             #to_cast(_, t)
             | // SIZEOF
             Base.id:i #sizeof(i)
+            __scope__:n
             [
                 '(' type_name:n ')'
                 | Expression.unary_expression:n
-            ]:n
+            ]
             #new_sizeof(_, i, n)
             | Expression.unary_expression:_
         ;
@@ -390,7 +395,7 @@ class Declaration(Grammar, Statement):
         // ({}) and __builtin_offsetof
         primary_expression ::=
             "({"
-                "":current_block
+                __scope__:current_block
                 #new_blockexpr(_, current_block)
                 [
                     line_of_code
@@ -411,20 +416,23 @@ class Declaration(Grammar, Statement):
 
 @meta.hook(Declaration)
 def check_asm(self, ident):
-    if ident.value in Idset and Idset[ident.value] == "asm":
+    ident_value = self.textnode(ident)
+    if ident_value in Idset and Idset[ident_value] == "asm":
         return True
     return False
 
 @meta.hook(Declaration)
 def check_quali(self, ident):
-    if ident.value in Idset and Idset[ident.value] == "qualifier":
+    ident_value = self.textnode(ident)
+    if ident_value in Idset and Idset[ident_value] == "qualifier":
         return True
     return False
 
 @meta.hook(Declaration)
 def check_asmattr(self, ident):
-    if ident.value in Idset and (Idset[ident.value] == "asm" or \
-        Idset[ident.value] == "attribute"):
+    ident_value = self.textnode(ident)
+    if ident_value in Idset and (Idset[ident_value] == "asm" or \
+        Idset[ident_value] == "attribute"):
         return True
     return False
 
@@ -444,7 +452,7 @@ def preproc_directive(self) -> bool:
 
 @meta.hook(Declaration)
 def raw_decl(self, decl):
-    decl.node = nodes.Raw(decl.value)
+    decl.node = nodes.Raw(self.textnode(decl))
     return True
 
 @meta.hook(Declaration)
@@ -461,23 +469,23 @@ def copy_ctype(self, lspec, previous):
 @meta.hook(Declaration)
 def new_decl_spec(self, lspec, i, current_block):
     idsetval = ""
-    if i.value in Idset:
-        idsetval = Idset[i.value]
+    i_value = self.textnode(i)
+    if i_value in Idset:
+        idsetval = Idset[i_value]
     # don't fuck with reserved keywords
     if idsetval == "reserved":
         return False
     # not for asm or attribute
     if idsetval != "" and idsetval[0] != 'a':
-        lspec.ctype = nodes.makeCType(i.value, lspec.ctype)
+        lspec.ctype = nodes.makeCType(i_value, lspec.ctype)
         return True
     if hasattr(current_block.node, 'types') \
-        and i.value in current_block.node.types:
+        and i_value in current_block.node.types:
         if lspec.ctype == None:
-            lspec.ctype = nodes.PrimaryType(i.value)
+            lspec.ctype = nodes.PrimaryType(i_value)
         else:
-            lspec.ctype._identifier = i.value
-        lspec.ctype._identifier = i.value
-        #print("type found <%s> %d" % (i.value, lspec.ctype._storage))
+            lspec.ctype._identifier = i_value
+        lspec.ctype._identifier = i_value
         return True
     return False
 
@@ -498,7 +506,7 @@ def end_decl(self, current_block, ast):
 @meta.hook(Declaration)
 def not_empty(self, current_block, dsp, decl):
     # empty declspec only in global scope
-    if type(current_block.node) is nodes.BlockStmt and dsp.value == "":
+    if type(current_block.node) is nodes.BlockStmt and self.textnode(dsp) == "":
         return False
     return True
 
@@ -527,18 +535,19 @@ def is_enum(self, lspec):
 
 @meta.hook(Declaration)
 def is_typeof(self, i):
-    if i.value in Idset and Idset[i.value] == "typeof":
+    i_value = self.textnode(i)
+    if i_value in Idset and Idset[i_value] == "typeof":
         return True
     return False
 
 @meta.hook(Declaration)
 def add_typeof(self, lspec, tof):
-    lspec.ctype = nodes.PrimaryType("typeof" + tof.value)
+    lspec.ctype = nodes.PrimaryType("typeof" + self.textnode(tof))
     return True
 
 @meta.hook(Declaration)
 def add_qual(self, lspec, qualspec):
-    dspec = qualspec.value
+    dspec = self.textnode(qualspec)
     if dspec in Idset and Idset[dspec] == "qualifier":
         cleantxt = dspec.strip("_")
         lspec.ctype.push(nodes.QualType(nodes.Qualifiers.map[cleantxt.upper()]))
@@ -549,26 +558,26 @@ def add_qual(self, lspec, qualspec):
 def add_attr_specifier(self, lspec, attrspec):
     if lspec.ctype == None:
         lspec.ctype = nodes.makeCType('int', lspec.ctype)
-    lspec.ctype.push(nodes.AttrType(attrspec.value))
+    lspec.ctype.push(nodes.AttrType(self.textnode(attrspec)))
     return True
 
 @meta.hook(Declaration)
 def add_attr_composed(self, lspec, attrspec):
     if not hasattr(lspec.ctype, '_attr_composed'):
         lspec.ctype._attr_composed = []
-    lspec.ctype._attr_composed.append(attrspec.value)
+    lspec.ctype._attr_composed.append(self.textnode(attrspec))
     return True
 
 @meta.hook(Declaration)
 def add_attr_decl(self, lspec, attrspec):
     if not hasattr(lspec.node, '_attr_decl'):
         lspec.node._attr_decl = []
-    lspec.node._attr_decl.append(attrspec.value)
+    lspec.node._attr_decl.append(self.textnode(attrspec))
     return True
 
 @meta.hook(Declaration)
 def add_composed(self, lspec, n, block):
-    ctype = nodes.ComposedType(n.value)
+    ctype = nodes.ComposedType(self.textnode(n))
     if lspec.ctype != None:
         ctype._storage = lspec.ctype._storage
         #print("STORAGE %d" % ctype._storage)
@@ -582,7 +591,7 @@ def add_composed(self, lspec, n, block):
 
 @meta.hook(Declaration)
 def add_enum(self, lspec, n, block):
-    ctype = nodes.ComposedType(n.value)
+    ctype = nodes.ComposedType(self.textnode(n))
     if lspec.ctype != None:
         ctype._storage = lspec.ctype._storage
         ctype._specifier = lspec.ctype._specifier
@@ -603,7 +612,7 @@ def new_enumerator(self, ast, ident, constexpr):
     expr = None
     if hasattr(constexpr, 'node'):
         expr = constexpr.node
-    ast.node = nodes.Enumerator(ident.value, expr)
+    ast.node = nodes.Enumerator(self.textnode(ident), expr)
     return True
 
 @meta.hook(Declaration)
@@ -670,8 +679,9 @@ def add_ary(self, lspec, expr):
 
 @meta.hook(Declaration)
 def name_absdecl(self, ast, ident):
-    if ident.value != "":
-        ast._name = ident.value
+    ident_value = self.textnode(ident)
+    if ident_value != "":
+        ast._name = ident_value
         ast._could_be_fpointer = True
     return True
 
@@ -718,8 +728,9 @@ def new_blockexpr(self, ast, current_block):
 @meta.hook(Declaration)
 def add_init(self, ast, expr, designation):
     ast.node.body.append(expr.node)
-    if designation.value != "":
-        ast.node.body[-1].designation = designation.value
+    dvalue = self.textnode(designation)
+    if dvalue != "":
+        ast.node.body[-1].designation = dvalue
     return True
 
 @meta.hook(Declaration)
@@ -746,7 +757,8 @@ def to_cast(self, ast, typename):
 
 @meta.hook(Declaration)
 def sizeof(self, ident):
-    if ident.value in Idset and Idset[ident.value] == "sizeof":
+    ident_value = self.textnode(ident)
+    if ident_value in Idset and Idset[ident_value] == "sizeof":
         return True
     return False
 
@@ -755,10 +767,10 @@ def new_sizeof(self, ast, i, n):
     thing = n.node
     if isinstance(thing, nodes.Decl):
         thing = n.node.ctype
-    ast.node = nodes.Sizeof(nodes.Raw(i.value), [thing])
+    ast.node = nodes.Sizeof(nodes.Raw(self.textnode(i)), [thing])
     return True
 
 @meta.hook(Declaration)
 def new_builtoffset(self, ast, bof):
-    ast.node = nodes.Raw("__builtin_offsetof(" + bof.value + ")")
+    ast.node = nodes.Raw("__builtin_offsetof(" + self.textnode(bof) + ")")
     return True

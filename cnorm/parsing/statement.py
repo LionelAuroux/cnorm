@@ -29,7 +29,7 @@ class Statement(Grammar, Expression):
         compound_statement ::=
             [
             '{' 
-                "":current_block
+                __scope__:current_block
                 #new_blockstmt(_, current_block)
                 [
                     line_of_code
@@ -63,10 +63,11 @@ class Statement(Grammar, Expression):
         if_statement ::=
             '(' expression:cond ')'
             single_statement:then
-            ["else"
-            // TODO: explain variable forwarding of 'else'
-            single_statement:else 
-            ]?:else
+            __scope__:else
+            [
+                "else"
+                single_statement:else 
+            ]?
             #new_if(_, cond, then, else)
         ;
 
@@ -222,7 +223,7 @@ def new_continue(self, ast):
 
 @meta.hook(Statement)
 def new_label(self, ast, ident):
-    ast.node = nodes.Label(ident.value)
+    ast.node = nodes.Label(self.textnode(ident))
     return True
 
 @meta.hook(Statement)
@@ -244,4 +245,4 @@ def end_loc(self, current_block, ast):
 
 @meta.hook(Statement)
 def check_stmt(self, ident, val):
-    return ident.value == val
+    return self.textnode(ident) == val
