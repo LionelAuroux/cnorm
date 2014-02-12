@@ -18,7 +18,7 @@ def ctype_to_c(self, func_var_name=""):
         # param list
         pf = fmt.sep(", ", [])
         for p in self.params:
-            if p.ctype != None:
+            if p.ctype is not None:
                 if isinstance(p.ctype, nodes.CType):
                     pf.lsdata.append(p.ctype.ctype_to_c(p._name))
         if hasattr(self, '_ellipsis'):
@@ -31,7 +31,7 @@ def ctype_to_c(self, func_var_name=""):
     qualextern = None
     # final output
     decl_ls = fmt.sep(" ", [])
-    if self.link() != None:
+    if self.link() is not None:
         # add all qualifiers
         if len(declarator.lsdata) > 0:
             qual_list = declarator
@@ -39,7 +39,7 @@ def ctype_to_c(self, func_var_name=""):
             qual_list = fmt.sep(" ", [])
         unqual_list = self.link()
         # qualification of declaration
-        while unqual_list != None:
+        while unqual_list is not None:
             if isinstance(unqual_list, nodes.ParenType):
                 # surround previous defs by ()
                 qual_list = fmt.sep("", [fmt.block("(", ")", [qual_list])])
@@ -47,7 +47,7 @@ def ctype_to_c(self, func_var_name=""):
                 if len(unqual_list.params) > 0:
                     pf = fmt.sep(", ", [])
                     for p in unqual_list.params:
-                         pf.lsdata.append(p.ctype.ctype_to_c(p._name))
+                        pf.lsdata.append(p.ctype.ctype_to_c(p._name))
                     if hasattr(unqual_list, '_ellipsis'):
                         pf.lsdata.append('...')
                     qual_list.lsdata.append(fmt.block('(', ')', pf))
@@ -57,22 +57,31 @@ def ctype_to_c(self, func_var_name=""):
                 qual_list.lsdata.insert(0, unqual_list._attr + " ")
             if isinstance(unqual_list, nodes.QualType):
                 if unqual_list._qualifier != nodes.Qualifiers.AUTO:
-                    if unqual_list.link() == None:
+                    if unqual_list.link() is None:
                         qualextern = unqual_list
                     else:
-                        qual_list.lsdata.insert(0, nodes.Qualifiers.rmap[unqual_list._qualifier].lower() + " ")
+                        qual_list.lsdata.insert(
+                            0,
+                            nodes.Qualifiers.rmap[
+                                unqual_list._qualifier
+                            ].lower() + " "
+                        )
             if isinstance(unqual_list, nodes.ArrayType):
                 # collect all consecutive array
                 consec_ary = []
                 consec_ary.append(unqual_list)
                 unqual_list = unqual_list.link()
-                while unqual_list != None and isinstance(unqual_list, nodes.ArrayType):
+                while ((unqual_list is not None
+                        and isinstance(unqual_list, nodes.ArrayType))):
                     consec_ary.append(unqual_list)
                     unqual_list = unqual_list.link()
                 reordered = []
                 for ary in consec_ary:
-                    if ary.expr != None:
-                        reordered.insert(0, fmt.block("[", "]", [ary.expr.to_c()]))
+                    if ary.expr is not None:
+                        ary_expr = None
+                        if hasattr(ary.expr, 'to_c'):
+                            ary_expr = ary.expr.to_c()
+                        reordered.insert(0, fmt.block("[", "]", [ary_expr]))
                     else:
                         reordered.insert(0, "[]")
                 qual_list.lsdata.extend(reordered)
@@ -88,8 +97,12 @@ def ctype_to_c(self, func_var_name=""):
     if hasattr(self, 'enums'):
         enums = fmt.sep(",\n", [])
         for enum in self.enums:
-            if enum.expr != None:
-                enums.lsdata.append(fmt.sep(" = ", [enum.ident, enum.expr.to_c()]))
+            if enum.expr is not None and hasattr(enum.expr, 'to_c'):
+                enums.lsdata.append(
+                    fmt.sep(
+                        " = ",
+                        [enum.ident, enum.expr.to_c()]
+                    ))
             else:
                 enums.lsdata.append(enum.ident)
         decl_ls.lsdata.insert(0, fmt.tab(fmt.block("{\n", "}", enums)))
@@ -110,17 +123,28 @@ def ctype_to_c(self, func_var_name=""):
         if self._specifier == nodes.Specifiers.LONGLONG:
             decl_ls.lsdata.insert(0, "long long")
         else:
-            decl_ls.lsdata.insert(0, nodes.Specifiers.rmap[self._specifier].lower())
+            decl_ls.lsdata.insert(
+                0,
+                nodes.Specifiers.rmap[
+                    self._specifier
+                ].lower()
+            )
     # sign
     if hasattr(self, '_sign') and self._sign != nodes.Signs.AUTO:
         decl_ls.lsdata.insert(0, nodes.Signs.rmap[self._sign].lower())
     # qualifier externalized
-    if qualextern != None:
-        decl_ls.lsdata.insert(0, nodes.Qualifiers.rmap[qualextern._qualifier].lower())
+    if qualextern is not None:
+        decl_ls.lsdata.insert(
+            0,
+            nodes.Qualifiers.rmap[
+                qualextern._qualifier
+            ].lower()
+        )
     # End by storage
     if self._storage != nodes.Storages.AUTO:
         decl_ls.lsdata.insert(0, nodes.Storages.rmap[self._storage].lower())
     return decl_ls
+
 
 def decl_to_c(self):
     decl_ls = self.ctype.ctype_to_c(self._name)
@@ -137,126 +161,178 @@ def decl_to_c(self):
         decl_ls.lsdata.append(self._assign_expr.to_c())
     return decl_ls
 
+
 @meta.add_method(nodes.Decl)
 def to_c(self):
-    if hasattr(self, 'body') and self.body != None:
-        return fmt.sep("\n", [self.ctype.ctype_to_c(self._name), self.body.to_c()])
+    if ((hasattr(self, 'body')
+         and self.body is not None
+         and hasattr(self.body, 'to_c'))):
+        return fmt.sep(
+            "\n",
+            [
+                self.ctype.ctype_to_c(self._name),
+                self.body.to_c()
+            ]
+        )
     else:
         return fmt.end(';\n', decl_to_c(self))
 
+
 # STATEMENT
+
 
 @meta.add_method(nodes.For)
 def to_c(self):
     init_body = None
     if type(self.init) is nodes.Decl:
         init_body = decl_to_c(self.init)
-    elif self.init != None:
+    elif self.init is not None and hasattr(self.init, 'expr'):
         init_body = self.init.expr.to_c()
     cond_body = None
-    if self.condition != None:
+    if self.condition is not None and hasattr(self.condition, 'expr'):
         cond_body = self.condition.expr.to_c()
     inc_body = None
-    if self.increment != None:
+    if self.increment is not None and hasattr(self.increment, 'to_c'):
         inc_body = self.increment.to_c()
     lsfor = [
-                fmt.sep(" ", ["for", fmt.block('(', ')\n', 
-                    [fmt.sep("; ",
-                        [
-                            init_body,
-                            cond_body,
-                            inc_body
-                        ])
-                    ])]),
-                fmt.tab(self.body.to_c())
+        fmt.sep(
+            " ",
+            [
+                "for",
+                fmt.block(
+                    '(',
+                    ')\n',
+                    [
+                        fmt.sep(
+                            "; ",
+                            [
+                                init_body,
+                                cond_body,
+                                inc_body
+                            ]
+                        )
+                    ]
+                )
             ]
+        ),
+        fmt.tab(self.body.to_c())
+    ]
     return fmt.end("", lsfor)
+
 
 @meta.add_method(nodes.If)
 def to_c(self):
     thenbody = ';\n'
-    if self.thencond != None:
+    if self.thencond is not None and hasattr(self.thencond, 'to_c'):
         thenbody = fmt.tab(self.thencond.to_c())
     lsif = [
-                fmt.sep(" ", ["if", fmt.block('(', ')\n', [self.condition.to_c()])]),
-                thenbody
-            ]
-    if self.elsecond != None:
+        fmt.sep(" ", ["if", fmt.block('(', ')\n', [self.condition.to_c()])]),
+        thenbody
+    ]
+    if self.elsecond is not None and hasattr(self.elsecond, 'to_c'):
         lsif.append("else\n")
         lsif.append(fmt.tab(self.elsecond.to_c()))
     return fmt.end("", lsif)
 
+
 @meta.add_method(nodes.While)
 def to_c(self):
     body = ';\n'
-    if self.body != None:
+    if self.body is not None and hasattr(self.body, 'to_c'):
         body = fmt.tab(self.body.to_c())
     lswh = [
-                fmt.sep(" ", ["while", fmt.block('(', ')\n', [self.condition.to_c()])]),
-                body
-            ]
+        fmt.sep(
+            " ",
+            [
+                "while",
+                fmt.block('(', ')\n', [self.condition.to_c()])
+            ]),
+        body
+    ]
     return fmt.sep("", lswh)
+
 
 @meta.add_method(nodes.Do)
 def to_c(self):
     body = ';\n'
-    if self.body != None:
+    if self.body is not None and hasattr(self.body, 'to_c'):
         body = fmt.tab(self.body.to_c())
     lsdo = [
-                fmt.sep("\n", ["do", body]),
-                fmt.sep(" ", ["while", fmt.block('(', ');\n', [self.condition.to_c()])]),
-           ]
+        fmt.sep("\n", ["do", body]),
+        fmt.sep(
+            " ",
+            [
+                "while",
+                fmt.block('(', ');\n', [self.condition.to_c()])
+            ]
+        )
+    ]
     return fmt.sep("", lsdo)
+
 
 @meta.add_method(nodes.Switch)
 def to_c(self):
     body = ';\n'
-    if self.body != None:
+    if self.body is not None and hasattr(self.body, 'to_c'):
         body = fmt.tab(self.body.to_c())
     lswh = [
-                fmt.sep(" ", ["switch", fmt.block('(', ')\n', [self.condition.to_c()])]),
-                body
+        fmt.sep(
+            " ",
+            [
+                "switch",
+                fmt.block('(', ')\n', [self.condition.to_c()])
             ]
+        ),
+        body
+    ]
     return fmt.sep("", lswh)
+
 
 @meta.add_method(nodes.Label)
 def to_c(self):
     return fmt.end(":\n", [self.value])
 
+
 @meta.add_method(nodes.LoopControl)
 def to_c(self):
     return fmt.end(";\n", [self.value])
 
+
 @meta.add_method(nodes.Branch)
 def to_c(self):
     body = ';\n'
-    if self.expr != None:
+    if self.expr is not None and hasattr(self.expr, 'to_c'):
         body = self.expr.to_c()
     return fmt.end(";\n", [fmt.sep(" ", [self.value, body])])
+
 
 @meta.add_method(nodes.Case)
 def to_c(self):
     return fmt.end(":\n", [fmt.sep(" ", [self.value, self.expr.to_c()])])
 
+
 @meta.add_method(nodes.ExprStmt)
 def to_c(self):
     return fmt.end(";\n", [self.expr.to_c()])
+
 
 @meta.add_method(nodes.BlockStmt)
 def to_c(self):
     lsbody = []
     for e in self.body:
-        if e != None:
+        if e is not None and hasattr(e, 'to_c'):
             lsbody.append(e.to_c())
     return fmt.block("{\n", "}\n", fmt.tab(lsbody))
+
 
 @meta.add_method(nodes.BlockExpr)
 def to_c(self):
     lsbody = []
     for e in self.body:
-        if e != None:
+        if e is not None and hasattr(e, 'to_c'):
             lsbody.append(e.to_c())
     return fmt.block("({\n", "})", fmt.tab(lsbody))
+
 
 @meta.add_method(nodes.RootBlockStmt)
 def to_c(self):
@@ -265,7 +341,9 @@ def to_c(self):
         lsbody.append(e.to_c())
     return fmt.sep("", lsbody)
 
+
 # EXPRESSION
+
 
 @meta.add_method(nodes.Func)
 def to_c(self):
@@ -273,7 +351,18 @@ def to_c(self):
     # TODO: add forward declarations
     for p in self.params:
         lsparams.append(p.to_c())
-    return fmt.sep("", [self.call_expr.to_c(), fmt.block('(', ')', [fmt.sep(', ', lsparams)])])
+    return fmt.sep(
+        "",
+        [
+            self.call_expr.to_c(),
+            fmt.block(
+                '(',
+                ')',
+                [fmt.sep(', ', lsparams)]
+            )
+        ]
+    )
+
 
 @meta.add_method(nodes.BlockInit)
 def to_c(self):
@@ -293,22 +382,24 @@ def to_c(self):
             i = 0
     return fmt.block("{ ", " }", fmt.tab(fmt.sep(', ', lsbody)))
 
+
 @meta.add_method(nodes.Ternary)
 def to_c(self):
     condexpr = None
-    if self.params[0] != None:
+    if self.params[0] is not None and hasattr(self.params[0], 'to_c'):
         condexpr = self.params[0].to_c()
     thenexpr = None
-    if self.params[1] != None:
+    if self.params[1] is not None and hasattr(self.params[1], 'to_c'):
         thenexpr = self.params[1].to_c()
     content = fmt.sep("", [condexpr, ' ? ', thenexpr])
     if len(self.params) > 2:
         elseexpr = None
-        if self.params[2] != None:
+        if self.params[2] is not None and hasattr(self.params[2], 'to_c'):
             elseexpr = self.params[2].to_c()
         content.lsdata.append(' : ')
         content.lsdata.append(elseexpr)
     return content
+
 
 @meta.add_method(nodes.Binary)
 def to_c(self):
@@ -319,40 +410,71 @@ def to_c(self):
         return fmt.sep(str(self.call_expr.to_c()) + ' ', lsparams)
     return fmt.sep(' ' + str(self.call_expr.to_c()) + ' ', lsparams)
 
+
 @meta.add_method(nodes.Cast)
 def to_c(self):
-    return fmt.sep(" ", [fmt.block("(", ")", self.params[0].ctype_to_c()), self.params[1].to_c()])
+    return fmt.sep(
+        " ",
+        [
+            fmt.block(
+                "(",
+                ")",
+                self.params[0].ctype_to_c()  # type
+            ),
+            self.params[1].to_c()  # expr
+        ]
+    )
+
 
 @meta.add_method(nodes.Unary)
 def to_c(self):
     return fmt.sep("", [self.call_expr.to_c(), self.params[0].to_c()])
 
+
 @meta.add_method(nodes.Sizeof)
 def to_c(self):
     if isinstance(self.params[0], nodes.CType):
-        return fmt.sep(" ", [self.call_expr.to_c(), fmt.block("(", ")", self.params[0].ctype_to_c())])
+        return fmt.sep(
+            " ",
+            [
+                self.call_expr.to_c(),  # sizeof/typeof ...
+                fmt.block("(", ")", self.params[0].ctype_to_c())  # type/expr
+            ]
+        )
     else:
         return fmt.sep(" ", [self.call_expr.to_c(), self.params[0].to_c()])
+
 
 @meta.add_method(nodes.Dot)
 def to_c(self):
     return fmt.sep(".", [self.call_expr.to_c(), self.params[0].to_c()])
 
+
 @meta.add_method(nodes.Arrow)
 def to_c(self):
     return fmt.sep("->", [self.call_expr.to_c(), self.params[0].to_c()])
+
 
 @meta.add_method(nodes.Paren)
 def to_c(self):
     return fmt.block('(', ')', [self.params[0].to_c()])
 
+
 @meta.add_method(nodes.Array)
 def to_c(self):
-    return fmt.sep("", [self.call_expr.to_c(), fmt.block('[', ']', [self.params[0].to_c()])])
+    return fmt.sep(
+        "",
+        [
+            self.call_expr.to_c(),  # expr
+            fmt.block('[', ']', [self.params[0].to_c()])  # index
+        ]
+    )
+
 
 @meta.add_method(nodes.Post)
 def to_c(self):
     return fmt.sep("", [self.params[0].to_c(), self.call_expr.to_c()])
+
 
 @meta.add_method(nodes.Terminal)
 def to_c(self):

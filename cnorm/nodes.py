@@ -1,15 +1,22 @@
 from pyrser import parsing, meta
 
-Storages = meta.enum('AUTO', 'REGISTER', 'TYPEDEF', 'STATIC', 'EXTERN', 'INLINE', 'VIRTUAL', 'EXPLICIT', 'FORCEINLINE', 'THREAD')
-Qualifiers = meta.enum('AUTO', 'CONST', 'VOLATILE', 'RESTRICT', 'W64', 'STDCALL', 'CDECL', 'PTR32', 'PTR64', 'FASTCALL')
+Storages = meta.enum('AUTO', 'REGISTER', 'TYPEDEF',
+                     'STATIC', 'EXTERN', 'INLINE',
+                     'VIRTUAL', 'EXPLICIT',
+                     'FORCEINLINE', 'THREAD')
+Qualifiers = meta.enum('AUTO', 'CONST', 'VOLATILE', 'RESTRICT',
+                       'W64', 'STDCALL', 'CDECL',
+                       'PTR32', 'PTR64', 'FASTCALL')
 Specifiers = meta.enum('AUTO', 'STRUCT', 'UNION', 'ENUM', 'LONG',
                        'LONGLONG', 'SHORT')
 Signs = meta.enum('AUTO', 'SIGNED', 'UNSIGNED')
 
 # EXPRESSION PART
 
+
 class Expr(parsing.Node):
     """All expression"""
+
 
 class Func(Expr):
     """For almost everything"""
@@ -19,11 +26,13 @@ class Func(Expr):
         self.call_expr = call_expr
         self.params = params
 
+
 class BlockInit(Expr):
     """Initializer Block Expression"""
 
     def __init__(self, body: [Expr]):
         self.body = body
+
 
 class BlockExpr(Expr):
     """Compound Block Expression"""
@@ -31,38 +40,50 @@ class BlockExpr(Expr):
     def __init__(self, body: [Expr]):
         self.body = body
 
+
 class Unary(Func):
     """For unary operator"""
+
 
 class Paren(Unary):
     """For () expression"""
 
+
 class Array(Unary):
     """For [] expression"""
+
 
 class Dot(Unary):
     """For . expression"""
 
+
 class Arrow(Unary):
     """For -> expression"""
+
 
 class Post(Unary):
     """For post{inc,dec} expression"""
 
+
 class Sizeof(Unary):
     """For sizeof expr/type expression"""
+
 
 class Binary(Func):
     """For binary operator"""
 
+
 class Cast(Binary):
     """For cast operator"""
+
 
 class Range(Binary):
     """For range expression"""
 
+
 class Ternary(Func):
     """For ternary operator"""
+
 
 class Terminal(Expr):
     """For Terminal expression"""
@@ -71,11 +92,14 @@ class Terminal(Expr):
         Expr.__init__(self)
         self.value = value
 
+
 class Id(Terminal):
     """Terminal Id"""
 
+
 class Literal(Terminal):
     """Terminal Literal"""
+
 
 class Raw(Terminal):
     """Terminal Raw"""
@@ -90,21 +114,22 @@ class Enumerator(parsing.Node):
         self.ident = ident
         self.expr = expr
 
+
 class DeclType(parsing.Node):
     """For type in declaration"""
-    
+
     def __init__(self):
         self._decltype = None
 
     def link(self, t: 'DeclType'=None):
-        if t != None:
+        if t is not None:
             if not isinstance(t, DeclType):
                 raise Exception("add only C type declarator")
             self._decltype = t
         return self._decltype
 
     def push(self, t: 'DeclType'=None):
-        if t != None:
+        if t is not None:
             if not isinstance(t, DeclType):
                 raise Exception("add only C type declarator")
             old = self._decltype
@@ -123,17 +148,18 @@ class ArrayType(DeclType):
     def __init__(self, expr=None):
         DeclType.__init__(self)
         self._expr = expr
-    
+
     @property
     def expr(self):
         return self._expr
+
 
 class ParenType(DeclType):
     """For parenthesis in declaration"""
 
     def __init__(self, params=None):
         DeclType.__init__(self)
-        if params == None:
+        if params is None:
             params = []
         self._params = params
 
@@ -141,13 +167,15 @@ class ParenType(DeclType):
     def params(self):
         return self._params
 
+
 class QualType(DeclType):
     """For qualifier in declaration"""
 
-    def __init__(self, qualifier: Qualifiers= Qualifiers.AUTO):
+    def __init__(self, qualifier: Qualifiers=Qualifiers.AUTO):
         DeclType.__init__(self)
         # qualifier in (auto, const, volatile, restrict)
         self._qualifier = qualifier
+
 
 class AttrType(DeclType):
     """For attribute specifier in declaration"""
@@ -163,9 +191,11 @@ class CType(parsing.Node):
     def __init__(self):
         parsing.Node.__init__(self)
         self._decltype = None
-        # only one storage by declaration (auto, register, typedef, static, extern, ...)
+        # only one storage by declaration
+        # i.e: auto, register, typedef, static, extern, ...
         self._storage = Storages.AUTO
-        # only one specifier by declaration (auto, short, long, struct, union, enum)
+        # only one specifier by declaration
+        # i.e: auto, short, long, struct, union, enum, ...
         self._specifier = Specifiers.AUTO
 
     def copy(self):
@@ -174,22 +204,22 @@ class CType(parsing.Node):
         theclone._decltype = None
         return theclone
 
-
     def link(self, t: DeclType=None):
-        if t != None:
+        if t is not None:
             if not isinstance(t, DeclType):
                 raise Exception("add only C type declarator")
             self._decltype = t
         return self._decltype
 
     def push(self, t: DeclType=None):
-        if t != None:
+        if t is not None:
             if not isinstance(t, DeclType):
                 raise Exception("add only C type declarator")
             old = self._decltype
             self._decltype = t
             self._decltype.link(old)
         return self._decltype
+
 
 class PrimaryType(CType):
     """For primary type in declaration"""
@@ -203,6 +233,7 @@ class PrimaryType(CType):
     def identifier(self):
         return self._identifier
 
+
 class ComposedType(CType):
     """For composed type in declaration"""
 
@@ -210,10 +241,8 @@ class ComposedType(CType):
         CType.__init__(self)
         # identifier (name of the struct/union/enum)
         self._identifier = identifier
-        # if struct
-        #self.fields = []
-        # if enum
-        #self.enums = []
+        # if struct then self.fields = []
+        # if enum then self.enums = []
 
     @property
     def identifier(self):
@@ -226,21 +255,19 @@ class FuncType(PrimaryType):
     def __init__(self, identifier: str, params=[], decltype=None):
         PrimaryType.__init__(self, identifier)
         self.opened = True
-        if decltype != None:
+        if decltype is not None:
             self._decltype = decltype
         self._params = params
-        # when defined
-        #self.body = BlockStmt([])
 
     @property
     def params(self):
         return self._params
 
+
 # helper to create a CType from previous one
 def makeCType(declspecifier: str, ctype=None):
     from cnorm.parsing.expression import Idset
-    #print("%s %s" %(declspecifier, ctype))
-    if ctype == None:
+    if ctype is None:
         ctype = PrimaryType('int')
     if Idset[declspecifier] == "type":
         ctype._identifier = declspecifier
@@ -276,9 +303,10 @@ def makeCType(declspecifier: str, ctype=None):
             ctype._specifier = Specifiers.LONGLONG
     return ctype
 
+
 class Decl(Expr):
     """For basic declaration
-    
+
         A declaration contains the following attributes:
 
         * _name: name of the declaration
@@ -290,7 +318,7 @@ class Decl(Expr):
     """
 
     def __init__(self, name: str, ct=None):
-        if ct == None:
+        if ct is None:
             ct = PrimaryType('int')
         Expr.__init__(self)
         self._name = name
@@ -303,21 +331,24 @@ class Decl(Expr):
     def assign_expr(self, expr=None):
         if not hasattr(self, '_assign_expr'):
             self._assign_expr = None
-        if expr != None:
+        if expr is not None:
             self._assign_expr = expr
         return self._assign_expr
 
     def colon_expr(self, expr=None):
         if not hasattr(self, '_colon_expr'):
             self._colon_expr = None
-        if expr != None:
+        if expr is not None:
             self._colon_expr = expr
         return self._colon_expr
 
+
 # STATEMENT PART
+
 
 class Stmt(parsing.Node):
     """For statement"""
+
 
 class ExprStmt(Stmt):
     """Expression statement"""
@@ -325,6 +356,7 @@ class ExprStmt(Stmt):
     def __init__(self, expr: Expr):
         parsing.Node.__init__(self)
         self.expr = expr
+
 
 class BlockStmt(Stmt):
     """Block statement"""
@@ -351,6 +383,7 @@ class BlockStmt(Stmt):
     def decltypes(self, name: str):
         """return all declaration of type 'name'"""
 
+
 class RootBlockStmt(BlockStmt):
     """Root Block statement"""
 
@@ -367,12 +400,14 @@ class Label(Stmt):
         Stmt.__init__(self)
         self.value = value
 
+
 class Branch(Label):
     """branch statement"""
 
-    def __init__(self, value:str, expr: Expr):
+    def __init__(self, value: str, expr: Expr):
         Label.__init__(self, value)
         self.expr = expr
+
 
 class Case(Branch):
     """Case statement"""
@@ -380,11 +415,13 @@ class Case(Branch):
     def __init__(self, expr: Expr):
         Branch.__init__(self, "case", expr)
 
+
 class Return(Branch):
     """Return statement"""
 
     def __init__(self, expr: Expr):
         Branch.__init__(self, "return", expr)
+
 
 class Goto(Branch):
     """Goto statement"""
@@ -392,8 +429,10 @@ class Goto(Branch):
     def __init__(self, expr: Expr):
         Branch.__init__(self, "goto", expr)
 
+
 class LoopControl(Label):
     """loop control statement"""
+
 
 class Break(LoopControl):
     """break statement"""
@@ -401,11 +440,13 @@ class Break(LoopControl):
     def __init__(self):
         Label.__init__(self, "break")
 
+
 class Continue(LoopControl):
     """continue statement"""
 
     def __init__(self):
         Label.__init__(self, "continue")
+
 
 class Conditional(Stmt):
     """Conditional statement"""
@@ -413,6 +454,7 @@ class Conditional(Stmt):
     def __init__(self, condition: Expr):
         Stmt.__init__(self)
         self.condition = condition
+
 
 class If(Conditional):
     """If statement"""
@@ -422,19 +464,22 @@ class If(Conditional):
         self.thencond = thencond
         self.elsecond = elsecond
 
+
 class While(Conditional):
     """While statement"""
-    
+
     def __init__(self, condition: Expr, body: Stmt):
         Conditional.__init__(self, condition)
         self.body = body
 
+
 class Switch(Conditional):
     """Switch statement"""
-    
+
     def __init__(self, condition: Expr, body: Stmt):
         Conditional.__init__(self, condition)
         self.body = body
+
 
 class Do(Conditional):
     """Do statement"""
@@ -443,13 +488,14 @@ class Do(Conditional):
         Conditional.__init__(self, condition)
         self.body = body
 
+
 class For(Stmt):
     """For statement"""
 
-    def __init__(self, init: Expr, condition: Expr, increment: Expr, body: Stmt):
+    def __init__(self, init: Expr, condition: Expr,
+                 increment: Expr, body: Stmt):
         Stmt.__init__(self)
-        self.init= init
+        self.init = init
         self.condition = condition
         self.increment = increment
         self.body = body
-
