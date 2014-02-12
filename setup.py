@@ -4,7 +4,7 @@ import setuptools
 
 setuptools.setup(
     name='cnorm',
-    version='4.0.1',
+    version='4.0.2',
     url='https://code.google.com/p/cnorm/',
     license='GPLv3',
     author='Lionel Auroux',
