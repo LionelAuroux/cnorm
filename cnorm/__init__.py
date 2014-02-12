@@ -1,5 +1,6 @@
 from cnorm.nodes import Decl, Stmt, Expr
-from cnorm.nodes import DeclType, PointerType, ArrayType, ParenType, FuncType, PrimaryType
+from cnorm.nodes import DeclType, PointerType, ArrayType
+from cnorm.nodes import ParenType, FuncType, PrimaryType
 
 __all__ = [
     'Decl',
@@ -13,4 +14,4 @@ __all__ = [
     'PrimaryType',
     'passes',
     'type_handling',
-    ]
+]

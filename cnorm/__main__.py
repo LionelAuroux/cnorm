@@ -4,12 +4,33 @@ from cnorm.parsing.declaration import Declaration
 from cnorm.passes import to_c
 from pyrser.passes import to_yml
 
-parser = argparse.ArgumentParser(prog="cnorm", description="CNORM a C language front-end in python")
+parser = argparse.ArgumentParser(
+    prog="cnorm",
+    description="CNORM a C language front-end in python"
+)
 parser.add_argument("filenames", help="process FILE with cnorm",
                     metavar="FILE", type=str, nargs='+')
-parser.add_argument("-y", "--yml", dest="yml", help="show AST nodes as yml", action='store_true')
-parser.add_argument("-d", "--dump", dest="dump", help="show AST nodes as vars", action='store_true')
-parser.add_argument("-p", "--parse", dest="parse", help="only parsing", action='store_true')
+parser.add_argument(
+    "-y",
+    "--yml",
+    dest="yml",
+    help="show AST nodes as yml",
+    action='store_true'
+)
+parser.add_argument(
+    "-d",
+    "--dump",
+    dest="dump",
+    help="show AST nodes as vars",
+    action='store_true'
+)
+parser.add_argument(
+    "-p",
+    "--parse",
+    dest="parse",
+    help="only parsing",
+    action='store_true'
+)
 
 args = parser.parse_args()
 

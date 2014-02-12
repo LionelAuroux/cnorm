@@ -5,6 +5,7 @@ from pyrser.passes import to_yml
 from cnorm.parsing import declaration
 from cnorm.passes import to_c
 
+
 class Samples_Test(unittest.TestCase):
 
     def test_all(self):
@@ -25,4 +26,3 @@ class Samples_Test(unittest.TestCase):
                     fout = open(fpout, "w")
                     fout.write(str(res.to_c()))
                     fout.close()
-
