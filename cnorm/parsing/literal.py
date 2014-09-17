@@ -63,7 +63,7 @@ class Literal(Grammar):
         encoding_prefix = [ "u8" | 'u' | 'U' | 'L' ]
 
         string_const = [
-            encoding_prefix? Base.string @ignore("C/C++") Base.string*
+            encoding_prefix? !!'"' @ignore("C/C++") [Base.string]*
         ]
 
         char_const = [

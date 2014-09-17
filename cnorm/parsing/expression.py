@@ -1,5 +1,5 @@
 from pyrser import meta, directives
-from pyrser.hooks import copy, echo
+from pyrser.hooks import echo
 from pyrser.parsing.node import Node
 from cnorm import nodes
 from pyrser.grammar import Grammar

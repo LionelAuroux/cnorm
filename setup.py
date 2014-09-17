@@ -1,10 +1,12 @@
 #!/usr/bin/env python3.3
 import setuptools
 
+version = '4.0'
+release = '4.0.2'
 
 setuptools.setup(
     name='cnorm',
-    version='4.0.2',
+    version=release,
     url='https://code.google.com/p/cnorm/',
     license='GPLv3',
     author='Lionel Auroux',
