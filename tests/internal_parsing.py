@@ -12,8 +12,8 @@ class InternalParsing_Test(unittest.TestCase):
         lit = literal.Literal()
         res = lit.parse(".", "dot")
         self.assertTrue(res, "Failed to parse a single dot")
-        with self.assertRaises(error.ParseError):
-            res = lit.parse("..", "dot")
+        res = lit.parse("..", "dot")
+        self.assertFalse(res, "Failed to detect the error")
         # HEXA
         res = lit.parse("0xcafebabe", "literal")
         self.assertTrue(type(res) is nodes.Literal,
@@ -113,24 +113,24 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(res, "Failed to parse an dummy_with_brace")
         res = expr.parse("{ada{da}da}", "dummy_with_brace")
         self.assertTrue(res, "Failed to parse an dummy_with_brace")
-        with self.assertRaises(error.ParseError):
-            res = expr.parse("{", "dummy_with_brace")
-        with self.assertRaises(error.ParseError):
-            res = expr.parse("{ewew{d'as}ewe}", "dummy_with_brace")
+        res = expr.parse("{", "dummy_with_brace")
+        self.assertFalse(res, "Failed to detect the error")
+        res = expr.parse("{ewew{d'as}ewe}", "dummy_with_brace")
+        self.assertFalse(res, "Failed to detect the error")
         # dummy_with_paren
         res = expr.parse("()", "dummy_with_paren")
         self.assertTrue(res, "Failed to parse an dummy_with_paren")
         res = expr.parse("(ada(da)da)", "dummy_with_brace")
         self.assertTrue(res, "Failed to parse an dummy_with_paren")
-        with self.assertRaises(error.ParseError):
-            res = expr.parse("(", "dummy_with_paren")
-        with self.assertRaises(error.ParseError):
-            res = expr.parse("(ewew(d'as)ewe)", "dummy_with_paren")
+        res = expr.parse("(", "dummy_with_paren")
+        self.assertFalse(res, "Failed to detect the error")
+        res = expr.parse("(ewew(d'as)ewe)", "dummy_with_paren")
+        self.assertFalse(res, "Failed to detect the error")
         # identifier
         res = expr.parse("toto", "identifier")
         self.assertTrue(res, "Failed to parse an identifier")
-        with self.assertRaises(error.ParseError):
-            res = expr.parse("struct", "identifier")
+        res = expr.parse("struct", "identifier")
+        self.assertFalse(res, "Failed to detect the error")
         res = expr.parse("toto tata", "identifier")
         self.assertTrue(res, "Failed to parse an identifier")
         # primary expression
@@ -750,6 +750,7 @@ class InternalParsing_Test(unittest.TestCase):
         self.assertTrue(res, "Failed to parse a cdecl")
         self.assertTrue(type(res) is nodes.RootBlockStmt,
                         "Failed to set the correct type node")
+        print(res.to_yml())
         self.assertEqual(
             str(res.to_c()),
             "struct s __attribute__((vector_size (16))) foo;\n",

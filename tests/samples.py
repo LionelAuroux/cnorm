@@ -9,7 +9,6 @@ from cnorm.passes import to_c
 class Samples_Test(unittest.TestCase):
 
     def test_all(self):
-        cparse = declaration.Declaration()
         sample_path = path.join(path.dirname(__file__), 'samples')
         print("\nTest samples:")
         for f in sorted(os.listdir(sample_path)):
@@ -20,9 +19,20 @@ class Samples_Test(unittest.TestCase):
                 if path.exists(fpout):
                     print("* skip")
                     continue
+                cparse = declaration.Declaration()
                 res = cparse.parse_file(fpath)
-                self.assertTrue(res, "Failed to parse %s" % fpath)
                 if res:
+                    self.assertTrue(res, "Failed to parse %s" % fpath)
                     fout = open(fpout, "w")
                     fout.write(str(res.to_c()))
+                    fout.close()
+                else:
+                    print("* error see logs")
+                    fout = open(fpath + ".log", "w")
+                    fout.write(
+                        res.diagnostic.get_content(
+                            with_locinfos=True,
+                            with_details=True
+                        )
+                    )
                     fout.close()

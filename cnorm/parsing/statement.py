@@ -1,6 +1,6 @@
 from pyrser import meta, directives
 from pyrser.grammar import Grammar
-from pyrser.hooks import copy, echo
+from pyrser.hooks import echo
 from pyrser.parsing.node import Node
 from pyrser.directives import ignore
 from cnorm import nodes
