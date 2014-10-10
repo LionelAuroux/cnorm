@@ -2,6 +2,7 @@ from pyrser import meta, directives
 from pyrser.grammar import Grammar
 from cnorm import nodes
 
+from pyrser.hooks import echo
 
 class Literal(Grammar):
     """
@@ -63,7 +64,7 @@ class Literal(Grammar):
         encoding_prefix = [ "u8" | 'u' | 'U' | 'L' ]
 
         string_const = [
-            encoding_prefix? !!'"' @ignore("C/C++") [Base.string]*
+            encoding_prefix? Base.string
         ]
 
         char_const = [

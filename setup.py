@@ -1,8 +1,8 @@
-#!/usr/bin/env python3.3
+#!/usr/bin/env python3
 import setuptools
 
 version = '4.0'
-release = '4.0.2'
+release = '4.0.4'
 
 setuptools.setup(
     name='cnorm',
@@ -23,7 +23,12 @@ setuptools.setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     install_requires=['pyrser'],
-    packages=['cnorm', 'cnorm.parsing', 'cnorm.passes', 'cnorm.type_handling'],
+    packages=[
+	'cnorm',
+	'cnorm.parsing',
+	'cnorm.passes',
+	#'cnorm.type_handling'
+	],
 #    test_loader='unittest:TestLoader',
 #    test_suite='tests'
 )
