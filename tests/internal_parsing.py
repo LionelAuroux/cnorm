@@ -9,7 +9,7 @@ from cnorm.parsing import literal, expression, statement, declaration
 class InternalParsing_Test(unittest.TestCase):
 
     def test_00_literal(self):
-        lit = literal.Literal()
+        lit = literal.Literal(raise_diagnostic=False)
         res = lit.parse(".", "dot")
         self.assertTrue(res, "Failed to parse a single dot")
         res = lit.parse("..", "dot")
@@ -107,7 +107,7 @@ class InternalParsing_Test(unittest.TestCase):
                          "Failed to get the correct node value")
 
     def test_01_expr(self):
-        expr = expression.Expression()
+        expr = expression.Expression(raise_diagnostic=False)
         # dummy_with_brace
         res = expr.parse("{}", "dummy_with_brace")
         self.assertTrue(res, "Failed to parse an dummy_with_brace")
