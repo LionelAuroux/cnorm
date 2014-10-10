@@ -182,7 +182,8 @@ class AttrType(DeclType):
 
     def __init__(self, raw: str):
         DeclType.__init__(self)
-        self._attr = raw
+        # fix
+        self._attr = raw.rstrip(' ')
 
 
 class CType(parsing.Node):
@@ -241,7 +242,7 @@ class ComposedType(CType):
         CType.__init__(self)
         # identifier (name of the struct/union/enum)
         self._identifier = identifier
-        # if struct then self.fields = []
+        # if struct/union then self.fields = []
         # if enum then self.enums = []
 
     @property
@@ -366,22 +367,73 @@ class BlockStmt(Stmt):
         self.body = body
 
     def func(self, name: str):
-        """return the func defined named name"""
+        """return the first func defined named name"""
+        for f in self.body:
+            if (hasattr(f, '_ctype')
+                    and isinstance(f._ctype, FuncType)
+                    and f._name == name):
+                return f
 
     def var(self, name: str):
-        """return the var instancied named name"""
+        """return the first var instancied named name"""
+        for f in self.body:
+            if (hasattr(f, '_ctype')
+                    and not isinstance(f._ctype, FuncType)
+                    and f._name == name):
+                return f
 
     def type(self, name: str):
-        """return the complete definition of type 'name'"""
+        """return the first complete definition of type 'name'"""
+        for f in self.body:
+            if (hasattr(f, '_ctype')
+                    and f._ctype._storage == Storages.TYPEDEF
+                    and f._name == name):
+                return f
 
     def declfuncs(self, name: str):
-        """return all declaration of function 'name'"""
+        """generator on all declaration of function 'name'"""
+        for f in self.body:
+            if (hasattr(f, '_ctype')
+                    and isinstance(f._ctype, FuncType)
+                    and f._name == name):
+                yield f
 
     def declvars(self, name: str):
-        """return all declaration of variable 'name'"""
+        """generator on all declaration of variable 'name'"""
+        for f in self.body:
+            if (hasattr(f, '_ctype')
+                    and not isinstance(f._ctype, FuncType)
+                    and f._name == name):
+                yield f
 
     def decltypes(self, name: str):
-        """return all declaration of type 'name'"""
+        """generator on all declaration of type 'name'"""
+        for f in self.body:
+            if (hasattr(f, '_ctype')
+                    and f._ctype._storage == Storages.TYPEDEF
+                    and f._name == name):
+                yield f
+
+    def declallfuncs(self):
+        """generator on all declaration of function"""
+        for f in self.body:
+            if (hasattr(f, '_ctype')
+                    and isinstance(f._ctype, FuncType)):
+                yield f
+
+    def declallvars(self):
+        """generator on all declaration of variable"""
+        for f in self.body:
+            if (hasattr(f, '_ctype')
+                    and not isinstance(f._ctype, FuncType)):
+                yield f
+
+    def declalltypes(self):
+        """generator on all declaration of type"""
+        for f in self.body:
+            if (hasattr(f, '_ctype')
+                    and f._ctype._storage == Storages.TYPEDEF):
+                yield f
 
 
 class RootBlockStmt(BlockStmt):

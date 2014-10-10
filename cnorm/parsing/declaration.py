@@ -73,7 +73,7 @@ class Declaration(Grammar, Statement):
                 Base.id:i
                 #check_asmattr(i)
                 attr_asm_decl_follow
-            ]:>_
+            ]
         ]
 
         attr_asm_decl_follow = [
