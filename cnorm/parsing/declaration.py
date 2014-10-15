@@ -353,12 +353,12 @@ class Declaration(Grammar, Statement):
             '('
                 __scope__:init
                 [
+                    expression_statement:>init
+                |
                     __scope__:current_block
                     #for_decl_begin(current_block)
                     declaration
                     #for_decl_end(init, current_block)
-                |
-                    expression_statement:>init
                 ]
                 expression_statement:cond
                 expression?:inc
