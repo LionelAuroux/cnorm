@@ -183,15 +183,15 @@ def to_c(self):
 
 @meta.add_method(nodes.For)
 def to_c(self):
-    init_body = None
+    init_body = ''
     if type(self.init) is nodes.Decl:
         init_body = decl_to_c(self.init)
     elif self.init is not None and hasattr(self.init, 'expr'):
         init_body = self.init.expr.to_c()
-    cond_body = None
+    cond_body = ''
     if self.condition is not None and hasattr(self.condition, 'expr'):
         cond_body = self.condition.expr.to_c()
-    inc_body = None
+    inc_body = ''
     if self.increment is not None and hasattr(self.increment, 'to_c'):
         inc_body = self.increment.to_c()
     lsfor = [
