@@ -12,7 +12,7 @@ class Statement(Grammar, Expression):
         interaction with other CNORM PART:
 
         Declaration.init_declarator -> compound_statement
-        Expression.primary_expression -> block_item_list
+        Expression.primary_expression
     """
     entry = "single_statement"
     grammar = """
