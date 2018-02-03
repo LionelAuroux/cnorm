@@ -94,6 +94,9 @@ class InternalParsing_Test(unittest.TestCase):
                         "Failed to set the correct type node")
         self.assertEqual(res.value, '"tu\\"tu"',
                          "Failed to get the correct node value")
+        res = lit.parse('"to" "ta"', "literal")
+        self.assertEqual(res.value, '"to" "ta"',
+                         "Failed to concatenate consecutive string")
         # CHAR
         res = lit.parse("'C'", "literal")
         self.assertTrue(type(res) is nodes.Literal,

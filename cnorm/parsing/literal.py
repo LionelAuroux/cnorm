@@ -77,13 +77,29 @@ class Literal(Grammar):
                 | octal_const
                 | double_const
                 | decimal_const
-                | string_const
                 | char_const
             ]:val
             #new_literal(_, val)
+            |
+            __scope__:val 
+            [string_const:v #concat_str(val, v)]+
+            #new_string(_, val)
         ]
     """
 
+@meta.hook(Literal)
+def concat_str(self, val, v):
+    # TODO: treat all prefix stuff and rethink the storage of String Literal (wide char)
+    if not hasattr(val, 'raw'):
+        val.raw = self.value(v)
+    else:
+        val.raw = val.raw + self.value(v)
+    return True
+
+@meta.hook(Literal)
+def new_string(self, ast, val):
+    ast.set(nodes.Literal(val.raw))
+    return True
 
 @meta.hook(Literal)
 def new_literal(self, ast, val):
